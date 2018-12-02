@@ -1,0 +1,9 @@
+[package]
+name = "kruvi_shared_tests"
+version = "0.0.1"
+authors = ["Derick Eddington"]
+edition = "2018"
+publish = false
+
+[dependencies]
+kruvi_core = { path = "../core" }

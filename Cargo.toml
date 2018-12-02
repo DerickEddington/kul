@@ -1,0 +1,18 @@
+[package]
+name = "kruvi"
+version = "0.0.1"
+authors = ["Derick Eddington"]
+edition = "2018"
+description = "Parser for a unique textual notation that can be used as both a data format and/or a markup language and that allows powerful extensibility of both syntax and semantics. Inspired by the little-known Curl programming language."
+keywords = ["parser", "data-format", "markup", "text-macros", "no_std"]
+categories = ["parser-implementations", "text-processing", "no-std"]
+# repository = "TODO"
+publish = false
+
+[workspace]
+
+[dependencies]
+kruvi_core = { path = "core", version = "0.0.1" }
+
+[dev-dependencies]
+kruvi_shared_tests = { path = "shared_tests" }
