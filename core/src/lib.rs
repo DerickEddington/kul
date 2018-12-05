@@ -63,13 +63,13 @@ use core::cell::RefMut;
 
 use self::Datum::*;
 use self::Combiner::*;
+use self::Error::*;
 
 
 /// The possible errors that might be returned by parsing.
-// /// It is extensible by the `CombinerError` type parameter.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-// TODO: pub enum Error<CombinerError> {
-pub enum Error {
+/// It is extensible by the `CombinerError` type parameter.
+#[derive(Copy, Clone, Eq, Debug)]
+pub enum Error<CombinerError> {
     /// Close-bracket without matching open-bracket
     UnbalancedEndChar {byte_pos: usize, char_pos: usize},
     /// End-of-stream reached inside nest form
@@ -80,10 +80,36 @@ pub enum Error {
     NoAllocState,
     /// [`DerefTryMut::get_mut`](trait.DerefTryMut.html#tymethod.get_mut) failed
     DerefTryMut,
-    // TODO:
-    // /// Extensibility that custom macros/combiners may utilize to add additional
-    // /// error variants
-    // FailedCombiner(CombinerError),
+    /// Extensibility that custom macros/combiners may utilize to add additional
+    /// error variants
+    FailedCombiner(CombinerError),
+}
+
+/// This allows different concrete [`Error`](enum.Error.html) types to be
+/// compared with each other for equality if their [combiner error
+/// types](enum.Error.html#variant.FailedCombiner) can be.
+impl<CE1, CE2> PartialEq<Error<CE2>> for Error<CE1>
+    where CE1: PartialEq<CE2>,
+{
+    fn eq(&self, other: &Error<CE2>) -> bool {
+        match (self, other) {
+            (UnbalancedEndChar{byte_pos: bp1, char_pos: cp1},
+             UnbalancedEndChar{byte_pos: bp2, char_pos: cp2})
+                => *bp1 == *bp2 && *cp1 == *cp2,
+            (MissingEndChar, MissingEndChar)
+                => true,
+            (AllocExhausted, AllocExhausted)
+                => true,
+            (NoAllocState, NoAllocState)
+                => true,
+            (DerefTryMut, DerefTryMut)
+                => true,
+            (FailedCombiner(ce1), FailedCombiner(ce2))
+                => *ce1 == *ce2,
+            _
+                => false
+        }
+    }
 }
 
 
@@ -191,7 +217,7 @@ impl<'s1, 's2, ET1, ET2, DR1, DR2>
 /// allocated, with our approach they can control the limit and can receive an
 /// [`Error`](enum.Error.html#variant.AllocExhausted) value under their control
 /// if the limit is exceeded (instead of a crash).
-pub trait DerefTryMut: Deref
+pub trait DerefTryMut<CE>: Deref
     where <Self as Deref>::Target: Sized,
 {
     /// Must be set to `<Self as Deref>::Target` (by the implementor).  This is
@@ -207,12 +233,12 @@ pub trait DerefTryMut: Deref
     /// returns [`Error::DerefTryMut`](enum.Error.html#variant.DerefTryMut).
     /// Some implementations may never fail (e.g. for types that also implement
     /// `DerefMut`).
-    fn get_mut(this: &mut Self) -> Result<&mut Self::SizedTarget, Error>;
+    fn get_mut(this: &mut Self) -> Result<&mut Self::SizedTarget, Error<CE>>;
 
     /// Mutates the inner `Datum` to be set to the given `value` argument, if
     /// [`get_mut`](#tymethod.get_mut) can get the mutable reference.
     /// Otherwise, returns the same error as `get_mut`.
-    fn try_set(this: &mut Self, value: Self::SizedTarget) -> Result<(), Error>
+    fn try_set(this: &mut Self, value: Self::SizedTarget) -> Result<(), Error<CE>>
     {
         *(DerefTryMut::get_mut(this)?) = value;
         Ok(())
@@ -249,12 +275,12 @@ impl<'d, 's, ET> DerefMut for DatumMutRef<'d, 's, ET>
 
 /// This allows basic direct mutable borrow references to be used as the `Datum`
 /// reference type.
-impl<'d, 's, ET> DerefTryMut for DatumMutRef<'d, 's, ET>
+impl<'d, 's, ET, CE> DerefTryMut<CE> for DatumMutRef<'d, 's, ET>
     where 's: 'd
 {
     type SizedTarget = Self::Target;
 
-    fn get_mut(this: &mut Self) -> Result<&mut Self::SizedTarget, Error> {
+    fn get_mut(this: &mut Self) -> Result<&mut Self::SizedTarget, Error<CE>> {
         Ok(DerefMut::deref_mut(this))
     }
 }
@@ -319,12 +345,12 @@ impl<'d, 's, ET> DerefMut for DatumRefMut<'d, 's, ET>
 // }
 
 /// This allows `RefMut`s of `RefCell`s to be used as the `Datum` reference type.
-impl<'d, 's, ET> DerefTryMut for DatumRefMut<'d, 's, ET>
+impl<'d, 's, ET, CE> DerefTryMut<CE> for DatumRefMut<'d, 's, ET>
     where 's: 'd,
 {
     type SizedTarget = Self::Target;
 
-    fn get_mut(this: &mut Self) -> Result<&mut Self::SizedTarget, Error> {
+    fn get_mut(this: &mut Self) -> Result<&mut Self::SizedTarget, Error<CE>> {
         Ok(DerefMut::deref_mut(this))
     }
 }
@@ -416,11 +442,11 @@ pub enum Combiner<OperativeRef, ApplicativeRef>
     Applicative(ApplicativeRef),
 }
 
-impl<'s, ET, DR, AS> OperativeTrait for OpFn<'s, ET, DR, AS>
+impl<'s, ET, DR, CE, AS> OperativeTrait for OpFn<'s, ET, DR, CE, AS>
     where DR: Deref<Target = Datum<'s, ET, DR>>,
 { }
 
-impl<'s, ET, DR, AS> ApplicativeTrait for ApFn<'s, ET, DR, AS>
+impl<'s, ET, DR, CE, AS> ApplicativeTrait for ApFn<'s, ET, DR, CE, AS>
     where DR: Deref<Target = Datum<'s, ET, DR>>,
 { }
 
@@ -431,7 +457,8 @@ impl<'s, ET, DR, AS> ApplicativeTrait for ApFn<'s, ET, DR, AS>
 /// `Datum`s is needed for the return value.  See
 /// [`CombinerResult`](type.CombinerResult.html) for the description of the
 /// return value.
-pub type OpFn<'s, ET, DR, AS> = dyn FnMut(DR, DR, AS) -> CombinerResult<'s, ET, DR, AS>;
+pub type OpFn<'s, ET, DR, CE, AS> = dyn FnMut(DR, DR, AS)
+                                              -> CombinerResult<'s, ET, DR, CE, AS>;
 
 /// The type of "applicative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-forms
@@ -441,14 +468,15 @@ pub type OpFn<'s, ET, DR, AS> = dyn FnMut(DR, DR, AS) -> CombinerResult<'s, ET, 
 /// new `Datum`s is needed for the return value.  See
 /// [`CombinerResult`](type.CombinerResult.html) for the description of the
 /// return value.
-pub type ApFn<'s, ET, DR, AS> = dyn FnMut(DR, DR, AS) -> CombinerResult<'s, ET, DR, AS>;
+pub type ApFn<'s, ET, DR, CE, AS> = dyn FnMut(DR, DR, AS)
+                                              -> CombinerResult<'s, ET, DR, CE, AS>;
 
 /// The type returned by "operative" and "applicative" functions.  For a
 /// successful return, the returned `Datum` is substituted for the original form
 /// by the parser in the AST it yields, and the returned allocator state is the
 /// possibly-updated state passed into the combiner function.  An
 /// [`Error`](enum.Error.html) is returned if the combiner fails for any reason.
-pub type CombinerResult<'s, ET, DR, AS> = Result<(Datum<'s, ET, DR>, AS), Error>;
+pub type CombinerResult<'s, ET, DR, CE, AS> = Result<(Datum<'s, ET, DR>, AS), Error<CE>>;
 
 
 /// This parameterizes the characters used to delimit the nesting form.
@@ -468,14 +496,18 @@ pub trait Parser<'s> {
     type ET;
     /// The type of references to [`Datum`s](enum.Datum.html) yielded by our
     /// parsing.
-    type DR: DerefTryMut<Target = Datum<'s, Self::ET, Self::DR>,
+    type DR: DerefTryMut<Self::CE,
+                         Target = Datum<'s, Self::ET, Self::DR>,
                          SizedTarget = Datum<'s, Self::ET, Self::DR>>;
     /// The type of references to
     /// [`Operative`](enum.Combiner.html#variant.Operative) macro functions.
-    type OR: DerefMut<Target = OpFn<'s, Self::ET, Self::DR, Self::AS>>;
+    type OR: DerefMut<Target = OpFn<'s, Self::ET, Self::DR, Self::CE, Self::AS>>;
     /// The type of references to
     /// [`Applicative`](enum.Combiner.html#variant.Applicative) macro functions.
-    type AR: DerefMut<Target = ApFn<'s, Self::ET, Self::DR, Self::AS>>;
+    type AR: DerefMut<Target = ApFn<'s, Self::ET, Self::DR, Self::CE, Self::AS>>;
+    /// The [combiner error extension](enum.Error.html#variant.FailedCombiner)
+    /// type.
+    type CE;
 
     /// Returns the characters used to delimit the start and end of our one
     /// nesting form and to escape those two delimiters.  This allows this crate
@@ -541,12 +573,12 @@ pub trait Parser<'s> {
     /// may be ignored.  An [`Error`](enum.Error.html) is returned if allocation
     /// fails for any reason.
     fn new_datum(&mut self, from: Datum<'s, Self::ET, Self::DR>, alst: Self::AS)
-                 -> Result<(Self::DR, Self::AS), Error>;
+                 -> Result<(Self::DR, Self::AS), Error<Self::CE>>;
 }
 
 
 /// The type of values given by the parser iterator
-pub type ParseIterItem<DR> = Result<DR, Error>;
+pub type ParseIterItem<DR, CE> = Result<DR, Error<CE>>;
 
 /// An [`Iterator`](http://doc.rust-lang.org/std/iter/trait.Iterator.html) that
 /// parses its input text one top-level form at a time per each call to
@@ -570,7 +602,7 @@ impl<'p, 's, P> Iterator for ParseIter<'p, 's, P>
     where P: 'p + Parser<'s> + ?Sized,
           's: 'p,
 {
-    type Item = ParseIterItem<<P as Parser<'s>>::DR>;
+    type Item = ParseIterItem<<P as Parser<'s>>::DR, <P as Parser<'s>>::CE>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.disown_alloc_state() {
@@ -647,7 +679,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
 
     fn read_to_end<F: Fn(char) -> bool>
         (&mut self, init_ws_sig: bool, is_end_char: F)
-         -> Result<PosStr<'s>, Error>
+         -> Result<PosStr<'s>, Error<<P as Parser<'s>>::CE>>
     {
         let mut nest_level: usize = 0;
         let (mut _prev_byte_pos, mut prev_char_pos): (usize, usize) = (0, 0);
@@ -736,7 +768,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
     fn parse_next_text(&mut self, alst: <P as Parser<'s>>::AS)
                        -> Result<(<P as Parser<'s>>::DR,
                                   <P as Parser<'s>>::AS),
-                                 Error>
+                                 Error<<P as Parser<'s>>::CE>>
     {
         let nest_start = self.config.nest_start;
         let text = Text(self.read_to_end(true, |c| nest_start == c)?);
@@ -747,7 +779,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                     -> Result<(Option<(<P as Parser<'s>>::DR,
                                        <P as Parser<'s>>::DR)>,
                                <P as Parser<'s>>::AS),
-                              Error>
+                              Error<<P as Parser<'s>>::CE>>
     {
         // Must copy these values, since if the closure borrowed, it'd conflict
         let nest_start = self.config.nest_start;
@@ -780,7 +812,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
     fn recur_on_str_once(&mut self, s: PosStr<'s>, alst: <P as Parser<'s>>::AS)
                          -> Result<(<P as Parser<'s>>::DR,
                                     <P as Parser<'s>>::AS),
-                                   Error>
+                                   Error<<P as Parser<'s>>::CE>>
     {
         // Note: We use unwrap on purpose because None is impossible
         self.recur(s,
@@ -791,10 +823,10 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
 
     fn recur<F, T>(&mut self, s: PosStr<'s>, f: F, alst: <P as Parser<'s>>::AS)
                    -> Result<(T, <P as Parser<'s>>::AS),
-                             Error>
+                             Error<<P as Parser<'s>>::CE>>
         where F: FnOnce(&mut Self, <P as Parser<'s>>::AS)
                         -> Result<(T, <P as Parser<'s>>::AS),
-                                  Error>
+                                  Error<<P as Parser<'s>>::CE>>
     {
         let save_src_str = replace(&mut self.src_str, s);
         let save_src_iter = replace(&mut self.src_iter, SourceIter::new(s).peekable());
@@ -807,7 +839,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
     fn collect_datumlist(&mut self, alst: <P as Parser<'s>>::AS)
                          -> Result<(<P as Parser<'s>>::DR,
                                     <P as Parser<'s>>::AS),
-                                   Error>
+                                   Error<<P as Parser<'s>>::CE>>
     {
         let (mut head, mut alst) = self.parser.new_datum(EmptyList, alst)?;
         let mut tail = &mut head;
@@ -832,7 +864,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
     fn recur_on_str_all(&mut self, s: PosStr<'s>, alst: <P as Parser<'s>>::AS)
                         -> Result<(<P as Parser<'s>>::DR,
                                    <P as Parser<'s>>::AS),
-                                  Error>
+                                  Error<<P as Parser<'s>>::CE>>
     {
         self.recur(s, Self::collect_datumlist, alst)
     }
@@ -840,7 +872,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
     fn do_next(&mut self, alst: <P as Parser<'s>>::AS)
                -> Result<(Option<<P as Parser<'s>>::DR>,
                           <P as Parser<'s>>::AS),
-                         Error>
+                         Error<<P as Parser<'s>>::CE>>
         // TODO?: Error variant that holds AS for errors where it is ok to return
         // the alloc-state?
     {
@@ -1049,5 +1081,23 @@ mod tests {
 
         assert!(Extra::<(), DatumMutRef<()>>(())
                 == Extra::<(), DatumRefMut<()>>(()));
+    }
+
+    #[test]
+    fn error_equality() {
+        use super::Error::*;
+
+        assert_eq!(UnbalancedEndChar::<()>{byte_pos:2, char_pos:1},
+                   UnbalancedEndChar::<()>{byte_pos:2, char_pos:1});
+
+        assert_eq!(MissingEndChar::<()>, MissingEndChar::<()>);
+
+        assert_eq!(AllocExhausted::<()>, AllocExhausted::<()>);
+
+        assert_eq!(NoAllocState::<()>, NoAllocState::<()>);
+
+        assert_eq!(DerefTryMut::<()>, DerefTryMut::<()>);
+
+        assert_eq!(FailedCombiner::<i32>(1), FailedCombiner::<i32>(1));
     }
 }

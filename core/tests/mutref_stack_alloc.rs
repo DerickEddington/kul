@@ -23,8 +23,9 @@ impl<'a> Parser<'static> for ParserMutRef<'a> {
     type ET = ();
     type DR = DatumMutRef<'a, 'static, Self::ET>;
     // Note: OR and DR are not actually used for this test case
-    type OR = &'a mut OpFn<'static, Self::ET, Self::DR, Self::AS>;
-    type AR = &'a mut ApFn<'static, Self::ET, Self::DR, Self::AS>;
+    type OR = &'a mut OpFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>;
+    type AR = &'a mut ApFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>;
+    type CE = ();
 
     fn supply_alloc_state(&mut self) -> Self::AS {
         // For this type, we must temporarily disown our &mut reference
@@ -45,7 +46,7 @@ impl<'a> Parser<'static> for ParserMutRef<'a> {
 
     fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>,
                  alst: Self::AS)
-                 -> Result<(Self::DR, Self::AS), Error>
+                 -> Result<(Self::DR, Self::AS), Error<Self::CE>>
     {
         match alst.split_first_mut() {
             Some((dr, rest)) => {

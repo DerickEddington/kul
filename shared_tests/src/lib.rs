@@ -27,6 +27,7 @@ impl TestCase<'_> {
     fn test<P>(&self, parser: &mut P)
         where P: Parser<'static>,
               P::DR: Debug,
+              P::CE: Debug,
     {
         const RESUME_RETRIES: u32 = 1;
 
@@ -67,13 +68,14 @@ impl TestCase<'_> {
 type Expected<'d> = Vec<Vec<Item<'d>>>;
 
 #[derive(PartialEq, Eq, Debug)]
-struct Item<'d> (ParseIterItem<ExpectedDatum<'d>>);
+struct Item<'d> (ParseIterItem<ExpectedDatum<'d>, CeIgnore>);
 
-impl<'d, DR> PartialEq<ParseIterItem<DR>> for Item<'d>
+impl<'d, DR, CE> PartialEq<ParseIterItem<DR, CE>> for Item<'d>
     where DR: Deref,
-          ExpectedDatum<'d>: PartialEq<DR::Target>
+          ExpectedDatum<'d>: PartialEq<DR::Target>,
+          CeIgnore: PartialEq<CE>,
 {
-    fn eq(&self, other: &ParseIterItem<DR>) -> bool {
+    fn eq(&self, other: &ParseIterItem<DR, CE>) -> bool {
         match (&self.0, other) {
             (Ok(d1), Ok(dr2)) => *d1 == **dr2,
             (Err(e1), Err(e2)) => *e1 == *e2,
@@ -95,12 +97,22 @@ impl<ET> PartialEq<ET> for EtIgnore {
     }
 }
 
+#[derive(Copy, Clone, Eq, Debug)]
+struct CeIgnore;
+
+impl<CE> PartialEq<CE> for CeIgnore {
+    fn eq(&self, _other: &CE) -> bool {
+        true
+    }
+}
+
 
 /// Basic test suite that checks the basic syntax and forms and does not
 /// exercise macros/combiners nor extra types.
 pub fn test_suite0<P>(p: &mut P)
     where P: Parser<'static>,
           P::DR: Debug,
+          P::CE: Debug,
 {
     TestCase {
         input: "",
@@ -125,6 +137,14 @@ mod tests {
         assert_eq!(EtIgnore, 1);
         assert_eq!(EtIgnore, 2.3);
         assert_eq!(EtIgnore, "foo");
+    }
+
+    #[test]
+    fn combinererror_ignore_eq() {
+        assert_eq!(CeIgnore, ());
+        assert_eq!(CeIgnore, 1);
+        assert_eq!(CeIgnore, 2.3);
+        assert_eq!(CeIgnore, "foo");
     }
 
     #[test]
@@ -158,6 +178,22 @@ mod tests {
                    Extra::<&str, DatumMutRef<&str>>("foo"));
     }
 
+    #[test]
+    fn error_equality() {
+        assert_eq!(UnbalancedEndChar::<CeIgnore>{byte_pos:2, char_pos:1},
+                   UnbalancedEndChar::<()>{byte_pos:2, char_pos:1});
+
+        assert_eq!(MissingEndChar::<CeIgnore>, MissingEndChar::<()>);
+
+        assert_eq!(AllocExhausted::<CeIgnore>, AllocExhausted::<()>);
+
+        assert_eq!(NoAllocState::<CeIgnore>, NoAllocState::<()>);
+
+        assert_eq!(DerefTryMut::<CeIgnore>, DerefTryMut::<()>);
+
+        assert_eq!(FailedCombiner::<CeIgnore>(CeIgnore), FailedCombiner::<i32>(1));
+    }
+
     type WimpyDatum<'d> = Datum<'static, (), DatumMutRef<'d, 'static, ()>>;
 
     struct WimpyParser<'d> {
@@ -174,8 +210,9 @@ mod tests {
         type AS = Option<&'d mut WimpyDatum<'d>>;
         type ET = ();
         type DR = DatumMutRef<'d, 'static, Self::ET>;
-        type OR = &'d mut OpFn<'static, Self::ET, Self::DR, Self::AS>;
-        type AR = &'d mut ApFn<'static, Self::ET, Self::DR, Self::AS>;
+        type OR = &'d mut OpFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>;
+        type AR = &'d mut ApFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>;
+        type CE = ();
 
         fn supply_alloc_state(&mut self) -> Self::AS {
             core::mem::replace(&mut self.single_datum, None)
@@ -188,7 +225,7 @@ mod tests {
         { None }
 
         fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>, alst: Self::AS)
-                     -> Result<(Self::DR, Self::AS), Error>
+                     -> Result<(Self::DR, Self::AS), Error<Self::CE>>
         {
             match alst {
                 Some(datum_ref) => {

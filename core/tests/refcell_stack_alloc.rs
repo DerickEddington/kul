@@ -26,8 +26,9 @@ impl<'a> Parser<'static> for ParserRefCell<'a> {
     type ET = ();
     type DR = DatumRefMut<'a, 'static, Self::ET>;
     // Note: OR and DR are not actually used for this test case
-    type OR = &'a mut OpFn<'static, Self::ET, Self::DR, Self::AS>;
-    type AR = &'a mut ApFn<'static, Self::ET, Self::DR, Self::AS>;
+    type OR = &'a mut OpFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>;
+    type AR = &'a mut ApFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>;
+    type CE = ();
 
     fn supply_alloc_state(&mut self) -> Self::AS { () }
 
@@ -40,7 +41,7 @@ impl<'a> Parser<'static> for ParserRefCell<'a> {
     }
 
     fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>, _: Self::AS)
-                 -> Result<(Self::DR, Self::AS), Error>
+                 -> Result<(Self::DR, Self::AS), Error<Self::CE>>
     {
         match self.datum_array_free.split_first() {
             Some((refcell, rest)) => {
