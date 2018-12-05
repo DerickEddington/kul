@@ -818,7 +818,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                 DerefTryMut::try_set(tail, List{elem: next_it, next: rest})?;
                 match DerefTryMut::get_mut(tail)? {
                     List{next, ..} => tail = next,
-                    _ => panic!("impossible")
+                    _ => unreachable!()
                 }
                 alst = st;
             } else {
@@ -870,7 +870,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                     let rands_str = || -> PosStr<'s> {
                         match &*operands {
                             &Text(val) => val,
-                            _ => panic!("impossible")
+                            _ => unreachable!()
                         }
                     };
                     match self.parser.env_lookup(&operator) {
