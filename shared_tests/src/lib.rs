@@ -1,12 +1,10 @@
 //! Used by the integration tests of both the [core](../kruvi_core/index.html)
 //! and the [full](../kruvi/index.html) crates.  It provides test suites that
 //! can be run against any type of [`Parser`](../kruvi_core/trait.Parser.html),
-//! and it uses a couple tricks so that its representation of expected results
-//! can be directly compared against a variety of
+//! and it uses tricks so that its representation of expected results can be
+//! directly compared against a variety of
 //! [`Datum`](../kruvi_core/enum.Datum.html) types.
 
-// TODO: Probably get rid of `TestCase` and instead have some `parse` function
-// to replace `TestCase::test` and which can be used in assertion statements
 
 // TODO: Probably should enhance to support predicate checking of "extra types"
 // so that functionality can be tested globally too.
@@ -17,76 +15,119 @@ use std::fmt::Debug;
 use kruvi_core::*;
 
 
-#[derive(PartialEq, Eq, Debug)]
-struct TestCase<'d> {
-    input: &'static str,
-    expected: Expected<'d>,
-}
-
-impl TestCase<'_> {
-    fn test<P>(&self, parser: &mut P)
-        where P: Parser<'static>,
-              P::DR: Debug,
-              P::CE: Debug,
-    {
-        const RESUME_RETRIES: u32 = 1;
-
-        let mut result = vec![];
-
-        { // New block so that `iter` is dropped at the end, just because this
-          // seems cleaner because `ParserIter` does implement `Drop`.  Not
-          // necessary for the correctness of this method.
-
-            let mut iter = parser.parse(self.input);
-
-            // Accumulate everything from the parser iterator, in our `Vec` of
-            // `Vec` structure, handling the possible rare case where an
-            // iterator can be resumed after its `next` method returns `None`
-            loop {
-                let mut next = None;
-                for _ in 0 .. 1 + RESUME_RETRIES {
-                    next = iter.next();
-                    if next.is_some() { break; }
-                }
-                match next {
-                    Some(next) => {
-                        let mut somes = vec![next];
-                        while let Some(next) = iter.next() { somes.push(next); }
-                        result.push(somes);
-                    },
-                    None => break
-                }
-            }
+fn parse_all<P>(parser: &mut P, input: &'static str)
+                -> Vec<Vec<ParseIterItem<P::DR, P::CE>>>
+    where P: Parser<'static>,
+{
+    const RESUME_RETRIES: u32 = 1;
+    let mut result = vec![];
+    let mut iter = parser.parse(input);
+    // Accumulate everything from the parser iterator, in our `Vec` of `Vec`
+    // structure, handling the possible rare case where an iterator can be
+    // resumed after its `next` method returns `None`
+    loop {
+        let mut next = None;
+        for _ in 0 .. 1 + RESUME_RETRIES {
+            next = iter.next();
+            if next.is_some() { break; }
         }
-
-        assert_eq!(self.expected, result)
+        match next {
+            Some(next) => {
+                let mut somes = vec![next];
+                while let Some(next) = iter.next() { somes.push(next); }
+                result.push(somes);
+            },
+            None => break
+        }
     }
+    result
 }
 
-// We use `Vec` of `Vec` so we can model the rare case where an iterator can be
-// resumed after its `next` method returns `None`
-type Expected<'d> = Vec<Vec<Item<'d>>>;
+fn expect(e: Vec<Result<Datum<'static, EtIgnore, ExpectedDatumRef>,
+                        Error<CeIgnore>>>)
+          -> Expected
+{
+    if e.len() == 0 { return vec![]; }
+    vec![e.into_iter().map(|r| Item(r.map(dr))).collect()]
+}
 
+fn dr(from: Datum<'static, EtIgnore, ExpectedDatumRef>) -> ExpectedDatumRef {
+    ExpectedDatumRef(Box::new(ExpectedDatum(from)))
+}
+
+/// We use `Vec` of `Vec` so we can model the rare case where an iterator can be
+/// resumed after its `next` method returns `None`
+type Expected = Vec<Vec<Item>>;
+
+/// Newtype wrapper needed to implement our `PartialEq` trick
 #[derive(PartialEq, Eq, Debug)]
-struct Item<'d> (ParseIterItem<ExpectedDatum<'d>, CeIgnore>);
+struct Item (ParseIterItem<ExpectedDatumRef, CeIgnore>);
 
-impl<'d, DR, CE> PartialEq<ParseIterItem<DR, CE>> for Item<'d>
+/// This allows `Item` to be compared with any type of `ParseIterItem`, and it
+/// compares in our special ways
+impl<DR, CE> PartialEq<ParseIterItem<DR, CE>> for Item
     where DR: Deref,
-          ExpectedDatum<'d>: PartialEq<DR::Target>,
+          ExpectedDatum: PartialEq<DR::Target>,
           CeIgnore: PartialEq<CE>,
 {
     fn eq(&self, other: &ParseIterItem<DR, CE>) -> bool {
         match (&self.0, other) {
-            (Ok(d1), Ok(dr2)) => *d1 == **dr2,
+            (Ok(dr1), Ok(dr2)) => *dr1.0 == **dr2,
             (Err(e1), Err(e2)) => *e1 == *e2,
             _ => false
         }
     }
 }
 
-type ExpectedDatum<'d> = MutRefDatum<'d, 'static, EtIgnore>;
-#[cfg(test)]
-type ExpectedDatumRef<'d> = DatumMutRef<'d, 'static, EtIgnore>;
+/// Newtype wrapper needed to implement our `PartialEq` trick
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct ExpectedDatum (Datum<'static, EtIgnore, ExpectedDatumRef>);
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct ExpectedDatumRef (Box<ExpectedDatum>);
+
+/// This allows `ExpectedDatumRef` to be used as the `Datum` reference type.
+impl Deref for ExpectedDatumRef {
+    type Target = Datum<'static, EtIgnore, ExpectedDatumRef>;
+
+    fn deref(&self) -> &Self::Target {
+        &Deref::deref(&self.0).0
+    }
+}
+
+/// This allows `ExpectedDatum` to be compared with `Datum` types differently
+/// than the normal comparison of `Datum` types, so that the `Text` variants'
+/// `PosStr` type can be compared completely (as opposed to only by the primary
+/// `val` string).
+impl<'s, ET, DR> PartialEq<Datum<'s, ET, DR>> for ExpectedDatum
+    where DR: Deref<Target = Datum<'s, ET, DR>>
+{
+    fn eq(&self, other: &Datum<'s, ET, DR>) -> bool {
+        use kruvi_core::Datum::*;
+
+        match (&self.0, other) {
+            (Text(ps1), Text(ps2))
+                // This is what's significantly different than normal compare
+                => ps1 == ps2,
+            (Combination{operator: rtr1, operands: rnds1},
+             Combination{operator: rtr2, operands: rnds2})
+                => *rtr1.0 == **rtr2 && *rnds1.0 == **rnds2,
+            (EmptyNest, EmptyNest)
+                => true,
+            (List{elem: e1, next: n1}, List{elem: e2, next: n2})
+            // TODO: Instead of tree-recursion using limited stack space,
+            // use a loop to compare the `next` tails, so that very long
+            // lists don't blow the stack.  In langs like Scheme, this would
+            // already automatically be tail-recursive, but alas...
+                => *e1.0 == **e2 && *n1.0 == **n2,
+            (EmptyList, EmptyList)
+                => true,
+            (Extra(et1), Extra(et2))
+                => et1 == et2,
+            _
+                => false
+        }
+    }
+}
 
 #[derive(Copy, Clone, Eq, Debug)]
 struct EtIgnore;
@@ -114,11 +155,54 @@ pub fn test_suite0<P>(p: &mut P)
           P::DR: Debug,
           P::CE: Debug,
 {
-    TestCase {
-        input: "",
-        expected: vec![]
+    use kruvi_core::Datum::*;
+
+    let current_input = std::cell::Cell::new("");
+
+    let text = |val, byte_pos, char_pos|
+                   Text(PosStr{val, src: current_input.get(), byte_pos, char_pos});
+
+    let comb = |rator, rands|
+                   Combination{operator: dr(rator), operands: dr(rands)};
+
+    let list = |elem, next| List{elem: dr(elem), next: dr(next)};
+    let list1 = |elem| list(elem, EmptyList);
+
+    macro_rules! test {
+        ($input:expr => [$($expected:expr),*])
+            =>
+        {current_input.set($input);
+         assert_eq!(expect(vec![$($expected),*]),
+                    parse_all(p, current_input.get()));};
+
+        ($input:expr =>! [$($expected:expr),*])
+            =>
+        {current_input.set($input);
+         assert_ne!(expect(vec![$($expected),*]),
+                    parse_all(p, current_input.get()));};
     }
-    .test(p);
+
+    test!("" => []);
+    test!(" " => [Ok(text(" ", 0, 0))]);
+    test!("  " => [Ok(text("  ", 0, 0))]);
+    test!("a" => [Ok(text("a", 0, 0))]);
+    test!("a " => [Ok(text("a ", 0, 0))]);
+    test!(" a" => [Ok(text(" a", 0, 0))]);
+    test!(" a " => [Ok(text(" a ", 0, 0))]);
+    test!("xyz" => [Ok(text("xyz", 0, 0))]);
+    test!("a b" => [Ok(text("a b", 0, 0))]);
+    test!("a  b" => [Ok(text("a  b", 0, 0))]);
+    test!("a b c" => [Ok(text("a b c", 0, 0))]);
+    test!("   a  b c    " => [Ok(text("   a  b c    ", 0, 0))]);
+
+    test!("{b}" => [Ok(comb(text("b", 1, 1), EmptyList))]);
+    test!("{bob}" => [Ok(comb(text("bob", 1, 1), EmptyList))]);
+    test!("{b o b}" => [Ok(comb(text("b", 1, 1), list1(text("o b", 3, 3))))]);
+    test!("{ bo b }" => [Ok(comb(text("bo", 2, 2), list1(text("b ", 5, 5))))]);
+    test!(" c  d   { e  f   g    }     hi  j "
+          => [Ok(text(" c  d   ", 0, 0)),
+              Ok(comb(text("e", 10, 10), list1(text(" f   g    ", 12, 12)))),
+              Ok(text("     hi  j ", 23, 23))]);
 
     // TODO: A lot more
 }
@@ -155,8 +239,8 @@ mod tests {
                        PosStr{val:"a", src:"{c{a}b}", byte_pos:3, char_pos:3}));
 
         assert_eq!(Combination::<EtIgnore, ExpectedDatumRef>{
-                       operator: DatumMutRef(&mut EmptyNest),
-                       operands: DatumMutRef(&mut EmptyList) },
+                       operator: dr(EmptyNest),
+                       operands: dr(EmptyList)},
                    Combination::<i32, DatumMutRef<i32>>{
                        operator: DatumMutRef(&mut EmptyNest),
                        operands: DatumMutRef(&mut EmptyList)});
@@ -165,8 +249,8 @@ mod tests {
                    EmptyNest::<f64, DatumMutRef<f64>>);
 
         assert_eq!(List::<EtIgnore, ExpectedDatumRef>{
-                       elem: DatumMutRef(&mut EmptyNest),
-                       next: DatumMutRef(&mut EmptyList)},
+                       elem: dr(EmptyNest),
+                       next: dr(EmptyList)},
                    List::<&str, DatumMutRef<&str>>{
                        elem: DatumMutRef(&mut EmptyNest),
                        next: DatumMutRef(&mut EmptyList)});
@@ -239,33 +323,27 @@ mod tests {
 
     #[test]
     fn basic_empty() {
-        TestCase {
-            input: "",
-            expected: vec![]
-        }
-        .test(&mut WimpyParser::new(&mut EmptyNest));
+        assert_eq!(expect(vec![]),
+                   parse_all(&mut WimpyParser::new(&mut EmptyNest),
+                             ""));
     }
 
     #[test]
     fn basic_single() {
-        TestCase {
-            input: "solo",
-            expected: vec![vec![Item(Ok(Text(PosStr{val: "solo", src: "solo",
-                                                    byte_pos: 0, char_pos: 0})))]]
-        }
-        .test(&mut WimpyParser::new(&mut EmptyNest));
+        assert_eq!(expect(vec![Ok(Text(PosStr{val: "solo", src: "solo",
+                                              byte_pos: 0, char_pos: 0}))]),
+                   parse_all(&mut WimpyParser::new(&mut EmptyNest),
+                             "solo"));
     }
 
     #[test]
     fn basic_exhaust() {
-        TestCase {
-            input: "good {shit}",
-            expected: vec![vec![Item(Ok(Text(PosStr{val: "good ", src: "good {shit}",
-                                                    byte_pos: 0, char_pos: 0}))),
-                                Item(Err(AllocExhausted)),
-                                Item(Err(NoAllocState))]]
-        }
-        .test(&mut WimpyParser::new(&mut EmptyNest));
+        assert_eq!(expect(vec![Ok(Text(PosStr{val: "good ", src: "good {shit}",
+                                              byte_pos: 0, char_pos: 0})),
+                               Err(AllocExhausted),
+                               Err(NoAllocState)]),
+                   parse_all(&mut WimpyParser::new(&mut EmptyNest),
+                             "good {shit}"));
     }
 
     // // WimpyParser won't work for most cases of test_suite0
