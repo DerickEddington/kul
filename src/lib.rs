@@ -31,7 +31,7 @@ pub type BoxDatum<'s, ET> = Datum<'s, ET, DatumBox<'s, ET>>;
 
 /// This wrapper allows the needed recursive type definition for `Box` to be
 /// used as the `Datum` reference type.
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct DatumBox<'s, ET>(pub Box<BoxDatum<'s, ET>>);
 
 impl<'s, ET> DatumBox<'s, ET> {
@@ -69,7 +69,7 @@ pub type RcDatum<'s, ET> = Datum<'s, ET, DatumRc<'s, ET>>;
 
 /// This wrapper allows the needed recursive type definition for `Rc` to be used
 /// as the `Datum` reference type.
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct DatumRc<'s, ET>(pub Rc<RcDatum<'s, ET>>);
 
 impl<'s, ET> DatumRc<'s, ET> {
@@ -104,7 +104,7 @@ pub type ArcDatum<'s, ET> = Datum<'s, ET, DatumArc<'s, ET>>;
 
 /// This wrapper allows the needed recursive type definition for `Arc` to be
 /// used as the `Datum` reference type.
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct DatumArc<'s, ET>(pub Arc<ArcDatum<'s, ET>>);
 
 impl<'s, ET> DatumArc<'s, ET> {
@@ -163,5 +163,28 @@ mod tests {
 
         assert_ne!(DatumArc::new(EmptyNest::<(), DatumArc<()>>),
                    DatumArc::new(EmptyList::<(), DatumArc<()>>));
+    }
+
+    #[test]
+    fn datum_clone() {
+        use super::Datum::*;
+
+        let a = List::<(), DatumBox<()>>{
+            elem: DatumBox::new(EmptyNest::<(), DatumBox<()>>),
+            next: DatumBox::new(EmptyList::<(), DatumBox<()>>)};
+        let b = a.clone();
+        assert_eq!(a, b);
+
+        let c = List::<(), DatumRc<()>>{
+            elem: DatumRc::new(EmptyNest::<(), DatumRc<()>>),
+            next: DatumRc::new(EmptyList::<(), DatumRc<()>>)};
+        let d = c.clone();
+        assert_eq!(c, d);
+
+        let e = List::<(), DatumArc<()>>{
+            elem: DatumArc::new(EmptyNest::<(), DatumArc<()>>),
+            next: DatumArc::new(EmptyList::<(), DatumArc<()>>)};
+        let f = e.clone();
+        assert_eq!(e, f);
     }
 }

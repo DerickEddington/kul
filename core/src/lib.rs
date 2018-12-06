@@ -143,7 +143,7 @@ impl Deref for PosStr<'_> {
 /// by the `ExtraType` parameter, and it is parameterized over the `DatumRef`
 /// type used to refer to the other `Datum`s in an AST DAG (directed acyclic
 /// graph).
-#[derive(Eq, Debug)]
+#[derive(Copy, Clone, Eq, Debug)]
 pub enum Datum<'s, ExtraType, DatumRef>
     where DatumRef: Deref<Target = Datum<'s, ExtraType, DatumRef>>,
 {
@@ -431,7 +431,7 @@ use self::combiner::*;
 /// operands sub-form(s) to determine what should be substituted for the whole
 /// form.  The `OperativeRef` and `ApplicativeRef` type parameters determine the
 /// types used to refer to the functions.
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Combiner<OperativeRef, ApplicativeRef>
     where OperativeRef: DerefMut,
           OperativeRef::Target: OperativeTrait,
@@ -1081,6 +1081,36 @@ mod tests {
 
         assert!(Extra::<(), DatumMutRef<()>>(())
                 == Extra::<(), DatumRefMut<()>>(()));
+    }
+
+    #[test]
+    fn datum_copy_clone() {
+        use super::Datum::*;
+
+        #[derive(Copy, Clone, Debug)]
+        struct DatumRef<'d, 's, ET>(&'d Datum<'s, ET, DatumRef<'d, 's, ET>>);
+
+        impl<'d, 's, ET> Deref for DatumRef<'d, 's, ET>
+            where 's: 'd
+        {
+            type Target = Datum<'s, ET, DatumRef<'d, 's, ET>>;
+
+            fn deref(&self) -> &Self::Target {
+                self.0
+            }
+        }
+
+        let a = List::<(), DatumRef<()>>{
+            elem: DatumRef(&EmptyNest::<(), DatumRef<()>>),
+            next: DatumRef(&EmptyList::<(), DatumRef<()>>)};
+        let b = a;
+        assert_eq!(a, b);
+
+        let c = List::<(), DatumRef<()>>{
+            elem: DatumRef(&EmptyNest::<(), DatumRef<()>>),
+            next: DatumRef(&EmptyList::<(), DatumRef<()>>)};
+        let d = c.clone();
+        assert_eq!(c, d);
     }
 
     #[test]
