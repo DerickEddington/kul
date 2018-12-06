@@ -970,6 +970,11 @@ mod tests {
                    Text::<(), DatumMutRef<()>>(
                        PosStr{val:"", src:"", byte_pos:0, char_pos:0}));
 
+        assert_eq!(Text::<(), DatumMutRef<()>>(
+                       PosStr{val:"z", src:"z", byte_pos:0, char_pos:0}),
+                   Text::<(), DatumMutRef<()>>(
+                       PosStr{val:"z", src:"{z}", byte_pos:1, char_pos:1}));
+
         assert_eq!(Combination::<(), DatumMutRef<()>>{
                        operator: DatumMutRef(&mut EmptyNest),
                        operands: DatumMutRef(&mut EmptyList)},
