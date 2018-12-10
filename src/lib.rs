@@ -55,11 +55,11 @@ impl<'s, ET> DerefMut for DatumBox<'s, ET> {
 }
 
 /// This allows `Box` to be used as the `Datum` reference type.
-impl<'s, ET, CE> DerefTryMut<CE> for DatumBox<'s, ET> {
+impl<'s, ET> DerefTryMut for DatumBox<'s, ET> {
     type SizedTarget = Self::Target;
 
-    fn get_mut(this: &mut Self) -> Result<&mut Self::SizedTarget, Error<CE>> {
-        Ok(DerefMut::deref_mut(this))
+    fn get_mut(this: &mut Self) -> Option<&mut Self::SizedTarget> {
+        Some(DerefMut::deref_mut(this))
     }
 }
 
@@ -87,14 +87,11 @@ impl<'s, ET> Deref for DatumRc<'s, ET> {
 }
 
 /// This allows `Rc` to be used as the `Datum` reference type.
-impl<'s, ET, CE> DerefTryMut<CE> for DatumRc<'s, ET> {
+impl<'s, ET> DerefTryMut for DatumRc<'s, ET> {
     type SizedTarget = Self::Target;
 
-    fn get_mut(this: &mut Self) -> Result<&mut Self::SizedTarget, Error<CE>> {
-        match Rc::get_mut(&mut this.0) {
-            Some(mr) => Ok(mr),
-            None => Err(Error::DerefTryMut)
-        }
+    fn get_mut(this: &mut Self) -> Option<&mut Self::SizedTarget> {
+        Rc::get_mut(&mut this.0)
     }
 }
 
@@ -122,14 +119,11 @@ impl<'s, ET> Deref for DatumArc<'s, ET> {
 }
 
 /// This allows Arc` to be used as the `Datum` reference type.
-impl<'s, ET, CE> DerefTryMut<CE> for DatumArc<'s, ET> {
+impl<'s, ET> DerefTryMut for DatumArc<'s, ET> {
     type SizedTarget = Self::Target;
 
-    fn get_mut(this: &mut Self) -> Result<&mut Self::SizedTarget, Error<CE>> {
-        match Arc::get_mut(&mut this.0) {
-            Some(mr) => Ok(mr),
-            None => Err(Error::DerefTryMut)
-        }
+    fn get_mut(this: &mut Self) -> Option<&mut Self::SizedTarget> {
+        Arc::get_mut(&mut this.0)
     }
 }
 

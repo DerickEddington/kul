@@ -217,7 +217,7 @@ impl<'s1, 's2, ET1, ET2, DR1, DR2>
 /// allocated, with our approach they can control the limit and can receive an
 /// [`Error`](enum.Error.html#variant.AllocExhausted) value under their control
 /// if the limit is exceeded (instead of a crash).
-pub trait DerefTryMut<CE>: Deref
+pub trait DerefTryMut: Deref
     where <Self as Deref>::Target: Sized,
 {
     /// Must be set to `<Self as Deref>::Target` (by the implementor).  This is
@@ -230,18 +230,21 @@ pub trait DerefTryMut<CE>: Deref
     type SizedTarget;  // Automatically defaults to Sized
 
     /// Returns a mutable reference to the inner `Datum` if it can.  Otherwise,
-    /// returns [`Error::DerefTryMut`](enum.Error.html#variant.DerefTryMut).
-    /// Some implementations may never fail (e.g. for types that also implement
-    /// `DerefMut`).
-    fn get_mut(this: &mut Self) -> Result<&mut Self::SizedTarget, Error<CE>>;
+    /// returns `None`.  Some implementations may never return `None` (e.g. for
+    /// types that also implement `DerefMut`).
+    fn get_mut(this: &mut Self) -> Option<&mut Self::SizedTarget>;
 
     /// Mutates the inner `Datum` to be set to the given `value` argument, if
     /// [`get_mut`](#tymethod.get_mut) can get the mutable reference.
-    /// Otherwise, returns the same error as `get_mut`.
-    fn try_set(this: &mut Self, value: Self::SizedTarget) -> Result<(), Error<CE>>
-    {
-        *(DerefTryMut::get_mut(this)?) = value;
-        Ok(())
+    /// Otherwise, returns an error.
+    fn try_set(this: &mut Self, value: Self::SizedTarget) -> Result<(), ()> {
+        match DerefTryMut::get_mut(this) {
+            Some(d) => {
+                *d = value;
+                Ok(())
+            },
+            None => Err(())
+        }
     }
 }
 
@@ -275,13 +278,13 @@ impl<'d, 's, ET> DerefMut for DatumMutRef<'d, 's, ET>
 
 /// This allows basic direct mutable borrow references to be used as the `Datum`
 /// reference type.
-impl<'d, 's, ET, CE> DerefTryMut<CE> for DatumMutRef<'d, 's, ET>
+impl<'d, 's, ET> DerefTryMut for DatumMutRef<'d, 's, ET>
     where 's: 'd
 {
     type SizedTarget = Self::Target;
 
-    fn get_mut(this: &mut Self) -> Result<&mut Self::SizedTarget, Error<CE>> {
-        Ok(DerefMut::deref_mut(this))
+    fn get_mut(this: &mut Self) -> Option<&mut Self::SizedTarget> {
+        Some(DerefMut::deref_mut(this))
     }
 }
 
@@ -345,13 +348,13 @@ impl<'d, 's, ET> DerefMut for DatumRefMut<'d, 's, ET>
 // }
 
 /// This allows `RefMut`s of `RefCell`s to be used as the `Datum` reference type.
-impl<'d, 's, ET, CE> DerefTryMut<CE> for DatumRefMut<'d, 's, ET>
+impl<'d, 's, ET> DerefTryMut for DatumRefMut<'d, 's, ET>
     where 's: 'd,
 {
     type SizedTarget = Self::Target;
 
-    fn get_mut(this: &mut Self) -> Result<&mut Self::SizedTarget, Error<CE>> {
-        Ok(DerefMut::deref_mut(this))
+    fn get_mut(this: &mut Self) -> Option<&mut Self::SizedTarget> {
+        Some(DerefMut::deref_mut(this))
     }
 }
 
@@ -496,8 +499,7 @@ pub trait Parser<'s> {
     type ET;
     /// The type of references to [`Datum`s](enum.Datum.html) yielded by our
     /// parsing.
-    type DR: DerefTryMut<Self::CE,
-                         Target = Datum<'s, Self::ET, Self::DR>,
+    type DR: DerefTryMut<Target = Datum<'s, Self::ET, Self::DR>,
                          SizedTarget = Datum<'s, Self::ET, Self::DR>>;
     /// The type of references to
     /// [`Operative`](enum.Combiner.html#variant.Operative) macro functions.
@@ -845,16 +847,20 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
         let mut tail = &mut head;
         loop {
             let (it, st) = self.do_next(alst)?;
+            alst = st;
             if let Some(next_it) = it {
-                let (rest, st) = self.parser.new_datum(EmptyList, st)?;
-                DerefTryMut::try_set(tail, List{elem: next_it, next: rest})?;
-                match DerefTryMut::get_mut(tail)? {
-                    List{next, ..} => tail = next,
-                    _ => unreachable!()
+                if let Some(d) = DerefTryMut::get_mut(tail) {
+                    let (rest, st) = self.parser.new_datum(EmptyList, alst)?;
+                    alst = st;
+                    *d = List{elem: next_it, next: rest};
+                    match d {
+                        List{next, ..} => tail = next,
+                        _ => unreachable!()
+                    }
+                } else {
+                    return Err(Error::DerefTryMut);
                 }
-                alst = st;
             } else {
-                alst = st;
                 break;
             }
         }
