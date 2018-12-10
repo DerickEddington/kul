@@ -220,24 +220,15 @@ impl<'s1, 's2, ET1, ET2, DR1, DR2>
 pub trait DerefTryMut: Deref
     where <Self as Deref>::Target: Sized,
 {
-    /// Must be set to `<Self as Deref>::Target` (by the implementor).  This is
-    /// needed, instead of trying to use `Target`, because the `nightly`
-    /// compiler does not see our `Target` as constrained to `Sized`, even
-    /// though it is for this trait, it only sees the definition of `Target` in
-    /// `Deref` which is `?Sized`.  The `1.31.0-beta` compiler doesn't seem to
-    /// have this problem and can use `Target`, but I assume this should be made
-    /// ready for a change coming in `nightly`?
-    type SizedTarget;  // Automatically defaults to Sized
-
     /// Returns a mutable reference to the inner `Datum` if it can.  Otherwise,
     /// returns `None`.  Some implementations may never return `None` (e.g. for
     /// types that also implement `DerefMut`).
-    fn get_mut(this: &mut Self) -> Option<&mut Self::SizedTarget>;
+    fn get_mut(this: &mut Self) -> Option<&mut Self::Target>;
 
     /// Mutates the inner `Datum` to be set to the given `value` argument, if
     /// [`get_mut`](#tymethod.get_mut) can get the mutable reference.
     /// Otherwise, returns an error.
-    fn try_set(this: &mut Self, value: Self::SizedTarget) -> Result<(), ()> {
+    fn try_set(this: &mut Self, value: Self::Target) -> Result<(), ()> {
         match DerefTryMut::get_mut(this) {
             Some(d) => {
                 *d = value;
@@ -281,9 +272,7 @@ impl<'d, 's, ET> DerefMut for DatumMutRef<'d, 's, ET>
 impl<'d, 's, ET> DerefTryMut for DatumMutRef<'d, 's, ET>
     where 's: 'd
 {
-    type SizedTarget = Self::Target;
-
-    fn get_mut(this: &mut Self) -> Option<&mut Self::SizedTarget> {
+    fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
         Some(DerefMut::deref_mut(this))
     }
 }
@@ -351,9 +340,7 @@ impl<'d, 's, ET> DerefMut for DatumRefMut<'d, 's, ET>
 impl<'d, 's, ET> DerefTryMut for DatumRefMut<'d, 's, ET>
     where 's: 'd,
 {
-    type SizedTarget = Self::Target;
-
-    fn get_mut(this: &mut Self) -> Option<&mut Self::SizedTarget> {
+    fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
         Some(DerefMut::deref_mut(this))
     }
 }
@@ -499,8 +486,7 @@ pub trait Parser<'s> {
     type ET;
     /// The type of references to [`Datum`s](enum.Datum.html) yielded by our
     /// parsing.
-    type DR: DerefTryMut<Target = Datum<'s, Self::ET, Self::DR>,
-                         SizedTarget = Datum<'s, Self::ET, Self::DR>>;
+    type DR: DerefTryMut<Target = Datum<'s, Self::ET, Self::DR>>;
     /// The type of references to
     /// [`Operative`](enum.Combiner.html#variant.Operative) macro functions.
     type OR: DerefMut<Target = OpFn<'s, Self::ET, Self::DR, Self::CE, Self::AS>>;
