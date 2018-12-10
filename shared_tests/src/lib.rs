@@ -9,7 +9,7 @@
 // TODO: Probably should enhance to support predicate checking of "extra types"
 // so that functionality can be tested globally too.
 
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::fmt::Debug;
 
 use kruvi_core::*;
@@ -85,7 +85,6 @@ struct ExpectedDatum (Datum<'static, EtIgnore, ExpectedDatumRef>);
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct ExpectedDatumRef (Box<ExpectedDatum>);
 
-/// This allows `ExpectedDatumRef` to be used as the `Datum` reference type.
 impl Deref for ExpectedDatumRef {
     type Target = Datum<'static, EtIgnore, ExpectedDatumRef>;
 
@@ -94,12 +93,25 @@ impl Deref for ExpectedDatumRef {
     }
 }
 
+impl DerefMut for ExpectedDatumRef {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut DerefMut::deref_mut(&mut self.0).0
+    }
+}
+
+/// This allows `ExpectedDatumRef` to be used as the `Datum` reference type.
+impl DerefTryMut for ExpectedDatumRef {
+    fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
+        Some(DerefMut::deref_mut(this))
+    }
+}
+
 /// This allows `ExpectedDatum` to be compared with `Datum` types differently
 /// than the normal comparison of `Datum` types, so that the `Text` variants'
 /// `PosStr` type can be compared completely (as opposed to only by the primary
 /// `val` string).
 impl<'s, ET, DR> PartialEq<Datum<'s, ET, DR>> for ExpectedDatum
-    where DR: Deref<Target = Datum<'s, ET, DR>>
+    where DR: DerefTryMut<Target = Datum<'s, ET, DR>>
 {
     fn eq(&self, other: &Datum<'s, ET, DR>) -> bool {
         use kruvi_core::Datum::*;

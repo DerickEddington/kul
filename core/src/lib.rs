@@ -145,7 +145,7 @@ impl Deref for PosStr<'_> {
 /// graph).
 #[derive(Copy, Clone, Eq, Debug)]
 pub enum Datum<'s, ExtraType, DatumRef>
-    where DatumRef: Deref<Target = Datum<'s, ExtraType, DatumRef>>,
+    where DatumRef: DerefTryMut<Target = Datum<'s, ExtraType, DatumRef>>,
 {
     /// An unbroken span of text. (Only nest forms break text.)
     Text(PosStr<'s>),
@@ -170,8 +170,8 @@ pub enum Datum<'s, ExtraType, DatumRef>
 impl<'s1, 's2, ET1, ET2, DR1, DR2>
     PartialEq<Datum<'s2, ET2, DR2>>
     for Datum<'s1, ET1, DR1>
-    where DR1: Deref<Target = Datum<'s1, ET1, DR1>>,
-          DR2: Deref<Target = Datum<'s2, ET2, DR2>>,
+    where DR1: DerefTryMut<Target = Datum<'s1, ET1, DR1>>,
+          DR2: DerefTryMut<Target = Datum<'s2, ET2, DR2>>,
           ET1: PartialEq<ET2>,
 {
     fn eq(&self, other: &Datum<'s2, ET2, DR2>) -> bool {
@@ -433,11 +433,11 @@ pub enum Combiner<OperativeRef, ApplicativeRef>
 }
 
 impl<'s, ET, DR, CE, AS> OperativeTrait for OpFn<'s, ET, DR, CE, AS>
-    where DR: Deref<Target = Datum<'s, ET, DR>>,
+    where DR: DerefTryMut<Target = Datum<'s, ET, DR>>,
 { }
 
 impl<'s, ET, DR, CE, AS> ApplicativeTrait for ApFn<'s, ET, DR, CE, AS>
-    where DR: Deref<Target = Datum<'s, ET, DR>>,
+    where DR: DerefTryMut<Target = Datum<'s, ET, DR>>,
 { }
 
 /// The type of "operative" functions.  First argument is the "operator"
@@ -1094,6 +1094,14 @@ mod tests {
 
             fn deref(&self) -> &Self::Target {
                 self.0
+            }
+        }
+
+        impl<'d, 's, ET> DerefTryMut for DatumRef<'d, 's, ET>
+            where 's: 'd
+        {
+            fn get_mut(_this: &mut Self) -> Option<&mut Self::Target> {
+                None
             }
         }
 
