@@ -7,3 +7,4 @@ publish = false
 
 [dependencies]
 kruvi_core = { path = "../core" }
+kruvi = { path = ".." }

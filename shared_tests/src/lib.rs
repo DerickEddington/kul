@@ -15,6 +15,9 @@ use std::fmt::Debug;
 use kruvi_core::*;
 
 
+pub mod utils;
+
+
 fn parse_all<P>(parser: &mut P, input: &'static str)
                 -> Vec<Vec<ParseIterItem<P::DR, P::CE>>>
     where P: Parser<'static>,
@@ -220,7 +223,7 @@ pub fn test_suite0<P>(p: &mut P)
 }
 
 
-// This only tests the internal units of this crate
+// This only tests the internal units of this module
 #[cfg(test)]
 mod tests {
     use super::*;

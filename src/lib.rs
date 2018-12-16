@@ -5,7 +5,13 @@
 //!
 //! * Re-exports all of [`kruvi_core`].
 //!
-//! * Provides [`Datum`] reference types for [`Box`], [`Rc`], and [`Arc`].
+//! * Provides [`Datum`] reference types that wrap the standard [`Box`], [`Rc`],
+//! and [`Arc`] types, for heap-allocating `Datum`s.
+//!
+//! * Avoids stack overflows (when possible) when dropping the provided
+//! heap-allocated `Datum` types, so they can handle being used for very-deep
+//! trees (e.g. long lists), by using a custom [`Drop`] implementation for them.
+//! (Otherwise the compiler's default drop recursion could overflow.)
 //!
 //! * TODO: Provides an implementation of [`Parser`] that uses [`Box`] and has a
 //! facility for establishing macro bindings.
@@ -15,6 +21,7 @@
 //! [`Box`]: http://doc.rust-lang.org/std/boxed/struct.Box.html
 //! [`Rc`]: http://doc.rust-lang.org/std/rc/struct.Rc.html
 //! [`Arc`]: http://doc.rust-lang.org/std/sync/struct.Arc.html
+//! [`Drop`]: http://doc.rust-lang.org/std/ops/trait.Drop.html
 //! [`Parser`]: trait.Parser.html
 
 use std::boxed::Box;
@@ -24,6 +31,9 @@ use std::ops::{Deref, DerefMut};
 
 // Re-export everything from the core crate
 pub use kruvi_core::*;
+
+
+pub mod drop;
 
 
 /// This assists in `Box` being used as the `Datum` reference type.
