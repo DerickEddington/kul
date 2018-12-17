@@ -224,19 +224,6 @@ pub trait DerefTryMut: Deref
     /// returns `None`.  Some implementations may never return `None` (e.g. for
     /// types that also implement `DerefMut`).
     fn get_mut(this: &mut Self) -> Option<&mut Self::Target>;
-
-    /// Mutates the inner `Datum` to be set to the given `value` argument, if
-    /// [`get_mut`](#tymethod.get_mut) can get the mutable reference.
-    /// Otherwise, returns an error.
-    fn try_set(this: &mut Self, value: Self::Target) -> Result<(), ()> {
-        match DerefTryMut::get_mut(this) {
-            Some(d) => {
-                *d = value;
-                Ok(())
-            },
-            None => Err(())
-        }
-    }
 }
 
 /// This assists in basic direct mutable borrow references being used as the
