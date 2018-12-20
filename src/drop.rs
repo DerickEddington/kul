@@ -722,4 +722,36 @@ mod tests {
         let arcs = make_arc_weak_list(len);
         drop(arcs);
     }
+
+    // Additional strong references.  Does not cause stack overflows because
+    // drop recursion does not go down into the branches of a `Datum` node,
+    // because the `Datum` is not dropped yet, when there is more than one
+    // strong reference to it.  When the strong count reaches 1, the dropping
+    // will be handled by our algorithm that avoids drop recursion.
+
+    #[test]
+    fn deep_rc_multi_strong_list() {
+        let len = list_len(get_arg_tree_size());
+        // Strong refs to every "next" tail node
+        let strong_step = 1;
+        let (rcs, _strong_refs) = make_rc_multi_strong_list(len, strong_step);
+        // Only drops the top node because the others have additional strong
+        // references to them.
+        drop(rcs);
+        // Rest of the dropping, using our algorithm, occurs when `_strong_refs`
+        // is dropped here.
+    }
+
+    #[test]
+    fn deep_arc_multi_strong_list() {
+        let len = list_len(get_arg_tree_size());
+        // Strong refs to every "next" tail node
+        let strong_step = 1;
+        let (arcs, _strong_refs) = make_arc_multi_strong_list(len, strong_step);
+        // Only drops the top node because the others have additional strong
+        // references to them.
+        drop(arcs);
+        // Rest of the dropping, using our algorithm, occurs when `_strong_refs`
+        // is dropped here.
+    }
 }

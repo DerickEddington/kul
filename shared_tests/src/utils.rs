@@ -27,71 +27,73 @@ pub fn get_arg_tree_size() -> usize {
 }
 
 /// Pure lists
-pub fn make_list<N, E, DR>(len: usize, new: &N, e: E) -> DR
-    where N: Fn(Datum<'static, usize, DR>) -> DR,
-          E: Fn(usize, &N) -> DR,
+pub fn make_list<N, E, DR>(len: usize, new: &mut N, e: E) -> DR
+    where N: FnMut(Datum<'static, usize, DR>) -> DR,
+          E: Fn(usize, &mut N) -> DR,
           DR: DerefTryMut<Target = Datum<'static, usize, DR>>,
 {
     let mut cnt: usize = 1;
     let mut d = new(EmptyList);
     while cnt <= len {
-        d = new(List{elem: e(cnt, &new), next: d});
+        let elem = e(cnt, new);
+        d = new(List{elem, next: d});
         cnt += 1;
     }
     d
 }
 
-pub fn make_basic_list<N, DR>(len: usize, new: &N) -> DR
-    where N: Fn(Datum<'static, usize, DR>) -> DR,
+pub fn make_basic_list<N, DR>(len: usize, new: &mut N) -> DR
+    where N: FnMut(Datum<'static, usize, DR>) -> DR,
           DR: DerefTryMut<Target = Datum<'static, usize, DR>>,
 {
     make_list(len, new, |cnt, new| new(Extra(cnt)))
 }
 
 pub fn make_box_list(len: usize) -> DatumBox<'static, usize> {
-    make_basic_list(len, &DatumBox::new)
+    make_basic_list(len, &mut DatumBox::new)
 }
 
 pub fn make_rc_list(len: usize) -> DatumRc<'static, usize> {
-    make_basic_list(len, &DatumRc::new)
+    make_basic_list(len, &mut DatumRc::new)
 }
 
 pub fn make_arc_list(len: usize) -> DatumArc<'static, usize> {
-    make_basic_list(len, &DatumArc::new)
+    make_basic_list(len, &mut DatumArc::new)
 }
 
 /// Pure nests
-pub fn make_nest<N, O, DR>(depth: usize, new: &N, o: O) -> DR
-    where N: Fn(Datum<'static, usize, DR>) -> DR,
-          O: Fn(usize, &N) -> DR,
+pub fn make_nest<N, O, DR>(depth: usize, new: &mut N, o: O) -> DR
+    where N: FnMut(Datum<'static, usize, DR>) -> DR,
+          O: Fn(usize, &mut N) -> DR,
           DR: DerefTryMut<Target = Datum<'static, usize, DR>>,
 {
     let mut cnt: usize = 1;
     let mut d = new(EmptyNest);
     while cnt <= depth {
-        d = new(Combination{operator: d, operands: o(cnt, &new)});
+        let operands = o(cnt, new);
+        d = new(Combination{operator: d, operands});
         cnt += 1;
     }
     d
 }
 
-pub fn make_basic_nest<N, DR>(depth: usize, new: &N) -> DR
-    where N: Fn(Datum<'static, usize, DR>) -> DR,
+pub fn make_basic_nest<N, DR>(depth: usize, new: &mut N) -> DR
+    where N: FnMut(Datum<'static, usize, DR>) -> DR,
           DR: DerefTryMut<Target = Datum<'static, usize, DR>>,
 {
     make_nest(depth, new, |_, new| new(EmptyList))
 }
 
 pub fn make_box_nest(depth: usize) -> DatumBox<'static, usize> {
-    make_basic_nest(depth, &DatumBox::new)
+    make_basic_nest(depth, &mut DatumBox::new)
 }
 
 pub fn make_rc_nest(depth: usize) -> DatumRc<'static, usize> {
-    make_basic_nest(depth, &DatumRc::new)
+    make_basic_nest(depth, &mut DatumRc::new)
 }
 
 pub fn make_arc_nest(depth: usize) -> DatumArc<'static, usize> {
-    make_basic_nest(depth, &DatumArc::new)
+    make_basic_nest(depth, &mut DatumArc::new)
 }
 
 /// Zig-zags
@@ -133,8 +135,8 @@ pub fn make_arc_zigzag(depth: usize) -> DatumArc<'static, usize> {
 }
 
 /// Maximum fans
-pub fn make_fan<N, DR>(depth: usize, new: &N) -> DR
-    where N: Fn(Datum<'static, usize, DR>) -> DR,
+pub fn make_fan<N, DR>(depth: usize, new: &mut N) -> DR
+    where N: FnMut(Datum<'static, usize, DR>) -> DR,
           DR: DerefTryMut<Target = Datum<'static, usize, DR>>,
 {
     make_nest(depth, new,
@@ -144,29 +146,29 @@ pub fn make_fan<N, DR>(depth: usize, new: &N) -> DR
 }
 
 pub fn make_box_fan(depth: usize) -> DatumBox<'static, usize> {
-    make_fan(depth, &DatumBox::new)
+    make_fan(depth, &mut DatumBox::new)
 }
 
 pub fn make_rc_fan(depth: usize) -> DatumRc<'static, usize> {
-    make_fan(depth, &DatumRc::new)
+    make_fan(depth, &mut DatumRc::new)
 }
 
 pub fn make_arc_fan(depth: usize) -> DatumArc<'static, usize> {
-    make_fan(depth, &DatumArc::new)
+    make_fan(depth, &mut DatumArc::new)
 }
 
 /// "V"s
-pub fn make_vee<N, DR>(left_depth: usize, right_depth: usize, new: &N) -> DR
+pub fn make_vee<N, DR>(left_depth: usize, right_depth: usize, mut new: &N) -> DR
     where N: Fn(Datum<'static, usize, DR>) -> DR,
           DR: DerefTryMut<Target = Datum<'static, usize, DR>>,
 {
     let left = if left_depth > 0 {
-        Some(make_basic_nest(left_depth - 1, new))
+        Some(make_basic_nest(left_depth - 1, &mut new))
     } else {
         None
     };
     let right = if right_depth > 0 {
-        Some(make_basic_list(right_depth - 1, new))
+        Some(make_basic_list(right_depth - 1, &mut new))
     } else {
         None
     };
@@ -233,6 +235,52 @@ pub fn make_arc_weak_list(len: usize) -> DatumArc<'static, ExtraWeakArc> {
 
 /// Allows the needed recursive type definition
 pub struct ExtraWeakArc (Cell<Option<WeakArc<ArcDatum<'static, ExtraWeakArc>>>>);
+
+/// `Rc` lists with additional strong references to some of the "next" tails
+pub fn make_rc_multi_strong_list(len: usize, strong_step: usize)
+                                 -> (DatumRc<'static, usize>,
+                                     Vec<Rc<RcDatum<'static, usize>>>)
+{
+    let mut v = Vec::with_capacity(len / strong_step);
+    let mut counter: usize = 0;
+    let l = make_basic_list(len,
+                            &mut |d| {
+                                let drc = DatumRc::new(d);
+                                if let List{..} = &*drc {
+                                    counter += 1;
+                                    if counter != len // final head not cloned
+                                        && counter % strong_step == 0
+                                    {
+                                        v.push(Rc::clone(&drc.0));
+                                    }
+                                }
+                                drc
+                            });
+    (l, v)
+}
+
+/// `Arc` lists with additional strong references to some of the "next" tails
+pub fn make_arc_multi_strong_list(len: usize, strong_step: usize)
+                                  -> (DatumArc<'static, usize>,
+                                      Vec<Arc<ArcDatum<'static, usize>>>)
+{
+    let mut v = Vec::with_capacity(len / strong_step);
+    let mut counter: usize = 0;
+    let l = make_basic_list(len,
+                            &mut |d| {
+                                let darc = DatumArc::new(d);
+                                if let List{..} = &*darc {
+                                    counter += 1;
+                                    if counter != len // final head not cloned
+                                        && counter % strong_step == 0
+                                    {
+                                        v.push(Arc::clone(&darc.0));
+                                    }
+                                }
+                                darc
+                            });
+    (l, v)
+}
 
 
 // This only tests the internal units of this module.  We need to make sure that
