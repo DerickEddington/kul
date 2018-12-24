@@ -567,8 +567,6 @@ mod tests {
     // zig-zags (alternating left-right depth) have the optimal shapes for our
     // drop algorithm and are the fastest at being dropped.
 
-    fn list_len(size: usize) -> usize { (size - 1) / 2 }
-
     #[test]
     fn deep_box_list() {
         let len = list_len(get_arg_tree_size());
@@ -590,8 +588,6 @@ mod tests {
         drop(arcs);
     }
 
-    fn nest_depth(size: usize) -> usize { list_len(size) }
-
     #[test]
     fn deep_box_nest() {
         let depth = nest_depth(get_arg_tree_size());
@@ -612,8 +608,6 @@ mod tests {
         let arcs = make_arc_nest(depth);
         drop(arcs);
     }
-
-    fn zigzag_depth(size: usize) -> usize { list_len(size) }
 
     #[test]
     fn deep_box_zigzag() {
@@ -641,14 +635,6 @@ mod tests {
     // would have to be too huge to have enough depth to overflow the stack
     // without our recursion-avoiding Drop impl, but this still exercises our
     // drop algorithm in a unique suboptimal way.
-
-    fn fan_depth(size: usize) -> usize {
-        use std::usize::MAX;
-        assert!(0 < size && size < MAX);
-        let usize_width = MAX.count_ones();
-        let log2floor = |n: usize| { (usize_width - 1) - n.leading_zeros() };
-        (log2floor(size + 1) - 1) as usize
-    }
 
     #[test]
     fn deep_box_fan() {
@@ -681,8 +667,9 @@ mod tests {
     // would be too inefficient in general.
 
     fn vee2r_depths(size: usize) -> (usize, usize) {
-        let left_size = size - 4;
-        (nest_depth(left_size), 2)
+        let right_size = 2 * 1 + 1; // list of length 1
+        let left_size = size - (1 + right_size); // extra 1 for top node
+        vee_depths(left_size, right_size)
     }
 
     #[test]

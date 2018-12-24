@@ -42,6 +42,10 @@ pub fn make_list<N, E, DR>(len: usize, new: &mut N, e: E) -> DR
     d
 }
 
+pub fn list_len(size: usize) -> usize {
+    (size - 1) / 2
+}
+
 pub fn make_basic_list<N, DR>(len: usize, new: &mut N) -> DR
     where N: FnMut(Datum<'static, usize, DR>) -> DR,
           DR: DerefTryMut<Target = Datum<'static, usize, DR>>,
@@ -77,6 +81,10 @@ pub fn make_nest<N, O, DR>(depth: usize, new: &mut N, o: O) -> DR
     d
 }
 
+pub fn nest_depth(size: usize) -> usize {
+    list_len(size)
+}
+
 pub fn make_basic_nest<N, DR>(depth: usize, new: &mut N) -> DR
     where N: FnMut(Datum<'static, usize, DR>) -> DR,
           DR: DerefTryMut<Target = Datum<'static, usize, DR>>,
@@ -97,29 +105,44 @@ pub fn make_arc_nest(depth: usize) -> DatumArc<'static, usize> {
 }
 
 /// Zig-zags
-pub fn make_zigzag<N, E, O, DR>(depth: usize, new: &N, e: E, o: O) -> DR
+pub fn make_zigzag<N, EM, OD, EV, L, R, DR>
+    (depth: usize, new: &N, empty: EM, odd: OD, even: EV, left: L, right: R)
+     -> DR
     where N: Fn(Datum<'static, usize, DR>) -> DR,
-          E: Fn(usize, &N) -> DR,
-          O: Fn(usize, &N) -> DR,
+          EM: Fn() -> Datum<'static, usize, DR>,
+          OD: Fn(DR, DR) -> Datum<'static, usize, DR>,
+          EV: Fn(DR, DR) -> Datum<'static, usize, DR>,
+          L: Fn(usize, &N) -> DR,
+          R: Fn(usize, &N) -> DR,
           DR: DerefTryMut<Target = Datum<'static, usize, DR>>,
 {
     let mut cnt: usize = 1;
-    let mut d = new(EmptyList);
+    let mut d = new(empty());
     while cnt <= depth {
-        d = new(Combination{operator: d, operands: o(cnt, &new)});
+        d = new(odd(d, right(cnt, &new)));
         cnt += 1;
         if cnt <= depth {
-            d = new(List{elem: e(cnt, &new), next: d});
+            d = new(even(left(cnt, &new), d));
             cnt += 1;
         }
     }
     d
 }
+
+pub fn zigzag_depth(size: usize) -> usize {
+    list_len(size)
+}
+
 pub fn make_basic_zigzag<N, DR>(depth: usize, new: &N) -> DR
     where N: Fn(Datum<'static, usize, DR>) -> DR,
           DR: DerefTryMut<Target = Datum<'static, usize, DR>>,
 {
-    make_zigzag(depth, new, |cnt, new| new(Extra(cnt)), |_, new| new(EmptyList))
+    make_zigzag(depth, new,
+                || EmptyList,
+                |operator, operands| Combination{operator, operands},
+                |elem, next| List{elem, next},
+                |cnt, new| new(Extra(cnt)),
+                |_, new| new(EmptyList))
 }
 
 pub fn make_box_zigzag(depth: usize) -> DatumBox<'static, usize> {
@@ -143,6 +166,14 @@ pub fn make_fan<N, DR>(depth: usize, new: &mut N) -> DR
               |cnt, new|
               make_list(cnt - 1, new,
                         |cnt, new| make_fan(cnt - 1, new)))
+}
+
+pub fn fan_depth(size: usize) -> usize {
+    use std::usize::MAX;
+    assert!(0 < size && size < MAX);
+    let usize_width = MAX.count_ones();
+    let log2floor = |n: usize| { (usize_width - 1) - n.leading_zeros() };
+    (log2floor(size + 1) - 1) as usize
 }
 
 pub fn make_box_fan(depth: usize) -> DatumBox<'static, usize> {
@@ -178,6 +209,10 @@ pub fn make_vee<N, DR>(left_depth: usize, right_depth: usize, mut new: &N) -> DR
     } else {
         new(EmptyNest)
     }
+}
+
+pub fn vee_depths(left_size: usize, right_size: usize) -> (usize, usize) {
+    (nest_depth(left_size) + 1, list_len(right_size) + 1)
 }
 
 pub fn make_box_vee(left_depth: usize, right_depth: usize) -> DatumBox<'static, usize> {

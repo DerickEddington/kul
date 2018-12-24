@@ -166,7 +166,9 @@ pub enum Datum<'s, ExtraType, DatumRef>
 
 /// This allows different concrete [`Datum`](enum.Datum.html) types to be
 /// compared with each other for equality if their ["extra"
-/// types](enum.Datum.html#variant.Extra) can be.
+/// types](enum.Datum.html#variant.Extra) can be.  This also avoids stack
+/// overflows for long lists and deep nests (but can still overflow on other
+/// deep tree shapes, but those are rare).
 impl<'s1, 's2, ET1, ET2, DR1, DR2>
     PartialEq<Datum<'s2, ET2, DR2>>
     for Datum<'s1, ET1, DR1>
@@ -175,26 +177,31 @@ impl<'s1, 's2, ET1, ET2, DR1, DR2>
           ET1: PartialEq<ET2>,
 {
     fn eq(&self, other: &Datum<'s2, ET2, DR2>) -> bool {
-        match (self, other) {
-            (Text(ps1), Text(ps2))
-                => ps1.val == ps2.val,
-            (Combination{operator: rtr1, operands: rnds1},
-             Combination{operator: rtr2, operands: rnds2})
-                => **rtr1 == **rtr2 && **rnds1 == **rnds2,
-            (EmptyNest, EmptyNest)
-                => true,
-            (List{elem: e1, next: n1}, List{elem: e2, next: n2})
-                // TODO: Instead of tree-recursion using limited stack space,
-                // use a loop to compare the `next` tails, so that very long
-                // lists don't blow the stack.  In langs like Scheme, this would
-                // already automatically be tail-recursive, but alas...
-                => **e1 == **e2 && **n1 == **n2,
-            (EmptyList, EmptyList)
-                => true,
-            (Extra(et1), Extra(et2))
-                => et1 == et2,
-            _
-                => false
+        let (mut slf, mut oth) = (self, other);
+        loop {
+            match (slf, oth) {
+                (Text(ps1), Text(ps2))
+                    => break ps1.val == ps2.val,
+                (Combination{operator: rtr1, operands: rnds1},
+                 Combination{operator: rtr2, operands: rnds2})
+                    => if **rnds1 == **rnds2 {
+                        slf = &**rtr1;
+                        oth = &**rtr2;
+                    } else { break false },
+                (EmptyNest, EmptyNest)
+                    => break true,
+                (List{elem: e1, next: n1}, List{elem: e2, next: n2})
+                    => if **e1 == **e2 {
+                        slf = &**n1;
+                        oth = &**n2;
+                    } else { break false },
+                (EmptyList, EmptyList)
+                    => break true,
+                (Extra(et1), Extra(et2))
+                    => break et1 == et2,
+                _
+                    => break false
+            }
         }
     }
 }

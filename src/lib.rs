@@ -139,6 +139,7 @@ impl<'s, ET> DerefTryMut for DatumArc<'s, ET> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kruvi_shared_tests::utils::*;
 
     #[test]
     fn datum_equality() {
@@ -184,5 +185,126 @@ mod tests {
             next: DatumArc::new(EmptyList::<(), DatumArc<()>>)};
         let f = e.clone();
         assert_eq!(e, f);
+    }
+
+    // The following tests core functionality, equality comparison of `Datum`s
+    // without overflowing the stack on `eq` recursion, which usually wouldn't
+    // be done in this non-core crate, but we need to have heap allocation to
+    // make the deep trees.  (This also exercises our `Drop` implementation that
+    // avoids extensive drop recursion that would otherwise overflow the stack,
+    // but that is tested primarily in the `drop` module.)
+
+    #[test]
+    fn deep_list_equality() {
+        let len = list_len(get_arg_tree_size());
+
+        let boxes = make_box_list(len);
+        assert_eq!(boxes, boxes);
+
+        let rcs = make_rc_list(len);
+        assert_eq!(rcs, rcs);
+
+        let arcs = make_arc_list(len);
+        assert_eq!(arcs, arcs);
+
+        assert_eq!(*boxes, *rcs);
+        assert_eq!(*boxes, *arcs);
+        assert_eq!(*rcs, *arcs);
+    }
+
+    #[test]
+    fn deep_nest_equality() {
+        let depth = nest_depth(get_arg_tree_size());
+
+        let boxes = make_box_nest(depth);
+        assert_eq!(boxes, boxes);
+
+        let rcs = make_rc_nest(depth);
+        assert_eq!(rcs, rcs);
+
+        let arcs = make_arc_nest(depth);
+        assert_eq!(arcs, arcs);
+
+        assert_eq!(*boxes, *rcs);
+        assert_eq!(*boxes, *arcs);
+        assert_eq!(*rcs, *arcs);
+    }
+
+    #[test]
+    fn deep_zigzag_equality() {
+        let depth = zigzag_depth(get_arg_tree_size());
+
+        let boxes = make_box_zigzag(depth);
+        assert_eq!(boxes, boxes);
+
+        let rcs = make_rc_zigzag(depth);
+        assert_eq!(rcs, rcs);
+
+        let arcs = make_arc_zigzag(depth);
+        assert_eq!(arcs, arcs);
+
+        assert_eq!(*boxes, *rcs);
+        assert_eq!(*boxes, *arcs);
+        assert_eq!(*rcs, *arcs);
+    }
+
+    // Note: This still causes stack overflows because the unusual zig-zag shape
+    // still causes extensive `eq` call recursion.
+    #[test]
+    #[ignore]
+    fn deep_unusual_zigzag_equality_overflow()
+    {
+        fn make_unusual_zigzag(depth: usize) -> DatumBox<'static, usize> {
+            use super::Datum::*;
+            make_zigzag(depth, &DatumBox::new,
+                        || EmptyNest,
+                        |elem, next| List{elem, next},
+                        |operator, operands| Combination{operator, operands},
+                        |cnt, new| new(Extra(cnt)),
+                        |_, new| new(EmptyList))
+        }
+
+        let depth = zigzag_depth(get_arg_tree_size());
+        let boxes = make_unusual_zigzag(depth);
+        assert_eq!(boxes, boxes);
+    }
+
+    // Note: These fan shapes wouldn't be expected to cause stack overflows even
+    // with a naive equality implementation because the depth isn't enough.
+    #[test]
+    fn deep_fan_equality() {
+        let depth = fan_depth(get_arg_tree_size());
+
+        let boxes = make_box_fan(depth);
+        assert_eq!(boxes, boxes);
+
+        let rcs = make_rc_fan(depth);
+        assert_eq!(rcs, rcs);
+
+        let arcs = make_arc_fan(depth);
+        assert_eq!(arcs, arcs);
+
+        assert_eq!(*boxes, *rcs);
+        assert_eq!(*boxes, *arcs);
+        assert_eq!(*rcs, *arcs);
+    }
+
+    #[test]
+    fn deep_vee_equality() {
+        let half_size = get_arg_tree_size() / 2;
+        let (left_depth, right_depth) = vee_depths(half_size, half_size);
+
+        let boxes = make_box_vee(left_depth, right_depth);
+        assert_eq!(boxes, boxes);
+
+        let rcs = make_rc_vee(left_depth, right_depth);
+        assert_eq!(rcs, rcs);
+
+        let arcs = make_arc_vee(left_depth, right_depth);
+        assert_eq!(arcs, arcs);
+
+        assert_eq!(*boxes, *rcs);
+        assert_eq!(*boxes, *arcs);
+        assert_eq!(*rcs, *arcs);
     }
 }
