@@ -337,6 +337,7 @@ impl<'s, ET> DropAlgo1DatumRef for DatumBox<'s, ET>
 /// Use [algorithm #1](drop/fn.drop_datum_algo1.html) for dropping, to avoid
 /// extensive drop recursion.
 impl<'s, ET> Drop for DatumBox<'s, ET> {
+    #[inline]
     fn drop(&mut self) {
         drop_datum_algo1(self);
     }
@@ -516,6 +517,7 @@ impl<'s, ET> DropAlgo1DatumRef for DatumRc<'s, ET>
 /// Use [algorithm #1](drop/fn.drop_datum_algo1.html) for dropping, to avoid
 /// extensive drop recursion.
 impl<'s, ET> Drop for DatumRc<'s, ET> {
+    #[inline]
     fn drop(&mut self) {
         drop_datum_algo1(self);
     }
@@ -565,6 +567,7 @@ impl<'s, ET> DropAlgo1DatumRef for DatumArc<'s, ET>
 /// Use [algorithm #1](drop/fn.drop_datum_algo1.html) for dropping, to avoid
 /// extensive drop recursion.
 impl<'s, ET> Drop for DatumArc<'s, ET> {
+    #[inline]
     fn drop(&mut self) {
         drop_datum_algo1(self);
     }
