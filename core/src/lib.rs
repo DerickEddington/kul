@@ -141,8 +141,8 @@ impl Deref for PosStr<'_> {
 
 /// The abstract syntax tree (AST) type returned by parsing.  It is extensible
 /// by the `ExtraType` parameter, and it is parameterized over the `DatumRef`
-/// type used to refer to the other `Datum`s in an AST DAG (directed acyclic
-/// graph).
+/// type used to refer to the other `Datum`s in an AST.  It can also be used for
+/// DAGs.
 #[derive(Copy, Clone, Eq, Debug)]
 pub enum Datum<'s, ExtraType, DatumRef>
     where DatumRef: DerefTryMut<Target = Datum<'s, ExtraType, DatumRef>>,
