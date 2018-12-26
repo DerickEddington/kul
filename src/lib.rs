@@ -142,7 +142,7 @@ mod tests {
     use kruvi_shared_tests::utils::*;
 
     #[test]
-    fn datum_equality() {
+    fn datum_ref_equality_same() {
         use super::Datum::*;
 
         assert_eq!(DatumBox::new(EmptyNest::<u32, DatumBox<u32>>),
@@ -162,6 +162,28 @@ mod tests {
 
         assert_ne!(DatumArc::new(EmptyNest::<(), DatumArc<()>>),
                    DatumArc::new(EmptyList::<(), DatumArc<()>>));
+    }
+
+    #[test]
+    fn datum_equality_diff_ref() {
+        use super::Datum::*;
+
+        assert_eq!(*DatumBox::new(EmptyNest::<u32, _>),
+                   *DatumRc::new(EmptyNest::<u32, _>));
+
+        assert_eq!(*DatumBox::new(EmptyNest::<f64, _>),
+                   *DatumArc::new(EmptyNest::<f64, _>));
+
+        assert_eq!(*DatumBox::new(EmptyList::<bool, _>),
+                   *DatumRc::new(EmptyList::<bool, _>));
+
+        assert_ne!(*DatumArc::new(EmptyList::<i128, _>),
+                   *DatumRc::new(EmptyNest::<i128, _>));
+
+        assert_eq!(*DatumBox::new(List{elem: DatumBox::new(Extra('λ')),
+                                       next: DatumBox::new(EmptyList)}),
+                   *DatumRc::new(List{elem: DatumRc::new(Extra('λ')),
+                                      next: DatumRc::new(EmptyList)}));
     }
 
     #[test]
