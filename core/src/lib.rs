@@ -47,8 +47,6 @@
 //! both into a hybrid and where there are two complementary ways of processing
 //! forms like in Kernel.
 
-// TODO: Remove RefMut support after initial commit
-
 // TODO?: Use mod modules to organize better?
 
 // TODO: Review what's pub and not
@@ -59,7 +57,6 @@ use core::mem::replace;
 use core::ops::{Deref, DerefMut};
 use core::str::CharIndices;
 use core::iter::{Peekable, Enumerate};
-use core::cell::RefMut;
 
 use self::Datum::*;
 use self::Combiner::*;
@@ -265,74 +262,6 @@ impl<'d, 's, ET> DerefMut for DatumMutRef<'d, 's, ET>
 /// reference type.
 impl<'d, 's, ET> DerefTryMut for DatumMutRef<'d, 's, ET>
     where 's: 'd
-{
-    fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
-        Some(DerefMut::deref_mut(this))
-    }
-}
-
-// TODO: Does providing support for `RefMut`s make enough sense?  Why would
-// anyone ever want to use RefMuts instead of plain &mut which are already
-// supported?  Further, using RefMuts has an inherent issue in that RefMut
-// implements Drop and our recursive wrapper type must give the same lifetime to
-// both a RefMutDatum and the referents of the DatumRefMuts it contains, which
-// the compiler rejects due to the lifetime of the referents not strictly
-// outliving the containing RefMut's lifetime.  This means that RefMutDatum
-// cannot be used without resorting to using `ManuallyDrop`.
-
-/// This assists in `RefMut`s of `RefCell`s being used as the `Datum` reference
-/// type.
-pub type RefMutDatum<'d, 's, ET> = Datum<'s, ET, DatumRefMut<'d, 's, ET>>;
-
-/// This wrapper allows the needed recursive type definition for `RefMut`s of
-/// `RefCell`s to be used as the `Datum` reference type.
-#[derive(Debug)]
-pub struct DatumRefMut<'d, 's, ET>(pub RefMut<'d, RefMutDatum<'d, 's, ET>>);
-
-impl<'d, 's, ET> Deref for DatumRefMut<'d, 's, ET>
-    where 's: 'd
-{
-    type Target = RefMutDatum<'d, 's, ET>;
-
-    fn deref(&self) -> &Self::Target {
-        Deref::deref(&self.0)
-    }
-}
-
-impl<'d, 's, ET> DerefMut for DatumRefMut<'d, 's, ET>
-    where 's: 'd
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        DerefMut::deref_mut(&mut self.0)
-    }
-}
-
-// Crazy hackaround idea that didn't work
-// pub type RefMutDatum<'f, 'c, 's, ET> = Datum<'s, ET, DatumRefMut<'f, 'c, 's, ET>>;
-//
-// pub struct DatumRefMut<'f, 'c, 's, ET>(
-//     &'f dyn (for<'r> Fn(&'r RefCell<RefMutDatum<'f, 'c, 's, ET>>)
-//                         -> &'r mut RefMut<'r, RefMutDatum<'f, 'c, 's, ET>>),
-//     &'c RefCell<RefMutDatum<'f, 'c, 's, ET>>,
-// );
-//
-// impl<'f, 'c, 's, ET> Deref for DatumRefMut<'f, 'c, 's, ET> {
-//     type Target = RefMutDatum<'f, 'c, 's, ET>;
-//
-//     fn deref(&self) -> &Self::Target {
-//         Deref::deref((self.0)(self.1))
-//     }
-// }
-//
-// impl<'f, 'c, 's, ET> DerefMut for DatumRefMut<'f, 'c, 's, ET> {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         DerefMut::deref_mut((self.0)(self.1))
-//     }
-// }
-
-/// This allows `RefMut`s of `RefCell`s to be used as the `Datum` reference type.
-impl<'d, 's, ET> DerefTryMut for DatumRefMut<'d, 's, ET>
-    where 's: 'd,
 {
     fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
         Some(DerefMut::deref_mut(this))
@@ -985,101 +914,13 @@ mod tests {
                    Extra::<(), DatumMutRef<()>>(()));
 
         // TODO: More cases, including !=
-
-        // TODO: Cases for DatumRefMut with DatumRefMut, if I keep that type
     }
 
-    // #[test]
-    // fn ref_cell_crap() {
-    //     use core::cell::RefCell;
-    //
-    //     // let en2 = RefCell::new(Datum::EmptyNest::<'_, (), DatumRefMut<'_, '_, ()>>);
-    //     // // let el2 = RefCell::new(Datum::EmptyList::<(), DatumRefMut<'_, '_, ()>>);
-    //     // // {
-    //     // //     let mut d = Datum::List::<(), DatumRefMut<'_, '_, ()>>{
-    //     // //                     elem: DatumRefMut(en2.borrow_mut()),
-    //     // //                     next: DatumRefMut(el2.borrow_mut())};
-    //     // // }
-    //     // // let wtf = en2.borrow_mut();
-    //     // // let wtf: DatumRefMut<'l, '_, ()> = DatumRefMut(en2.borrow_mut());
-    //     // let wtf = DatumRefMut(en2.borrow_mut());
-    //     // // *wtf = Datum::EmptyList;
-    //
-    //     // Crazy
-    //     // let rc = RefCell::new(Datum::EmptyNest::<'_, (), DatumRefMut<'_, '_, '_, ()>>);
-    //     // let mut mr = rc.borrow_mut();
-    //     // let f: &dyn (for<'r> Fn(&'r RefCell<RefMutDatum<'_, '_, '_, _>>)
-    //     //                 -> &'r mut RefMut<'r, RefMutDatum<'_, '_, '_, _>>)
-    //     //     = &(move |_| &mut mr);
-    //     // let wtf = DatumRefMut(f, &rc);
-    //
-    //     // Can't even do this!
-    //     // let en = RefCell::new(Datum::EmptyNest::<'_, (), RefMut<'_, Datum<'_, (), RefMut<'_, Datum<'_, (), RefMut<'_, _>>>>>>);
-    //     // let el = RefCell::new(Datum::EmptyList::<'_, (), RefMut<'_, Datum<'_, (), RefMut<'_, Datum<'_, (), RefMut<'_, _>>>>>>);
-    //     // let l = Datum::List::<'_, (), RefMut<'_, Datum<'_, (), RefMut<'_, Datum<'_, (), RefMut<'_, _>>>>>> {
-    //     //     elem: en.borrow_mut(),
-    //     //     next: el.borrow_mut(),
-    //     // };
-    // }
-
-    #[test]
-    fn datum_equality_diff_ref() {
-        use super::Datum::*;
-        // use core::cell::RefCell;
-
-        // The commented-out cases don't work due to `RefMut` implementing
-        // `Drop` and the lifetimes not strictly-outliving.
-
-        assert_eq!(Text::<(), DatumMutRef<()>>(
-                       PosStr{val:"", src:"", byte_pos:0, char_pos:0}),
-                   Text::<(), DatumRefMut<()>>(
-                       PosStr{val:"", src:"", byte_pos:0, char_pos:0}));
-
-        // {
-        //     let rtr1 = &mut EmptyNest::<(), DatumMutRef<()>>;
-        //     let rnds1 = &mut EmptyList::<(), DatumMutRef<()>>;
-        //     let d1 = Combination::<(), DatumMutRef<()>>{
-        //                  operator: DatumMutRef(rtr1),
-        //                  operands: DatumMutRef(rnds1)};
-        //     let en2 = RefCell::new(EmptyNest::<(), DatumRefMut<()>>);
-        //     let el2 = RefCell::new(EmptyList::<(), DatumRefMut<()>>);
-        //     {
-        //         let d2 = Combination::<(), DatumRefMut<()>>{
-        //                      operator: DatumRefMut(en2.borrow_mut()),
-        //                      operands: DatumRefMut(el2.borrow_mut())};
-        //         assert!(d1 == d2);
-        //     }
-        // }
-
-        assert_eq!(EmptyNest::<(), DatumMutRef<()>>,
-                   EmptyNest::<(), DatumRefMut<()>>);
-
-        // {
-        //     let e1 = &mut EmptyNest::<(), DatumMutRef<()>>;
-        //     let n1 = &mut EmptyList::<(), DatumMutRef<()>>;
-        //     let d1 = List::<(), DatumMutRef<()>>{elem: DatumMutRef(e1),
-        //                                                 next: DatumMutRef(n1)};
-        //     let en2 = RefCell::new(EmptyNest::<(), DatumRefMut<()>>);
-        //     let el2 = RefCell::new(EmptyList::<(), DatumRefMut<()>>);
-        //     let d2 = List::<(), DatumRefMut<()>>{
-        //                  elem: DatumRefMut(en2.borrow_mut()),
-        //                  next: DatumRefMut(el2.borrow_mut())};
-        //     assert_eq!(d1, d2);
-        // }
-
-        assert_eq!(EmptyList::<(), DatumMutRef<()>>,
-                   EmptyList::<(), DatumRefMut<()>>);
-
-        assert!(Extra::<(), DatumMutRef<()>>(())
-                == Extra::<(), DatumRefMut<()>>(()));
-    }
-
-    #[test]
-    fn datum_copy_clone() {
-        use super::Datum::*;
+    mod datumref {
+        use super::*;
 
         #[derive(Copy, Clone, Debug)]
-        struct DatumRef<'d, 's, ET>(&'d Datum<'s, ET, DatumRef<'d, 's, ET>>);
+        pub struct DatumRef<'d, 's, ET>(pub &'d Datum<'s, ET, DatumRef<'d, 's, ET>>);
 
         impl<'d, 's, ET> Deref for DatumRef<'d, 's, ET>
             where 's: 'd
@@ -1098,6 +939,44 @@ mod tests {
                 None
             }
         }
+    }
+
+    #[test]
+    fn datum_equality_diff_ref() {
+        use super::Datum::*;
+        use self::datumref::DatumRef;
+
+        assert_eq!(Text::<(), DatumMutRef<()>>(
+                       PosStr{val:"", src:"", byte_pos:0, char_pos:0}),
+                   Text::<(), DatumRef<()>>(
+                       PosStr{val:"", src:"", byte_pos:0, char_pos:0}));
+
+        assert_eq!(Combination::<(), DatumMutRef<()>>{
+                       operator: DatumMutRef(&mut EmptyNest),
+                       operands: DatumMutRef(&mut EmptyList)},
+                   Combination::<(), DatumRef<()>>{
+                       operator: DatumRef(&EmptyNest),
+                       operands: DatumRef(&EmptyList)});
+
+        assert_eq!(EmptyNest::<(), DatumMutRef<()>>,
+                   EmptyNest::<(), DatumRef<()>>);
+
+        assert_eq!(List::<(), DatumMutRef<()>>{elem: DatumMutRef(&mut EmptyNest),
+                                               next: DatumMutRef(&mut EmptyList)},
+                   List::<(), DatumRef<()>>{elem: DatumRef(&EmptyNest),
+                                            next: DatumRef(&EmptyList)});
+
+        assert_eq!(EmptyList::<(), DatumMutRef<()>>,
+                   EmptyList::<(), DatumRef<()>>);
+
+        assert!(Extra::<(), DatumMutRef<()>>(())
+                == Extra::<(), DatumRef<()>>(()));
+    }
+
+    #[test]
+    fn datum_copy_clone() {
+        use super::Datum::*;
+        use self::datumref::DatumRef;
 
         let a = List::<(), DatumRef<()>>{
             elem: DatumRef(&EmptyNest::<(), DatumRef<()>>),

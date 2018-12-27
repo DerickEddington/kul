@@ -1,12 +1,49 @@
 #![no_std]
 
-use core::cell::RefCell;
+use core::cell::{RefCell, RefMut};
+use core::ops::{Deref, DerefMut};
 use core::mem::ManuallyDrop;
 
 use kruvi_core::*;
 use kruvi_core::Datum::*;
 use kruvi_shared_tests::*;
 
+
+/// This assists in `RefMut`s of `RefCell`s being used as the `Datum` reference
+/// type.
+pub type RefMutDatum<'d, 's, ET> = Datum<'s, ET, DatumRefMut<'d, 's, ET>>;
+
+/// This wrapper allows the needed recursive type definition for `RefMut`s of
+/// `RefCell`s to be used as the `Datum` reference type.
+#[derive(Debug)]
+pub struct DatumRefMut<'d, 's, ET>(pub RefMut<'d, RefMutDatum<'d, 's, ET>>);
+
+impl<'d, 's, ET> Deref for DatumRefMut<'d, 's, ET>
+    where 's: 'd
+{
+    type Target = RefMutDatum<'d, 's, ET>;
+
+    fn deref(&self) -> &Self::Target {
+        Deref::deref(&self.0)
+    }
+}
+
+impl<'d, 's, ET> DerefMut for DatumRefMut<'d, 's, ET>
+    where 's: 'd
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        DerefMut::deref_mut(&mut self.0)
+    }
+}
+
+/// This allows `RefMut`s of `RefCell`s to be used as the `Datum` reference type.
+impl<'d, 's, ET> DerefTryMut for DatumRefMut<'d, 's, ET>
+    where 's: 'd,
+{
+    fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
+        Some(DerefMut::deref_mut(this))
+    }
+}
 
 #[derive(Debug)]
 struct ParserRefCell<'a> {
