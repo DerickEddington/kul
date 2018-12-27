@@ -321,14 +321,6 @@ mod source_iter {
 use self::source_iter::*;
 
 
-// TODO: Our OperativeTrait and ApplicativeTrait usage allows a Combiner to be
-// parameterized with types that do not have the same <'s, ET, DR, AS>, but this
-// should not be allowed.  I did it like this so that Combiner can avoid having
-// 's, ET, DR, AS in its parameterization, because I had some other problem with
-// that I can't quite remember from when the rest of this crate was different.
-// Maybe it can go back to having those and be bounded like:
-// DerefMut<Target = OpFn<'s, ET, DR, AS>>
-
 // TODO: Exercise combiners in the test suite
 
 /// This module is needed so that the traits are public, as required by
@@ -344,6 +336,12 @@ use self::combiner::*;
 /// operands sub-form(s) to determine what should be substituted for the whole
 /// form.  The `OperativeRef` and `ApplicativeRef` type parameters determine the
 /// types used to refer to the functions.
+///
+/// While these parameters as defined here can allow a broad range of types
+/// (including possibly inconsistent ones), further bounds on these are required
+/// by the [`Parser`](trait.Parser.html) definition which ensures that only
+/// consistent ones can be used with it, which is the only intended use of this
+/// type.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Combiner<OperativeRef, ApplicativeRef>
     where OperativeRef: DerefMut,
