@@ -124,7 +124,7 @@ impl<'s, ET> Deref for DatumArc<'s, ET> {
     }
 }
 
-/// This allows Arc` to be used as the `Datum` reference type.
+/// This allows `Arc` to be used as the `Datum` reference type.
 impl<'s, ET> DerefTryMut for DatumArc<'s, ET> {
     fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
         Arc::get_mut(&mut this.0)

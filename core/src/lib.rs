@@ -213,12 +213,14 @@ impl<'s1, 's2, ET1, ET2, DR1, DR2>
 /// space of the values allocated by
 /// [`Parser::new_datum`](trait.Parser.html#tymethod.new_datum), since this
 /// crate is intended to be usable in `no_std` environments which don't provide
-/// heap allocation.  The alternative of using tree-recursion to acheive
-/// temporary stack allocation for constructing the lists without mutation is
-/// not good because the stack is too small for large lists and it could
-/// realistically be exceeded (causing a crash).  While `no_std` environments
-/// might also have restricted limits to the amounts of `Datum`s that could be
-/// allocated, with our approach they can control the limit and can receive an
+/// heap allocation.
+///
+/// The alternative of using tree-recursion to acheive temporary stack
+/// allocation for constructing the lists without mutation is not good because
+/// the stack is too small for large lists and it could realistically be
+/// exceeded (causing a crash).  While `no_std` environments might also have
+/// restricted limits to the amounts of `Datum`s that could be allocated, with
+/// our approach they can control the limit and can receive an
 /// [`Error`](enum.Error.html#variant.AllocExhausted) value under their control
 /// if the limit is exceeded (instead of a crash).
 pub trait DerefTryMut: Deref
@@ -398,8 +400,9 @@ pub struct ParserConfig {
     pub nest_escape: char,
 }
 
-/// Represents: the characters used to delimit the nesting form; and the method
-/// of allocating the `Datum`s; and the environment of bindings of macros.
+/// Represents: the ability to parse a string; the characters used to delimit
+/// the nesting form; the method of allocating the `Datum`s; and the environment
+/// of bindings of macros.
 pub trait Parser<'s> {
     /// The `Datum` allocator state type.
     type AS;
