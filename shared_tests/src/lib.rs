@@ -129,10 +129,6 @@ impl<'s, ET, DR> PartialEq<Datum<'s, ET, DR>> for ExpectedDatum
             (EmptyNest, EmptyNest)
                 => true,
             (List{elem: e1, next: n1}, List{elem: e2, next: n2})
-            // TODO: Instead of tree-recursion using limited stack space,
-            // use a loop to compare the `next` tails, so that very long
-            // lists don't blow the stack.  In langs like Scheme, this would
-            // already automatically be tail-recursive, but alas...
                 => *e1.0 == **e2 && *n1.0 == **n2,
             (EmptyList, EmptyList)
                 => true,
