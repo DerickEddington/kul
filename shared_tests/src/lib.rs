@@ -280,6 +280,10 @@ pub fn test_suite0<P>(p: &mut P)
           => [Ok(text(" c  d   ", 0, 0)),
               Ok(comb(text("e", 10, 10), list1(text(" f   g    ", 12, 12)))),
               Ok(text("     hi  j ", 23, 23))]);
+    test!(r"\\" => [Ok(text(r"\\", 0, 0))]);
+    test!(r"\{" => [Ok(text(r"\{", 0, 0))]);
+    test!(r"\}" => [Ok(text(r"\}", 0, 0))]);
+    test!(r"\{\}" => [Ok(text(r"\{\}", 0, 0))]);
 
     // Custom delimiters
     {
