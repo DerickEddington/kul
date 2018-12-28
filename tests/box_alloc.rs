@@ -1,7 +1,7 @@
 use std::boxed::Box;
 
 use kruvi::*;
-use kruvi_shared_tests::*;
+use kruvi_shared_tests::suites::*;
 
 
 #[derive(PartialEq, Eq, Debug)]

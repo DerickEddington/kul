@@ -6,7 +6,7 @@ use core::mem::ManuallyDrop;
 
 use kruvi_core::*;
 use kruvi_core::Datum::*;
-use kruvi_shared_tests::*;
+use kruvi_shared_tests::suites::*;
 
 
 /// This assists in `RefMut`s of `RefCell`s being used as the `Datum` reference

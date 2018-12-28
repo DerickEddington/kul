@@ -4,7 +4,7 @@ use core::mem::replace;
 
 use kruvi_core::*;
 use kruvi_core::Datum::*;
-use kruvi_shared_tests::*;
+use kruvi_shared_tests::suites::*;
 
 
 #[derive(PartialEq, Eq, Debug)]
