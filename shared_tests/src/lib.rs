@@ -159,6 +159,61 @@ impl<CE> PartialEq<CE> for CeIgnore {
 }
 
 
+/// `Parser` that wraps another `Parser` to make it use custom delimiters
+pub struct CustomDelimParser<'p, P>
+    where P: Parser<'static>
+{
+    pub parser: &'p mut P,
+    pub nest_start: Option<Vec<char>>,
+    pub nest_end: Option<Vec<char>>,
+    pub nest_escape: Option<Vec<char>>,
+    pub whitespace: Option<Vec<char>>,
+}
+
+impl<'p, P> Parser<'static> for CustomDelimParser<'p, P>
+    where P: Parser<'static>
+{
+    type AS = P::AS;
+    type ET = P::ET;
+    type DR = P::DR;
+    type OR = P::OR;
+    type AR = P::AR;
+    type CE = P::CE;
+
+    fn is_nest_start(&self, c: char) -> bool {
+        self.nest_start.as_ref().map_or_else(|| self.parser.is_nest_start(c),
+                                             |v| v.contains(&c))
+    }
+    fn is_nest_end(&self, c: char) -> bool {
+        self.nest_end.as_ref().map_or_else(|| self.parser.is_nest_end(c),
+                                           |v| v.contains(&c))
+    }
+    fn is_nest_escape(&self, c: char) -> bool {
+        self.nest_escape.as_ref().map_or_else(|| self.parser.is_nest_escape(c),
+                                              |v| v.contains(&c))
+    }
+    fn is_whitespace(&self, c: char) -> bool {
+        self.whitespace.as_ref().map_or_else(|| self.parser.is_whitespace(c),
+                                             |v| v.contains(&c))
+    }
+    fn supply_alloc_state(&mut self) -> Self::AS {
+        self.parser.supply_alloc_state()
+    }
+    fn receive_alloc_state(&mut self, alst: Self::AS) {
+        self.parser.receive_alloc_state(alst)
+    }
+    fn env_lookup(&mut self, operator: &Self::DR)
+                  -> Option<Combiner<Self::OR, Self::AR>> {
+        self.parser.env_lookup(operator)
+    }
+    fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>,
+                 alst: Self::AS)
+                 -> Result<(Self::DR, Self::AS), Error<Self::CE>> {
+        self.parser.new_datum(from, alst)
+    }
+}
+
+
 /// Basic test suite that checks the basic syntax and forms and does not
 /// exercise macros/combiners nor extra types.
 pub fn test_suite0<P>(p: &mut P)
@@ -182,17 +237,28 @@ pub fn test_suite0<P>(p: &mut P)
     macro_rules! test {
         ($input:expr => [$($expected:expr),*])
             =>
-        {current_input.set($input);
-         assert_eq!(expect(vec![$($expected),*]),
-                    parse_all(p, current_input.get()));};
+        {test!($input => (assert_eq p) [$($expected),*])};
 
         ($input:expr =>! [$($expected:expr),*])
             =>
+        {test!($input => (assert_ne p) [$($expected),*])};
+
+        ($input:expr => ($parser:expr) [$($expected:expr),*])
+            =>
+        {test!($input => (assert_eq $parser) [$($expected),*])};
+
+        ($input:expr =>! ($parser:expr) [$($expected:expr),*])
+            =>
+        {test!($input => (assert_ne $parser) [$($expected),*])};
+
+        ($input:expr => ($ass:ident $parser:expr) [$($expected:expr),*])
+            =>
         {current_input.set($input);
-         assert_ne!(expect(vec![$($expected),*]),
-                    parse_all(p, current_input.get()));};
+         $ass!(expect(vec![$($expected),*]),
+               parse_all($parser, current_input.get()));};
     }
 
+    // Basics
     test!("" => []);
     test!(" " => [Ok(text(" ", 0, 0))]);
     test!("  " => [Ok(text("  ", 0, 0))]);
@@ -214,6 +280,69 @@ pub fn test_suite0<P>(p: &mut P)
           => [Ok(text(" c  d   ", 0, 0)),
               Ok(comb(text("e", 10, 10), list1(text(" f   g    ", 12, 12)))),
               Ok(text("     hi  j ", 23, 23))]);
+
+    // Custom delimiters
+    {
+        let c = &mut CustomDelimParser {
+            parser: p,
+            nest_start: Some(vec!['⟪']),
+            nest_end: Some(vec!['⟫']),
+            nest_escape: Some(vec!['␛']),
+            whitespace: Some(vec!['-']),
+        };
+        test!("" =>(c) []);
+        test!("{}" =>(c) [Ok(text("{}", 0, 0))]);
+        test!("{a}" =>(c) [Ok(text("{a}", 0, 0))]);
+        test!("⟪⟫" =>(c) [Ok(EmptyNest)]);
+        test!("⟪ ⟫" =>(c) [Ok(comb(text(" ", 3, 1), EmptyList))]);
+        test!("⟪a⟫" =>(c) [Ok(comb(text("a", 3, 1), EmptyList))]);
+        test!("⟪ a ⟫" =>(c) [Ok(comb(text(" a ", 3, 1), EmptyList))]);
+        test!("⟪a⟫" =>(c) [Ok(comb(text("a", 3, 1), EmptyList))]);
+        test!("⟪-a⟫" =>(c) [Ok(comb(text("a", 4, 2), EmptyList))]);
+        test!("⟪-a-⟫" =>(c) [Ok(comb(text("a", 4, 2), EmptyList))]);
+        test!("⟪a-b⟫" =>(c) [Ok(comb(text("a", 3, 1), list1(text("b", 5, 3))))]);
+        test!("⟪--a---b--⟫"
+              =>(c) [Ok(comb(text("a", 5, 3), list1(text("--b--", 7, 5))))]);
+        test!("␛␛" =>(c) [Ok(text("␛␛", 0, 0))]);
+        test!("␛⟪" =>(c) [Ok(text("␛⟪", 0, 0))]);
+        test!("␛⟫" =>(c) [Ok(text("␛⟫", 0, 0))]);
+        test!("␛⟪␛⟫" =>(c) [Ok(text("␛⟪␛⟫", 0, 0))]);
+        test!("a-⟪b-c⟫d-" =>(c) [Ok(text("a-", 0, 0)),
+                                 Ok(comb(text("b", 5, 3), list1(text("c", 7, 5)))),
+                                 Ok(text("d-", 11, 7))]);
+    }
+    {
+        let c = &mut CustomDelimParser {
+            parser: p,
+            nest_start: Some(vec!['[']),
+            nest_end: Some(vec![']']),
+            nest_escape: None,
+            whitespace: None,
+        };
+        test!("{}" =>(c) [Ok(text("{}", 0, 0))]);
+        test!("[]" =>(c) [Ok(EmptyNest)]);
+        test!("[ ]" =>(c) [Ok(EmptyNest)]);
+        test!("[  a   b  ]"
+              =>(c) [Ok(comb(text("a", 3, 3), list1(text("  b  ", 5, 5))))]);
+        test!(r"\\" =>(c) [Ok(text(r"\\", 0, 0))]);
+        test!(r"\[" =>(c) [Ok(text(r"\[", 0, 0))]);
+        test!(r"\]" =>(c) [Ok(text(r"\]", 0, 0))]);
+        test!(r"\[\]" =>(c) [Ok(text(r"\[\]", 0, 0))]);
+    }
+    {
+        let c = &mut CustomDelimParser {
+            parser: p,
+            nest_start: Some(vec!['⟪', '⟦']),
+            nest_end: Some(vec!['⟫', '⟧']),
+            nest_escape: Some(vec!['␛', '⃠']),
+            whitespace: Some(vec!['.', ':']),
+        };
+        test!("⟪⟫" =>(c) [Ok(EmptyNest)]);
+        test!("⟦⟧" =>(c) [Ok(EmptyNest)]);
+        test!("⟪⟧" =>(c) [Ok(EmptyNest)]);
+        test!("⟦.:..::⟫" =>(c) [Ok(EmptyNest)]);
+        test!("⃠⟪␛⟫" =>(c) [Ok(text("⃠⟪␛⟫", 0, 0))]);
+    }
 
     // TODO: A lot more
 }

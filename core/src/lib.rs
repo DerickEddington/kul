@@ -392,14 +392,6 @@ pub type ApFn<'s, ET, DR, CE, AS> = dyn FnMut(DR, DR, AS)
 pub type CombinerResult<'s, ET, DR, CE, AS> = Result<(Datum<'s, ET, DR>, AS), Error<CE>>;
 
 
-/// This parameterizes the characters used to delimit the nesting form.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub struct ParserConfig {
-    pub nest_start: char,
-    pub nest_end: char,
-    pub nest_escape: char,
-}
-
 /// Represents: the ability to parse a string; the characters used to delimit
 /// the nesting form; the method of allocating the `Datum`s; and the environment
 /// of bindings of macros.
@@ -421,21 +413,36 @@ pub trait Parser<'s> {
     /// type.
     type CE;
 
-    /// Returns the characters used to delimit the start and end of our one
-    /// nesting form and to escape those two delimiters.  This allows this crate
-    /// to be parameterized over these, and allows the particular implementation
-    /// to determine what it wants these to be.  Different delimiters are useful
-    /// for different applications which want text to be able to contain many
-    /// bracket characters without those being parsed as our nesting form
-    /// delimiters.  (It would be nice if Rust's "associated constants" could be
-    /// used instead with this trait, but that is an unstable feature.)  The
-    /// default implementation uses the common `{`, `}`, and `\` characters.
-    fn get_config(&self) -> ParserConfig {
-        ParserConfig {
-            nest_start: '{',
-            nest_end: '}',
-            nest_escape: '\\',
-        }
+    /// Predicate that determines the character(s) used to delimit the start of
+    /// our nesting form.  The default implementation uses the common `{`
+    /// character.
+    #[inline]
+    fn is_nest_start(&self, c: char) -> bool {
+        '{' == c
+    }
+
+    /// Predicate that determines the character(s) used to delimit the end of
+    /// our nesting form.  The default implementation uses the common `}`
+    /// character.
+    #[inline]
+    fn is_nest_end(&self, c: char) -> bool {
+        '}' == c
+    }
+
+    /// Predicate that determines the character(s) used to escape the delimiter
+    /// characters of our nesting form.  The default implementation uses the
+    /// common `\` character.
+    #[inline]
+    fn is_nest_escape(&self, c: char) -> bool {
+        '\\' == c
+    }
+
+    /// Predicate that determines the character(s) considered to be whitespace,
+    /// which affects the delimiting of operator and operands in our nesting
+    /// form.  The default implementation uses the common Unicode property.
+    #[inline]
+    fn is_whitespace(&self, c: char) -> bool {
+        c.is_whitespace()
     }
 
     /// This allows full generality in the type of state used to allocate the
@@ -503,7 +510,6 @@ pub struct ParseIter<'p, 's, P>
           's: 'p,
 {
     parser: &'p mut P,
-    config: ParserConfig,
     src_str: PosStr<'s>,
     src_iter: Peekable<SourceIter<'s>>,
     alloc_state: Option<<P as Parser<'s>>::AS>,
@@ -568,10 +574,8 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
            src_str: PosStr<'s>)
            -> Self
     {
-        let config = parser.get_config();
         ParseIter{
             parser,
-            config,
             src_str,
             src_iter: SourceIter::new(src_str).peekable(),
             alloc_state: Some(alloc_state),
@@ -589,7 +593,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
         self.alloc_state = alst;
     }
 
-    fn read_to_end<F: Fn(char) -> bool>
+    fn read_to_end<F: Fn(&P, char) -> bool>
         (&mut self, init_ws_sig: bool, is_end_char: F)
          -> Result<PosStr<'s>, Error<<P as Parser<'s>>::CE>>
     {
@@ -605,7 +609,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                 Some(&SourceIterItem{ch, byte_pos, char_pos}) => {
                     if first {
                         // Skip leading whitespace if indicated
-                        if ! init_ws_sig && ch.is_whitespace() {
+                        if ! init_ws_sig && self.parser.is_whitespace(ch) {
                             self.src_iter.next(); // Consume peeked
                             continue;
                         }
@@ -618,23 +622,23 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                     }
 
                     // Reached end. Do not consume peeked end char
-                    if nest_level == 0 && is_end_char(ch) {
+                    if nest_level == 0 && is_end_char(self.parser, ch) {
                         end_byte_pos = byte_pos;
                         _end_char_pos = char_pos;
                         break;
                     }
                     // Consume escaped char whatever it might be
-                    else if self.config.nest_escape == ch {
+                    else if self.parser.is_nest_escape(ch) {
                         self.src_iter.next(); // Consume peeked first
                         self.src_iter.next();
                     }
                     // Start of nest. Track nesting depth
-                    else if self.config.nest_start == ch {
+                    else if self.parser.is_nest_start(ch) {
                         self.src_iter.next(); // Consume peeked
                         nest_level += 1;
                     }
                     // End of nest. Check balanced nesting
-                    else if self.config.nest_end == ch {
+                    else if self.parser.is_nest_end(ch) {
                         self.src_iter.next(); // Consume peeked
                         if nest_level > 0 {
                             nest_level -= 1;
@@ -682,8 +686,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                                   <P as Parser<'s>>::AS),
                                  Error<<P as Parser<'s>>::CE>>
     {
-        let nest_start = self.config.nest_start;
-        let text = Text(self.read_to_end(true, |c| nest_start == c)?);
+        let text = Text(self.read_to_end(true, <P as Parser<'s>>::is_nest_start)?);
         self.parser.new_datum(text, alst)
     }
 
@@ -693,13 +696,10 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                                <P as Parser<'s>>::AS),
                               Error<<P as Parser<'s>>::CE>>
     {
-        // Must copy these values, since if the closure borrowed, it'd conflict
-        let nest_start = self.config.nest_start;
-        let nest_end = self.config.nest_end;
         // Head text is delimited by whitespace or nest chars
-        let head = self.read_to_end(false, |c| c.is_whitespace()
-                                               || nest_start == c
-                                               || nest_end == c)?;
+        let head = self.read_to_end(false, |parser, c| parser.is_whitespace(c)
+                                                       || parser.is_nest_start(c)
+                                                       || parser.is_nest_end(c))?;
         // Empty string, or all whitespace, is empty nest form
         if head.len() == 0 {
             return Ok((None, alst));
@@ -707,7 +707,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
         // If head delimited by following whitespace, advance passed first
         // whitespace char
         if let Some(&SourceIterItem{ch, ..}) = self.src_iter.peek() {
-            if ch.is_whitespace() { self.src_iter.next(); }
+            if self.parser.is_whitespace(ch) { self.src_iter.next(); }
         }
         // Head text is interpreted as an operator form to recursively
         // parse. Note that, because we know head can only be a single form at
@@ -716,7 +716,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
         let (head, alst) = self.recur_on_str_once(head, alst)?;
         // Rest text is delimited by end of our nest, and is interpreted here as
         // unparsed text
-        let rest = Text(self.read_to_end(true, |c| nest_end == c)?);
+        let rest = Text(self.read_to_end(true, <P as Parser<'s>>::is_nest_end)?);
         let (rest, alst) = self.parser.new_datum(rest, alst)?;
         Ok((Some((head, rest)), alst))
     }
@@ -798,7 +798,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
         };
 
         // Start of a nest, either a combination or an empty nest
-        if self.config.nest_start == ch {
+        if self.parser.is_nest_start(ch) {
             // Advance past peeked char
             self.src_iter.next();
             // Parse to the end of our nest level.
@@ -810,7 +810,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
             // missing its end char and end-of-stream occurred, which is the
             // `else` case.
             if let Some(SourceIterItem{ch: ec, ..}) = self.src_iter.next() {
-                debug_assert!(ec == self.config.nest_end);
+                debug_assert!(self.parser.is_nest_end(ec));
             } else { return Err(Error::MissingEndChar); }
             // Process the nested datums accordingly.
             let (next_datum, alst) = match nested {
@@ -855,7 +855,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
         }
 
         // Invalid unbalanced nest end character
-        else if self.config.nest_end == ch {
+        else if self.parser.is_nest_end(ch) {
             // Advance past peeked char. By consuming it, we allow the
             // possibility that this iterator could be resumed again.
             self.src_iter.next();
