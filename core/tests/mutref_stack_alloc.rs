@@ -46,14 +46,14 @@ impl<'a> Parser<'static> for ParserMutRef<'a> {
 
     fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>,
                  alst: Self::AS)
-                 -> Result<(Self::DR, Self::AS), Error<Self::CE>>
+                 -> Result<(Self::DR, Self::AS), AllocError>
     {
         match alst.split_first_mut() {
             Some((dr, rest)) => {
                 *dr = from;
                 Ok((DatumMutRef(dr), rest))
             }
-            None => Err(Error::AllocExhausted)
+            None => Err(AllocError::AllocExhausted)
         }
     }
 }

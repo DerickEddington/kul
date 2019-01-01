@@ -71,15 +71,28 @@ pub enum Error<CombinerError> {
     UnbalancedEndChar {byte_pos: usize, char_pos: usize},
     /// End-of-stream reached inside nest form
     MissingEndChar,
-    /// `Datum` allocator has no more free
-    AllocExhausted,
+    /// `Datum` allocator error
+    FailedAlloc(AllocError),
     /// Prior error destroyed allocator state
     NoAllocState,
     /// [`DerefTryMut::get_mut`](trait.DerefTryMut.html#tymethod.get_mut) failed
-    DerefTryMut,
+    FailedDerefTryMut,
     /// Extensibility that custom macros/combiners may utilize to add additional
     /// error variants
     FailedCombiner(CombinerError),
+}
+
+/// The possible errors that might be returned by a parser's `Datum` allocator.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum AllocError {
+    /// No more free
+    AllocExhausted,
+}
+
+impl<CE> From<AllocError> for Error<CE> {
+    fn from(ae: AllocError) -> Self {
+        Error::FailedAlloc(ae)
+    }
 }
 
 /// This allows different concrete [`Error`](enum.Error.html) types to be
@@ -95,11 +108,11 @@ impl<CE1, CE2> PartialEq<Error<CE2>> for Error<CE1>
                 => *bp1 == *bp2 && *cp1 == *cp2,
             (MissingEndChar, MissingEndChar)
                 => true,
-            (AllocExhausted, AllocExhausted)
-                => true,
+            (FailedAlloc(ae1), FailedAlloc(ae2))
+                => *ae1 == *ae2,
             (NoAllocState, NoAllocState)
                 => true,
-            (DerefTryMut, DerefTryMut)
+            (FailedDerefTryMut, FailedDerefTryMut)
                 => true,
             (FailedCombiner(ce1), FailedCombiner(ce2))
                 => *ce1 == *ce2,
@@ -492,7 +505,7 @@ pub trait Parser<'s> {
     /// may be ignored.  An [`Error`](enum.Error.html) is returned if allocation
     /// fails for any reason.
     fn new_datum(&mut self, from: Datum<'s, Self::ET, Self::DR>, alst: Self::AS)
-                 -> Result<(Self::DR, Self::AS), Error<Self::CE>>;
+                 -> Result<(Self::DR, Self::AS), AllocError>;
 }
 
 
@@ -687,7 +700,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                                  Error<<P as Parser<'s>>::CE>>
     {
         let text = Text(self.read_to_end(true, <P as Parser<'s>>::is_nest_start)?);
-        self.parser.new_datum(text, alst)
+        Ok(self.parser.new_datum(text, alst)?)
     }
 
     fn parse_nested(&mut self, alst: <P as Parser<'s>>::AS)
@@ -768,7 +781,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                         _ => unreachable!()
                     }
                 } else {
-                    return Err(Error::DerefTryMut);
+                    return Err(Error::FailedDerefTryMut);
                 }
             } else {
                 break;
@@ -850,8 +863,8 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                 },
                 None => (EmptyNest, alst),
             };
-            return self.parser.new_datum(next_datum, alst)
-                              .map(|(dr, alst)| (Some(dr), alst));
+            return Ok(self.parser.new_datum(next_datum, alst)
+                                 .map(|(dr, alst)| (Some(dr), alst))?);
         }
 
         // Invalid unbalanced nest end character
@@ -1001,11 +1014,12 @@ mod tests {
 
         assert_eq!(MissingEndChar::<()>, MissingEndChar::<()>);
 
-        assert_eq!(AllocExhausted::<()>, AllocExhausted::<()>);
+        assert_eq!(FailedAlloc::<()>(AllocError::AllocExhausted),
+                   FailedAlloc::<()>(AllocError::AllocExhausted));
 
         assert_eq!(NoAllocState::<()>, NoAllocState::<()>);
 
-        assert_eq!(DerefTryMut::<()>, DerefTryMut::<()>);
+        assert_eq!(FailedDerefTryMut::<()>, FailedDerefTryMut::<()>);
 
         assert_eq!(FailedCombiner::<i32>(1), FailedCombiner::<i32>(1));
     }

@@ -78,7 +78,7 @@ impl<'a> Parser<'static> for ParserRefCell<'a> {
     }
 
     fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>, _: Self::AS)
-                 -> Result<(Self::DR, Self::AS), Error<Self::CE>>
+                 -> Result<(Self::DR, Self::AS), AllocError>
     {
         match self.datum_array_free.split_first() {
             Some((refcell, rest)) => {
@@ -87,7 +87,7 @@ impl<'a> Parser<'static> for ParserRefCell<'a> {
                 self.datum_array_free = rest;
                 Ok((DatumRefMut(dr), ()))
             }
-            None => Err(Error::AllocExhausted)
+            None => Err(AllocError::AllocExhausted)
         }
     }
 }

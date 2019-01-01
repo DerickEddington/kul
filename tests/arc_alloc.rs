@@ -25,7 +25,7 @@ impl Parser<'static> for ParserArc {
     { None }
 
     fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>, _: Self::AS)
-                 -> Result<(Self::DR, Self::AS), Error<Self::CE>>
+                 -> Result<(Self::DR, Self::AS), AllocError>
     {
         Ok((DatumArc::new(from), ()))
     }

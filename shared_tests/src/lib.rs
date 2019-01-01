@@ -209,7 +209,7 @@ impl<'p, P> Parser<'static> for CustomDelimParser<'p, P>
     }
     fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>,
                  alst: Self::AS)
-                 -> Result<(Self::DR, Self::AS), Error<Self::CE>> {
+                 -> Result<(Self::DR, Self::AS), AllocError> {
         self.parser.new_datum(from, alst)
     }
 }
@@ -276,11 +276,12 @@ mod tests {
 
         assert_eq!(MissingEndChar::<CeIgnore>, MissingEndChar::<()>);
 
-        assert_eq!(AllocExhausted::<CeIgnore>, AllocExhausted::<()>);
+        assert_eq!(FailedAlloc::<CeIgnore>(AllocError::AllocExhausted),
+                   FailedAlloc::<()>(AllocError::AllocExhausted));
 
         assert_eq!(NoAllocState::<CeIgnore>, NoAllocState::<()>);
 
-        assert_eq!(DerefTryMut::<CeIgnore>, DerefTryMut::<()>);
+        assert_eq!(FailedDerefTryMut::<CeIgnore>, FailedDerefTryMut::<()>);
 
         assert_eq!(FailedCombiner::<CeIgnore>(CeIgnore), FailedCombiner::<i32>(1));
     }
@@ -316,14 +317,14 @@ mod tests {
         { None }
 
         fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>, alst: Self::AS)
-                     -> Result<(Self::DR, Self::AS), Error<Self::CE>>
+                     -> Result<(Self::DR, Self::AS), AllocError>
         {
             match alst {
                 Some(datum_ref) => {
                     *datum_ref = from;
                     Ok((DatumMutRef(datum_ref), None))
                 },
-                None => Err(AllocExhausted)
+                None => Err(AllocError::AllocExhausted)
             }
         }
     }
@@ -347,7 +348,7 @@ mod tests {
     fn basic_exhaust() {
         assert_eq!(expect(vec![Ok(Text(PosStr{val: "good ", src: "good {shit}",
                                               byte_pos: 0, char_pos: 0})),
-                               Err(AllocExhausted),
+                               Err(FailedAlloc(AllocError::AllocExhausted)),
                                Err(NoAllocState)]),
                    parse_all(&mut WimpyParser::new(&mut EmptyNest),
                              "good {shit}"));
