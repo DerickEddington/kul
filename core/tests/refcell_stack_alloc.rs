@@ -59,17 +59,12 @@ impl<'a> ParserRefCell<'a> {
 }
 
 impl<'a> Parser<'static> for ParserRefCell<'a> {
-    type AS = ();
     type ET = ();
     type DR = DatumRefMut<'a, 'static, Self::ET>;
     // Note: OR and DR are not actually used for this test case
-    type OR = &'a mut OpFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>;
-    type AR = &'a mut ApFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>;
+    type OR = &'a mut OpFn<'static, Self::ET, Self::DR, Self::CE>;
+    type AR = &'a mut ApFn<'static, Self::ET, Self::DR, Self::CE>;
     type CE = ();
-
-    fn supply_alloc_state(&mut self) -> Self::AS { () }
-
-    fn receive_alloc_state(&mut self, _: Self::AS) { }
 
     fn env_lookup(&mut self, _: &Self::DR)
                   -> Option<Combiner<Self::OR, Self::AR>>
@@ -77,15 +72,15 @@ impl<'a> Parser<'static> for ParserRefCell<'a> {
         None
     }
 
-    fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>, _: Self::AS)
-                 -> Result<(Self::DR, Self::AS), AllocError>
+    fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>)
+                 -> Result<Self::DR, AllocError>
     {
         match self.datum_array_free.split_first() {
             Some((refcell, rest)) => {
                 let mut dr = refcell.borrow_mut();
                 *dr = from;
                 self.datum_array_free = rest;
-                Ok((DatumRefMut(dr), ()))
+                Ok(DatumRefMut(dr))
             }
             None => Err(AllocError::AllocExhausted)
         }

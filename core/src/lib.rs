@@ -73,8 +73,6 @@ pub enum Error<CombinerError> {
     MissingEndChar,
     /// `Datum` allocator error
     FailedAlloc(AllocError),
-    /// Prior error destroyed allocator state
-    NoAllocState,
     /// [`DerefTryMut::get_mut`](trait.DerefTryMut.html#tymethod.get_mut) failed
     FailedDerefTryMut,
     /// Extensibility that custom macros/combiners may utilize to add additional
@@ -110,8 +108,6 @@ impl<CE1, CE2> PartialEq<Error<CE2>> for Error<CE1>
                 => true,
             (FailedAlloc(ae1), FailedAlloc(ae2))
                 => *ae1 == *ae2,
-            (NoAllocState, NoAllocState)
-                => true,
             (FailedDerefTryMut, FailedDerefTryMut)
                 => true,
             (FailedCombiner(ce1), FailedCombiner(ce2))
@@ -368,11 +364,11 @@ pub enum Combiner<OperativeRef, ApplicativeRef>
     Applicative(ApplicativeRef),
 }
 
-impl<'s, ET, DR, CE, AS> OperativeTrait for OpFn<'s, ET, DR, CE, AS>
+impl<'s, ET, DR, CE> OperativeTrait for OpFn<'s, ET, DR, CE>
     where DR: DerefTryMut<Target = Datum<'s, ET, DR>>,
 { }
 
-impl<'s, ET, DR, CE, AS> ApplicativeTrait for ApFn<'s, ET, DR, CE, AS>
+impl<'s, ET, DR, CE> ApplicativeTrait for ApFn<'s, ET, DR, CE>
     where DR: DerefTryMut<Target = Datum<'s, ET, DR>>,
 { }
 
@@ -383,8 +379,7 @@ impl<'s, ET, DR, CE, AS> ApplicativeTrait for ApFn<'s, ET, DR, CE, AS>
 /// `Datum`s is needed for the return value.  See
 /// [`CombinerResult`](type.CombinerResult.html) for the description of the
 /// return value.
-pub type OpFn<'s, ET, DR, CE, AS> = dyn FnMut(DR, DR, AS)
-                                              -> CombinerResult<'s, ET, DR, CE, AS>;
+pub type OpFn<'s, ET, DR, CE> = dyn FnMut(DR, DR) -> CombinerResult<'s, ET, DR, CE>;
 
 /// The type of "applicative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-forms
@@ -394,23 +389,20 @@ pub type OpFn<'s, ET, DR, CE, AS> = dyn FnMut(DR, DR, AS)
 /// new `Datum`s is needed for the return value.  See
 /// [`CombinerResult`](type.CombinerResult.html) for the description of the
 /// return value.
-pub type ApFn<'s, ET, DR, CE, AS> = dyn FnMut(DR, DR, AS)
-                                              -> CombinerResult<'s, ET, DR, CE, AS>;
+pub type ApFn<'s, ET, DR, CE> = dyn FnMut(DR, DR) -> CombinerResult<'s, ET, DR, CE>;
 
 /// The type returned by "operative" and "applicative" functions.  For a
 /// successful return, the returned `Datum` is substituted for the original form
 /// by the parser in the AST it yields, and the returned allocator state is the
 /// possibly-updated state passed into the combiner function.  An
 /// [`Error`](enum.Error.html) is returned if the combiner fails for any reason.
-pub type CombinerResult<'s, ET, DR, CE, AS> = Result<(Datum<'s, ET, DR>, AS), Error<CE>>;
+pub type CombinerResult<'s, ET, DR, CE> = Result<(Datum<'s, ET, DR>), Error<CE>>;
 
 
 /// Represents: the ability to parse a string; the characters used to delimit
 /// the nesting form; the method of allocating the `Datum`s; and the environment
 /// of bindings of macros.
 pub trait Parser<'s> {
-    /// The `Datum` allocator state type.
-    type AS;
     /// The ["extra" type](enum.Datum.html#variant.Extra) for our `Datum` type.
     type ET;
     /// The type of references to [`Datum`s](enum.Datum.html) yielded by our
@@ -418,10 +410,10 @@ pub trait Parser<'s> {
     type DR: DerefTryMut<Target = Datum<'s, Self::ET, Self::DR>>;
     /// The type of references to
     /// [`Operative`](enum.Combiner.html#variant.Operative) macro functions.
-    type OR: DerefMut<Target = OpFn<'s, Self::ET, Self::DR, Self::CE, Self::AS>>;
+    type OR: DerefMut<Target = OpFn<'s, Self::ET, Self::DR, Self::CE>>;
     /// The type of references to
     /// [`Applicative`](enum.Combiner.html#variant.Applicative) macro functions.
-    type AR: DerefMut<Target = ApFn<'s, Self::ET, Self::DR, Self::CE, Self::AS>>;
+    type AR: DerefMut<Target = ApFn<'s, Self::ET, Self::DR, Self::CE>>;
     /// The [combiner error extension](enum.Error.html#variant.FailedCombiner)
     /// type.
     type CE;
@@ -458,34 +450,14 @@ pub trait Parser<'s> {
         c.is_whitespace()
     }
 
-    /// This allows full generality in the type of state used to allocate the
-    /// `Datum`s.  E.g. the allocation state (`Self::AS`) might be ignored, or
-    /// it might always be independent of `Self`, or it might be owned or
-    /// borrowed by `Self` and need to be temporarily disowned (so that it is
-    /// not a borrow from `self` which would prevent any further calling of our
-    /// methods).  The result of this method is passed around through functions
-    /// so they can pass it to our [`new_datum`](#tymethod.new_datum) method,
-    /// and it (possibly mutated), or a value derived from it, is finally passed
-    /// back to ourself via our
-    /// [`receive_alloc_state`](#tymethod.receive_alloc_state) method when
-    /// parsing is finished.
-    fn supply_alloc_state(&mut self) -> Self::AS;
-
-    /// This allows the allocation state returned by our
-    /// [`supply_alloc_state`](#tymethod.supply_alloc_state) method to be
-    /// reassociated with `self` (or, in general, the particular
-    /// implementation's facilities), if necessary, when parsing is finished.
-    fn receive_alloc_state(&mut self, alst: Self::AS);
-
     /// The primary method.  Parse the given string's text, according to the
     /// specific parameterization of our `Self`, and return an iterator that
     /// yields each top-level form as a `Datum` AST.  The default implementation
     /// constructs a new iterator and supplies our allocation state to it (which
     /// might be ignored).
     fn parse<'p>(&'p mut self, source: &'s str) -> ParseIter<'p, 's, Self> {
-        let alst = self.supply_alloc_state();
-        ParseIter::new(self, alst, PosStr{val: source, src: source,
-                                          byte_pos: 0, char_pos: 0})
+        ParseIter::new(self, PosStr{val: source, src: source,
+                                    byte_pos: 0, char_pos: 0})
     }
 
     /// Look-up any binding we might have associated with the given datum,
@@ -504,8 +476,8 @@ pub trait Parser<'s> {
     /// the `from` argument.  Note that the `alst` (allocation state) argument
     /// may be ignored.  An [`Error`](enum.Error.html) is returned if allocation
     /// fails for any reason.
-    fn new_datum(&mut self, from: Datum<'s, Self::ET, Self::DR>, alst: Self::AS)
-                 -> Result<(Self::DR, Self::AS), AllocError>;
+    fn new_datum(&mut self, from: Datum<'s, Self::ET, Self::DR>)
+                 -> Result<Self::DR, AllocError>;
 }
 
 
@@ -525,8 +497,6 @@ pub struct ParseIter<'p, 's, P>
     parser: &'p mut P,
     src_str: PosStr<'s>,
     src_iter: Peekable<SourceIter<'s>>,
-    alloc_state: Option<<P as Parser<'s>>::AS>,
-    none_alst: bool,
 }
 
 impl<'p, 's, P> Iterator for ParseIter<'p, 's, P>
@@ -536,42 +506,10 @@ impl<'p, 's, P> Iterator for ParseIter<'p, 's, P>
     type Item = ParseIterItem<<P as Parser<'s>>::DR, <P as Parser<'s>>::CE>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.disown_alloc_state() {
-            Some(alst) => {
-                let (result, alst) = match self.do_next(alst) {
-                    Ok((it, alst)) => (it.map(|dr| Ok(dr)), Some(alst)),
-                    Err(e) => match e {
-                        // TODO: for cases where alloc state was returned inside
-                        // the error value, set alst to that so it's set back
-                        // into self
-                        _ => (Some(Err(e)), None)
-                    }
-                };
-                self.own_alloc_state(alst);
-                result
-            },
-            // If the allocation state is ever None, it's because there was a
-            // prior error and that error value didn't include the allocation
-            // state, and the iterator is now in a degraded state and can no
-            // longer parse.  For the first time, we return an error to indicate
-            // this, but any subsequent attempts will always indicate that
-            // iteration is done.
-            None => if ! self.none_alst {
-                self.none_alst = true;
-                Some(Err(Error::NoAllocState))
-            } else { None }
-        }
-    }
-}
-
-/// Give the allocation state back to the `Parser` since we're done with it.
-impl<'p, 's, P> Drop for ParseIter<'p, 's, P>
-    where P: 'p + Parser<'s> + ?Sized,
-          's: 'p,
-{
-    fn drop(&mut self) {
-        if let Some(alst) = replace(&mut self.alloc_state, None) {
-            self.parser.receive_alloc_state(alst);
+        match self.do_next() {
+            Ok(Some(dr)) => Some(Ok(dr)),
+            Ok(None) => None,
+            Err(e) => Some(Err(e))
         }
     }
 }
@@ -582,28 +520,12 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
 {
     // TODO: Can `type = ...` be used here for shorter aliases of long ones below?
 
-    fn new(parser: &'p mut P,
-           alloc_state: <P as Parser<'s>>::AS,
-           src_str: PosStr<'s>)
-           -> Self
-    {
+    fn new(parser: &'p mut P, src_str: PosStr<'s>) -> Self {
         ParseIter{
             parser,
             src_str,
             src_iter: SourceIter::new(src_str).peekable(),
-            alloc_state: Some(alloc_state),
-            none_alst: false,
         }
-    }
-
-    fn disown_alloc_state(&mut self) -> Option<<P as Parser<'s>>::AS> {
-        replace(&mut self.alloc_state, None)
-    }
-
-    fn own_alloc_state(&mut self, alst: Option<<P as Parser<'s>>::AS>) {
-        // Note: We want to panic if it's Some because that should be impossible
-        assert!(self.alloc_state.is_none());
-        self.alloc_state = alst;
     }
 
     fn read_to_end<F: Fn(&P, char) -> bool>
@@ -694,20 +616,16 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                   byte_pos: start_byte_pos, char_pos: start_char_pos})
     }
 
-    fn parse_next_text(&mut self, alst: <P as Parser<'s>>::AS)
-                       -> Result<(<P as Parser<'s>>::DR,
-                                  <P as Parser<'s>>::AS),
-                                 Error<<P as Parser<'s>>::CE>>
+    fn parse_next_text(&mut self) -> Result<<P as Parser<'s>>::DR,
+                                            Error<<P as Parser<'s>>::CE>>
     {
         let text = Text(self.read_to_end(true, <P as Parser<'s>>::is_nest_start)?);
-        Ok(self.parser.new_datum(text, alst)?)
+        Ok(self.parser.new_datum(text)?)
     }
 
-    fn parse_nested(&mut self, alst: <P as Parser<'s>>::AS)
-                    -> Result<(Option<(<P as Parser<'s>>::DR,
-                                       <P as Parser<'s>>::DR)>,
-                               <P as Parser<'s>>::AS),
-                              Error<<P as Parser<'s>>::CE>>
+    fn parse_nested(&mut self) -> Result<Option<(<P as Parser<'s>>::DR,
+                                                 <P as Parser<'s>>::DR)>,
+                                         Error<<P as Parser<'s>>::CE>>
     {
         // Head text is delimited by whitespace or nest chars
         let head = self.read_to_end(false, |parser, c| parser.is_whitespace(c)
@@ -715,7 +633,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                                                        || parser.is_nest_end(c))?;
         // Empty string, or all whitespace, is empty nest form
         if head.len() == 0 {
-            return Ok((None, alst));
+            return Ok(None);
         }
         // If head delimited by following whitespace, advance passed first
         // whitespace char
@@ -726,55 +644,45 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
         // parse. Note that, because we know head can only be a single form at
         // this point, we know we only need the first (next) datum returned by
         // the recursive parse iterator in order to cover it completely.
-        let (head, alst) = self.recur_on_str_once(head, alst)?;
+        let head = self.recur_on_str_once(head)?;
         // Rest text is delimited by end of our nest, and is interpreted here as
         // unparsed text
         let rest = Text(self.read_to_end(true, <P as Parser<'s>>::is_nest_end)?);
-        let (rest, alst) = self.parser.new_datum(rest, alst)?;
-        Ok((Some((head, rest)), alst))
+        let rest = self.parser.new_datum(rest)?;
+        Ok(Some((head, rest)))
     }
 
-    fn recur_on_str_once(&mut self, s: PosStr<'s>, alst: <P as Parser<'s>>::AS)
-                         -> Result<(<P as Parser<'s>>::DR,
-                                    <P as Parser<'s>>::AS),
+    fn recur_on_str_once(&mut self, s: PosStr<'s>)
+                         -> Result<<P as Parser<'s>>::DR,
                                    Error<<P as Parser<'s>>::CE>>
     {
         // Note: We use unwrap on purpose because None is impossible
-        self.recur(s,
-                   |slf, alst| slf.do_next(alst).map(|(it, alst)|
-                                                     (it.unwrap(), alst)),
-                   alst)
+        self.recur(s, |slf| slf.do_next().map(Option::unwrap))
     }
 
-    fn recur<F, T>(&mut self, s: PosStr<'s>, f: F, alst: <P as Parser<'s>>::AS)
-                   -> Result<(T, <P as Parser<'s>>::AS),
-                             Error<<P as Parser<'s>>::CE>>
-        where F: FnOnce(&mut Self, <P as Parser<'s>>::AS)
-                        -> Result<(T, <P as Parser<'s>>::AS),
-                                  Error<<P as Parser<'s>>::CE>>
+    fn recur<F, T>(&mut self, s: PosStr<'s>, f: F)
+                   -> Result<T, Error<<P as Parser<'s>>::CE>>
+        where F: FnOnce(&mut Self) -> Result<T, Error<<P as Parser<'s>>::CE>>
     {
         let save_src_str = replace(&mut self.src_str, s);
         let save_src_iter = replace(&mut self.src_iter, SourceIter::new(s).peekable());
-        let r = f(self, alst);
+        let r = f(self);
         self.src_str = save_src_str;
         self.src_iter = save_src_iter;
         r
     }
 
-    fn collect_datumlist(&mut self, alst: <P as Parser<'s>>::AS)
-                         -> Result<(<P as Parser<'s>>::DR,
-                                    <P as Parser<'s>>::AS),
+    fn collect_datumlist(&mut self)
+                         -> Result<<P as Parser<'s>>::DR,
                                    Error<<P as Parser<'s>>::CE>>
     {
-        let (mut head, mut alst) = self.parser.new_datum(EmptyList, alst)?;
+        let mut head = self.parser.new_datum(EmptyList)?;
         let mut tail = &mut head;
         loop {
-            let (it, st) = self.do_next(alst)?;
-            alst = st;
+            let it = self.do_next()?;
             if let Some(next_it) = it {
                 if let Some(d) = DerefTryMut::get_mut(tail) {
-                    let (rest, st) = self.parser.new_datum(EmptyList, alst)?;
-                    alst = st;
+                    let rest = self.parser.new_datum(EmptyList)?;
                     *d = List{elem: next_it, next: rest};
                     match d {
                         List{next, ..} => tail = next,
@@ -787,27 +695,24 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                 break;
             }
         }
-        Ok((head, alst))
+        Ok(head)
     }
 
-    fn recur_on_str_all(&mut self, s: PosStr<'s>, alst: <P as Parser<'s>>::AS)
-                        -> Result<(<P as Parser<'s>>::DR,
-                                   <P as Parser<'s>>::AS),
+    fn recur_on_str_all(&mut self, s: PosStr<'s>)
+                        -> Result<<P as Parser<'s>>::DR,
                                   Error<<P as Parser<'s>>::CE>>
     {
-        self.recur(s, Self::collect_datumlist, alst)
+        self.recur(s, Self::collect_datumlist)
     }
 
-    fn do_next(&mut self, alst: <P as Parser<'s>>::AS)
-               -> Result<(Option<<P as Parser<'s>>::DR>,
-                          <P as Parser<'s>>::AS),
-                         Error<<P as Parser<'s>>::CE>>
+    fn do_next(&mut self) -> Result<Option<<P as Parser<'s>>::DR>,
+                                    Error<<P as Parser<'s>>::CE>>
         // TODO?: Error variant that holds AS for errors where it is ok to return
         // the alloc-state?
     {
         let (ch, byte_pos, char_pos) = match self.src_iter.peek() {
             Some(&SourceIterItem{ch, byte_pos, char_pos}) => (ch, byte_pos, char_pos),
-            None => return Ok((None, alst))
+            None => return Ok(None)
         };
 
         // Start of a nest, either a combination or an empty nest
@@ -815,7 +720,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
             // Advance past peeked char
             self.src_iter.next();
             // Parse to the end of our nest level.
-            let (nested, alst) = self.parse_nested(alst)?;
+            let nested = self.parse_nested()?;
             // Consume our nest's end char, whatever it is.  If erroneous, by
             // consuming it, we could allow the possibility that this iterator
             // could be resumed again, but, in the current design, an erroneous
@@ -826,7 +731,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                 debug_assert!(self.parser.is_nest_end(ec));
             } else { return Err(Error::MissingEndChar); }
             // Process the nested datums accordingly.
-            let (next_datum, alst) = match nested {
+            let next_datum = match nested {
                 Some((operator, operands)) => {
                     let rands_str = || -> PosStr<'s> {
                         match &*operands {
@@ -842,29 +747,25 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                             Operative(mut opr) =>
                                 // Is given the text unparsed so it can do
                                 // whatever it wants with it
-                                opr.deref_mut()(operator, operands, alst)?,
+                                opr.deref_mut()(operator, operands)?,
                             Applicative(mut apl) => {
-                                let (rands_list, alst)
-                                    = self.recur_on_str_all(rands_str(), alst)?;
+                                let rands_list = self.recur_on_str_all(rands_str())?;
                                 // Is given the parse of the text
-                                apl.deref_mut()(operator, rands_list, alst)?
+                                apl.deref_mut()(operator, rands_list)?
                             }
                         },
                         // Not bound, so simply recursively parse operands and
                         // return a value representing the "combination" of
                         // operator and operands.
                         None => {
-                            let (rands_list, alst)
-                                = self.recur_on_str_all(rands_str(), alst)?;
-                            (Combination{operator, operands: rands_list},
-                             alst)
+                            let rands_list = self.recur_on_str_all(rands_str())?;
+                            Combination{operator, operands: rands_list}
                         },
                     }
                 },
-                None => (EmptyNest, alst),
+                None => EmptyNest,
             };
-            return Ok(self.parser.new_datum(next_datum, alst)
-                                 .map(|(dr, alst)| (Some(dr), alst))?);
+            return Ok(Some(self.parser.new_datum(next_datum)?));
         }
 
         // Invalid unbalanced nest end character
@@ -880,8 +781,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
         else {
             // Note: We did not consume our peeked char, so it will be seen again.
             // Note: parse_next_text already does parser.new_datum
-            return self.parse_next_text(alst)
-                       .map(|(dr, alst)| (Some(dr), alst));
+            return self.parse_next_text().map(Some);
         }
     }
 }
@@ -1016,8 +916,6 @@ mod tests {
 
         assert_eq!(FailedAlloc::<()>(AllocError::AllocExhausted),
                    FailedAlloc::<()>(AllocError::AllocExhausted));
-
-        assert_eq!(NoAllocState::<()>, NoAllocState::<()>);
 
         assert_eq!(FailedDerefTryMut::<()>, FailedDerefTryMut::<()>);
 

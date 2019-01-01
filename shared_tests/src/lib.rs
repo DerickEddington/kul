@@ -174,7 +174,6 @@ pub struct CustomDelimParser<'p, P>
 impl<'p, P> Parser<'static> for CustomDelimParser<'p, P>
     where P: Parser<'static>
 {
-    type AS = P::AS;
     type ET = P::ET;
     type DR = P::DR;
     type OR = P::OR;
@@ -197,20 +196,13 @@ impl<'p, P> Parser<'static> for CustomDelimParser<'p, P>
         self.whitespace.as_ref().map_or_else(|| self.parser.is_whitespace(c),
                                              |v| v.contains(&c))
     }
-    fn supply_alloc_state(&mut self) -> Self::AS {
-        self.parser.supply_alloc_state()
-    }
-    fn receive_alloc_state(&mut self, alst: Self::AS) {
-        self.parser.receive_alloc_state(alst)
-    }
     fn env_lookup(&mut self, operator: &Self::DR)
                   -> Option<Combiner<Self::OR, Self::AR>> {
         self.parser.env_lookup(operator)
     }
-    fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>,
-                 alst: Self::AS)
-                 -> Result<(Self::DR, Self::AS), AllocError> {
-        self.parser.new_datum(from, alst)
+    fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>)
+                 -> Result<Self::DR, AllocError> {
+        self.parser.new_datum(from)
     }
 }
 
@@ -279,8 +271,6 @@ mod tests {
         assert_eq!(FailedAlloc::<CeIgnore>(AllocError::AllocExhausted),
                    FailedAlloc::<()>(AllocError::AllocExhausted));
 
-        assert_eq!(NoAllocState::<CeIgnore>, NoAllocState::<()>);
-
         assert_eq!(FailedDerefTryMut::<CeIgnore>, FailedDerefTryMut::<()>);
 
         assert_eq!(FailedCombiner::<CeIgnore>(CeIgnore), FailedCombiner::<i32>(1));
@@ -299,30 +289,24 @@ mod tests {
     }
 
     impl<'d> Parser<'static> for WimpyParser<'d> {
-        type AS = Option<&'d mut WimpyDatum<'d>>;
         type ET = ();
         type DR = DatumMutRef<'d, 'static, Self::ET>;
-        type OR = &'d mut OpFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>;
-        type AR = &'d mut ApFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>;
+        type OR = &'d mut OpFn<'static, Self::ET, Self::DR, Self::CE>;
+        type AR = &'d mut ApFn<'static, Self::ET, Self::DR, Self::CE>;
         type CE = ();
-
-        fn supply_alloc_state(&mut self) -> Self::AS {
-            core::mem::replace(&mut self.single_datum, None)
-        }
-
-        fn receive_alloc_state(&mut self, _alst: Self::AS) { }
 
         fn env_lookup(&mut self, _operator: &Self::DR)
                       -> Option<Combiner<Self::OR, Self::AR>>
         { None }
 
-        fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>, alst: Self::AS)
-                     -> Result<(Self::DR, Self::AS), AllocError>
+        fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>)
+                     -> Result<Self::DR, AllocError>
         {
-            match alst {
+            let free = self.single_datum.take();
+            match free {
                 Some(datum_ref) => {
                     *datum_ref = from;
-                    Ok((DatumMutRef(datum_ref), None))
+                    Ok(DatumMutRef(datum_ref))
                 },
                 None => Err(AllocError::AllocExhausted)
             }
@@ -349,7 +333,7 @@ mod tests {
         assert_eq!(expect(vec![Ok(Text(PosStr{val: "good ", src: "good {shit}",
                                               byte_pos: 0, char_pos: 0})),
                                Err(FailedAlloc(AllocError::AllocExhausted)),
-                               Err(NoAllocState)]),
+                               Err(UnbalancedEndChar{byte_pos: 10, char_pos: 10})]),
                    parse_all(&mut WimpyParser::new(&mut EmptyNest),
                              "good {shit}"));
     }

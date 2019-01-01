@@ -8,26 +8,21 @@ use kruvi_shared_tests::suites::*;
 struct ParserArc();
 
 impl Parser<'static> for ParserArc {
-    type AS = ();
     type ET = ();
     type DR = DatumArc<'static, Self::ET>;
     // Note: OR and DR are not actually used for this test case
-    type OR = Box<OpFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>>;
-    type AR = Box<ApFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>>;
+    type OR = Box<OpFn<'static, Self::ET, Self::DR, Self::CE>>;
+    type AR = Box<ApFn<'static, Self::ET, Self::DR, Self::CE>>;
     type CE = ();
-
-    fn supply_alloc_state(&mut self) -> Self::AS { () }
-
-    fn receive_alloc_state(&mut self, _: Self::AS) {}
 
     fn env_lookup(&mut self, _operator: &Self::DR)
                   -> Option<Combiner<Self::OR, Self::AR>>
     { None }
 
-    fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>, _: Self::AS)
-                 -> Result<(Self::DR, Self::AS), AllocError>
+    fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>)
+                 -> Result<Self::DR, AllocError>
     {
-        Ok((DatumArc::new(from), ()))
+        Ok(DatumArc::new(from))
     }
 }
 

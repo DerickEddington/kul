@@ -1,7 +1,5 @@
 #![no_std]
 
-use core::mem::replace;
-
 use kruvi_core::*;
 use kruvi_core::Datum::*;
 use kruvi_shared_tests::suites::*;
@@ -19,39 +17,26 @@ impl<'a> ParserMutRef<'a> {
 }
 
 impl<'a> Parser<'static> for ParserMutRef<'a> {
-    type AS = &'a mut [MutRefDatum<'a, 'static, Self::ET>];
     type ET = ();
     type DR = DatumMutRef<'a, 'static, Self::ET>;
     // Note: OR and DR are not actually used for this test case
-    type OR = &'a mut OpFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>;
-    type AR = &'a mut ApFn<'static, Self::ET, Self::DR, Self::CE, Self::AS>;
+    type OR = &'a mut OpFn<'static, Self::ET, Self::DR, Self::CE>;
+    type AR = &'a mut ApFn<'static, Self::ET, Self::DR, Self::CE>;
     type CE = ();
-
-    fn supply_alloc_state(&mut self) -> Self::AS {
-        // For this type, we must temporarily disown our &mut reference
-        // to the array, so that &mut references to its elements can be
-        // split off without being borrows from our self. (Such borrows
-        // from self would prevent any further calling of methods of
-        // self.)
-        replace(&mut self.datum_array_free, None).unwrap()
-    }
-
-    fn receive_alloc_state(&mut self, alst: Self::AS) {
-        self.datum_array_free = Some(alst);
-    }
 
     fn env_lookup(&mut self, _operator: &Self::DR)
                   -> Option<Combiner<Self::OR, Self::AR>>
     { None } // Not actually used for this test case
 
-    fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>,
-                 alst: Self::AS)
-                 -> Result<(Self::DR, Self::AS), AllocError>
+    fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>)
+                 -> Result<Self::DR, AllocError>
     {
-        match alst.split_first_mut() {
+        let free = self.datum_array_free.take().unwrap();
+        match free.split_first_mut() {
             Some((dr, rest)) => {
                 *dr = from;
-                Ok((DatumMutRef(dr), rest))
+                self.datum_array_free = Some(rest);
+                Ok(DatumMutRef(dr))
             }
             None => Err(AllocError::AllocExhausted)
         }
