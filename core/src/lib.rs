@@ -624,7 +624,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
     }
 
     fn parse_nested(&mut self) -> Result<Option<(<P as Parser<'s>>::DR,
-                                                 <P as Parser<'s>>::DR)>,
+                                                 PosStr<'s>)>,
                                          Error<<P as Parser<'s>>::CE>>
     {
         // Head text is delimited by whitespace or nest chars
@@ -647,8 +647,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
         let head = self.recur_on_str_once(head)?;
         // Rest text is delimited by end of our nest, and is interpreted here as
         // unparsed text
-        let rest = Text(self.read_to_end(true, <P as Parser<'s>>::is_nest_end)?);
-        let rest = self.parser.new_datum(rest)?;
+        let rest = self.read_to_end(true, <P as Parser<'s>>::is_nest_end)?;
         Ok(Some((head, rest)))
     }
 
@@ -733,23 +732,19 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
             // Process the nested datums accordingly.
             let next_datum = match nested {
                 Some((operator, operands)) => {
-                    let rands_str = || -> PosStr<'s> {
-                        match &*operands {
-                            &Text(val) => val,
-                            _ => unreachable!()
-                        }
-                    };
                     match self.parser.env_lookup(&operator) {
                         // Form in operator position is bound, so delegate the
                         // processing of the operands and the choice of return
                         // value.
                         Some(combiner) => match combiner {
-                            Operative(mut opr) =>
+                            Operative(mut opr) => {
+                                let operands = self.parser.new_datum(Text(operands))?;
                                 // Is given the text unparsed so it can do
                                 // whatever it wants with it
-                                opr.deref_mut()(operator, operands)?,
+                                opr.deref_mut()(operator, operands)?
+                            },
                             Applicative(mut apl) => {
-                                let rands_list = self.recur_on_str_all(rands_str())?;
+                                let rands_list = self.recur_on_str_all(operands)?;
                                 // Is given the parse of the text
                                 apl.deref_mut()(operator, rands_list)?
                             }
@@ -758,7 +753,7 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                         // return a value representing the "combination" of
                         // operator and operands.
                         None => {
-                            let rands_list = self.recur_on_str_all(rands_str())?;
+                            let rands_list = self.recur_on_str_all(operands)?;
                             Combination{operator, operands: rands_list}
                         },
                     }
