@@ -1,2 +1,37 @@
+Review whether `DR: DerefTryMut` could and should instead be `DR: Deref` in some
+   places where mutability is not needed.  Why not...
+
+
+
+Should PartialOrd be implemented for Datum altogether?  Probably not Ord though,
+   since it doesn't really make sense to order some variants with others.
+
+
+
+Make sure all points of fn-call recursion are limited, either inherently or will
+   need to add manual limiting, to avoid unexpected stack overflow crashes and
+   instead return error(s) that indicate what happened.
+
+
+
+Learn about and probably use `#![forbid(unsafe_code)]`
+
+Add statement to docs/desc that the crates "have no dependencies and do not use
+   unsafe code"
+
+Add statement to docs/desc that the array-allocation ability can be used to
+   prevent memory-consumption DoS attacks.
+
+
+
+Does the issue with Cargo still linking `std` for a `#![no_std]` crate when the
+   `dev-dependencies` of the crate include something that uses `std` apply to
+   my project and cause this problem?  Or does it not apply because I have no
+   "cargo features" and/or have no external dependencies?
+See:
+https://tonyarcieri.com/rust-in-2019-security-maturity-stability#bad-interactions-between-code-classprettyprin_2
+
+
+
 examples/ directories with hopefully-realistic examples, including a use of
    kruvi_core from a C program
