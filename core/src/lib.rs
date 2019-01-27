@@ -2,7 +2,11 @@
 //! a data format and/or a markup language and that allows powerful
 //! extensibility of both syntax and semantics.  It is inspired by the
 //! little-known [Curl programming
-//! language](http://en.wikipedia.org/wiki/Curl_(programming_language)).
+//! language](http://en.wikipedia.org/wiki/Curl_(programming_language)).  It is
+//! very parameterized to allow maximal reuse for different applications.  It is
+//! capable of zero-copy operation (depending on how you concretize it),
+//! including for its generic designs of chunked text representations and
+//! omitting escape characters.
 //!
 //! The notation is similar to Lisp S-expressions in that there are nested forms
 //! delimited by brackets and in that the first sub-form in a nest (the "head")
@@ -35,7 +39,8 @@
 //! without heap allocation.  The crate is generically parameterized over what
 //! allocates the "datums" used as nodes in the constructed ASTs.  Allocation
 //! can be done from fixed-size, pre-established, stack arrays.  Or, allocation
-//! can be done from a heap, e.g. using the standard `Box` type.
+//! can be done from a heap, e.g. using the standard `Box` type, or from
+//! whatever kind of allocator you can arrange.
 //!
 //! TODO?: Should the Kernel terms be dropped in favor of terms like "text
 //! macro", "form macro", and "constructor" instead?  Those terms are probably
@@ -47,17 +52,28 @@
 //! both into a hybrid and where there are two complementary ways of processing
 //! forms like in Kernel.
 
+// TODO: Impl PartialEq, Eq, PartialOrd, and Ord for the new text types
+
+// TODO: Derive the usual traits like Debug, for the new types, as appropriate
+
+// TODO: Finish doc-string links
+
 // TODO?: Use mod modules to organize better?
 
 // TODO: Review what's pub and not
 
 #![no_std]
 
-use core::mem::replace;
+// TODO: After separating into modules, review which of these should be here or
+// in a module
 use core::ops::{Deref, DerefMut};
 use core::str::CharIndices;
-use core::iter::{Peekable, Enumerate};
+use core::iter::{self, Peekable, Map, Zip, Repeat, Enumerate};
+use core::cmp::Ordering;
+use core::marker::PhantomData;
 
+// TODO: Delete these to require full paths, for clarity now that this crate is
+// more complex
 use self::Datum::*;
 use self::Combiner::*;
 use self::Error::*;
@@ -66,11 +82,11 @@ use self::Error::*;
 /// The possible errors that might be returned by parsing.
 /// It is extensible by the `CombinerError` type parameter.
 #[derive(Copy, Clone, Eq, Debug)]
-pub enum Error<CombinerError> {
+pub enum Error<Position, CombinerError> {
     /// Close-bracket without matching open-bracket
-    UnbalancedEndChar {byte_pos: usize, char_pos: usize},
+    UnbalancedEndChar(Position),
     /// End-of-stream reached inside nest form
-    MissingEndChar,
+    MissingEndChar, // TODO?: Position for this too?,
     /// `Datum` allocator error
     FailedAlloc(AllocError),
     /// [`DerefTryMut::get_mut`](trait.DerefTryMut.html#tymethod.get_mut) failed
@@ -87,23 +103,25 @@ pub enum AllocError {
     AllocExhausted,
 }
 
-impl<CE> From<AllocError> for Error<CE> {
+impl<POS, CE> From<AllocError> for Error<POS, CE> {
     fn from(ae: AllocError) -> Self {
         Error::FailedAlloc(ae)
     }
 }
 
 /// This allows different concrete [`Error`](enum.Error.html) types to be
-/// compared with each other for equality if their [combiner error
+/// compared with each other for equality if their [character position
+/// types](enum.Error.html#variant.UnbalancedEndChar) and [combiner error
 /// types](enum.Error.html#variant.FailedCombiner) can be.
-impl<CE1, CE2> PartialEq<Error<CE2>> for Error<CE1>
-    where CE1: PartialEq<CE2>,
+impl<P1, P2, CE1, CE2> PartialEq<Error<P2, CE2>> for Error<P1, CE1>
+    where P1: PartialEq<P2>,
+          CE1: PartialEq<CE2>,
 {
-    fn eq(&self, other: &Error<CE2>) -> bool {
+    fn eq(&self, other: &Error<P2, CE2>) -> bool {
         match (self, other) {
-            (UnbalancedEndChar{byte_pos: bp1, char_pos: cp1},
-             UnbalancedEndChar{byte_pos: bp2, char_pos: cp2})
-                => *bp1 == *bp2 && *cp1 == *cp2,
+            (UnbalancedEndChar(pos1),
+             UnbalancedEndChar(pos2))
+                => *pos1 == *pos2,
             (MissingEndChar, MissingEndChar)
                 => true,
             (FailedAlloc(ae1), FailedAlloc(ae2))
@@ -119,30 +137,745 @@ impl<CE1, CE2> PartialEq<Error<CE2>> for Error<CE1>
 }
 
 
-/// A string representation that knows what source string it is in and at what
-/// position.
+// TODO: Move all the text stuff, old and new, into a new module file named text.rs
+
+// TODO: Impl `Text` (and so a SourceStream too) for:
+// - &[char] (which will also work for Vec<char> outside this crate with `std`)
+// ? &[u16] for UTF-16 support (or whatever type makes sense for UTF-16)
+// ? Others like CStr, OsStr, etc?
+
+// TODO: Move the Text(Base) impls into their own modules.  Then, try to shorten
+// the names by using items relative to the modules names.
+
+
+// FUTURE: When/if the `generic_associated_types` feature of Rust becomes
+// stable, use it so all the text chunk and char iterators can be generic and
+// defined by the implementors and have the needed access to the lifetimes of
+// the method calls' borrows of their `self`, instead of the current design that
+// has the concrete iterator types and the odd state borrowing and transforming
+// (which was a workaround done to have access to the needed lifetimes).
+
+
+/// TODO
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub struct PosStr<'s> {
-    /// The represented string
-    pub val: &'s str,
-    /// Entire source string that `val` is in. Might equal `val`.
-    pub src: &'s str,
-    /// Byte position of start of `val`, relative to `src`
-    pub byte_pos: usize,
-    /// Character position of start of `val`, relative to `src`
-    pub char_pos: usize,
+pub struct SourceIterItem<P> {
+    pub ch: char,
+    pub pos: P,
 }
 
-impl Deref for PosStr<'_> {
-    type Target = str;
-    fn deref(&self) -> &str {
-        self.val
+#[inline]
+fn sii_ch<P>(SourceIterItem{ch, ..}: SourceIterItem<P>) -> char {
+    ch
+}
+
+
+/// Positional information of a text string or character relative to the
+/// original source it is from.
+// TODO: Should it be bound by: Display?, Debug?
+pub trait TextPosition
+    where Self: Clone,
+{
+    fn empty() -> Self;
+}
+
+impl TextPosition for () {
+    #[inline]
+    fn empty() -> Self {
+        ()
     }
 }
 
-// TODO?:
-// impl Borrow for PosStr<'_>
-// impl AsRef for PosStr<'_>
+
+/// A stream of characters that can be iterated only once and that might know
+/// its characters' positions in the source it is from.
+///
+/// It may be used with streaming sources that might consume or destroy the
+/// source, or it may be used with sources that can be iterated more than once
+/// by each time constructing new iterators that implement this trait.
+///
+/// It is able to accumulate its iterated items, when its `next_accum` method is
+/// called, until its `accum_done` method is called, and this may be done
+/// multiple times.  The supertrait `next` method will be called instead when
+/// the next item must not be accumulated, as determined by first using the
+/// `peek` method to check, which is used to exclude escape characters from the
+/// results of this crate's parsing.
+///
+/// After the `next_accum` method has been called and returned some item, the
+/// `next` method should not be called before the `accum_done` method is called,
+/// to avoid interfering with a pending accumulation.  If `next` is called in
+/// this case, the pending accumulation will be silently dropped.
+pub trait SourceStream<TT, DA>: Iterator<Item = SourceIterItem<TT::Pos>>
+    where TT: TextConcat<DA>,
+          DA: DatumAllocator<TT = TT> + ?Sized,
+{
+    /// TODO
+    fn peek(&mut self) -> Option<&<Self as Iterator>::Item>;
+
+    /// TODO
+    fn next_accum(&mut self, dalloc: &mut DA)
+                  -> Result<Option<<Self as Iterator>::Item>,
+                            AllocError>;
+
+    /// TODO ... this is the primary constructor of the text types for the
+    /// parsing
+    fn accum_done(&mut self, dalloc: &mut DA) -> Result<TT, AllocError>;
+}
+
+
+/// A logical sequence of characters, possibly represented as separate chunks,
+/// that can be iterated multiple times without consuming or destroying the
+/// source, and that might know its characters' positions in the source it is
+/// from.
+///
+/// Because Rust's [`generic_associated_types`] is not stable yet, this trait
+/// has a design that enables a somewhat-flexible interface for relating the
+/// lifetimes of borrows that enables different implementations of how the
+/// chunking is represented internally.  This enables the iteration
+/// functionality to generically work with all types of this trait.
+///
+/// Types of this trait are required to be able to be constructed from a single
+/// chunk, which assists the use of this trait in this crate.
+///
+/// [`generic_associated_types`]: https://github.com/rust-lang/rfcs/blob/master/text/1598-generic_associated_types.md
+pub trait Text: TextBase
+    where Self: From<<Self as Text>::Chunk>,
+{
+    /// The type of underlying chunks used to represent our character sequence.
+    type Chunk: TextChunk<Pos = Self::Pos>;
+    /// Enables generic flexibility in the internal representation of how chunks
+    /// are held and chained, while also enabling the borrowing of references to
+    /// this from the `self` so that the lifetimes are those of our method
+    /// calls' borrows of `self`.
+    type IterChunksState: TextIterChunksState<Chunk = Self::Chunk> + ?Sized;
+
+    #[inline]
+    fn from_str<'s>(s: &'s str) -> Self
+        where Self::Chunk: From<&'s str>
+    {
+        Self::from(Self::Chunk::from(s))
+    }
+
+    fn partial_eq<O: Text>(&self, other: &O) -> bool {
+        self.iter().map(sii_ch).eq(other.iter().map(sii_ch))
+    }
+
+    fn partial_cmp<O: Text>(&self, other: &O) -> Option<Ordering> {
+        self.iter().map(sii_ch).partial_cmp(other.iter().map(sii_ch))
+    }
+
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.iter().map(sii_ch).cmp(other.iter().map(sii_ch))
+    }
+
+    fn iter_chunks_state(&self) -> Option<&Self::IterChunksState>;
+
+    #[inline]
+    fn iter_chunks<'a>(&'a self) -> TextChunksIter<'a, Self> {
+        TextChunksIter::new(self)
+    }
+
+    /// Construct a new iterator, which is also a [`SourceStream`] if the `Self`
+    /// type is also a [`TextConcat`], that yields the logical character
+    /// sequence, and their positions, of the given `self`.
+    ///
+    /// The returned [`TextIter`] type is parameterized over the same lifetime
+    /// as the borrows of `self` of calls of this method, which enables it to
+    /// contain borrows derived from a `self` borrow, which is essential.
+    ///
+    /// This is how the correct lifetime relating is achieved without generic
+    /// asssociated types.  If/when the `generic_associated_types` feature
+    /// becomes available in stable Rust, our design should probably be redone
+    /// to leverage that feature for a cleaner design.
+    ///
+    /// [`SourceStream`]: TODO
+    /// [`TextConcat`]: TODO
+    /// [`TextIter`]: TODO
+    #[inline]
+    fn iter<'a>(&'a self) -> TextIter<'a, Self> {
+        TextIter::new(self)
+    }
+}
+
+/// A [`Text`](trait.Text.html) that can logically concatenate its values,
+/// optionally by using a provided [`DatumAllocator`](TODO).
+///
+/// Separating this concatenation functionality from the `Text` trait avoids
+/// difficulties that otherwise would happen with needing to have the `DA:
+/// DatumAllocator` type parameter where not really needed.
+///
+/// The `Datum` allocation support exists to support [`TextDatumSeq`](TODO), but
+/// it hypothetically might be useful to other potential implementations.  The
+/// `DA` type argument must be the same as that of the [`Parser`s](TODO) this is
+/// used with.  When this is implemented for types that ignore the
+/// `DatumAllocator`, the `DA` type should be a generic type parameter that
+/// covers all (ignored) possibilities.
+pub trait TextConcat<DA>: Text
+    where DA: DatumAllocator<TT = Self> + ?Sized,
+{
+    /// Concatenate two `Text`s (of the same type) to form a single `Text` that
+    /// logically represents this.  The `datum_alloc` argument may be ignored by
+    /// some (most) implementations and exists only to support implementations
+    /// like `TextDatumSeq`.  If the implementation ignores `datum_alloc`, it is
+    /// safe to use `unwrap` on the returned `Result`.
+    fn concat(self, other: Self, datum_alloc: &mut DA) -> Result<Self, AllocError>;
+}
+
+/// The basic interface common across both `Text`s and `TextChunk`s.  This
+/// determines the associated type of the characters' positional information;
+/// and this provides the ability to construct and check for emptiness.
+// TODO: Impl indexing?  But probably not slicing since that seems like it'd
+// require dynamic allocation for dealing with chunk boundaries, which for some
+// impls like TextDatumSeq is not possible (because the standard slicing API
+// isn't able to provide the needed DatumAllocator).
+pub trait TextBase
+    where Self: Sized,
+{
+    /// TODO
+    type Pos: TextPosition;
+
+    fn empty() -> Self;
+
+    fn is_empty(&self) -> bool;
+}
+
+/// A sequence of characters that serves as a single chunk in the underlying
+/// representation of some `Text` type.
+pub trait TextChunk: TextBase {
+    // FUTURE: Use `generic_associated_types` so this can have a lifetime
+    // parameter.
+    type CharsSrcStrm: TextChunkSourceStream<Self>;
+
+    // FUTURE: Use `generic_associated_types` to enable having the same lifetime
+    // in `CharsSrcStrm<'_>` as this method call's borrow of `self`.  This will
+    // enable new possibilities of implementation such as multi-level chunking
+    // with chunks which are themselves `Text` types composed of underlying
+    // chunks, where a `CharsSrcStrm<'a>` is the `TextIter<'a>` of such types.
+    // This will also enable chunk types backed by things like `String` which
+    // need to return borrows related to the call lifetimes to be able to return
+    // a `CharsSrcStrm`.
+    fn src_strm<'a>(&'a self) -> Self::CharsSrcStrm;
+}
+
+/// Like [`SourceStream`](TODO), but without `DatumAllocator`, for `TextChunk`s.
+/// Only accumulates within a single chunk, not across multiple chunks, unlike
+/// `SourceStream`.  `TextIter as SourceStream` builds on this.
+pub trait TextChunkSourceStream<C: TextChunk>:
+              Iterator<Item = SourceIterItem<C::Pos>>
+{
+    fn peek(&mut self) -> Option<&<Self as Iterator>::Item>;
+
+    fn next_accum(&mut self) -> Option<<Self as Iterator>::Item>;
+
+    fn accum_done(&mut self) -> C;
+}
+
+/// Iterator that yields a reference to each chunk of a `Text`, by using the
+/// `TextIterChunksState` trait of the `Text`'s `IterChunksState`.
+pub struct TextChunksIter<'l, TT>
+    where TT: Text,
+{
+    state: Option<&'l TT::IterChunksState>,
+}
+
+// Note: Must implement `Copy` and `Clone` manually instead of using `derive`
+// because `derive` would place additional bounds on the `TT` type parameter
+// which must be avoided.
+
+impl<'l, TT> Copy for TextChunksIter<'l, TT>
+    where TT: Text
+{}
+
+impl<'l, TT> Clone for TextChunksIter<'l, TT>
+    where TT: Text
+{
+    #[inline]
+    fn clone(&self) -> Self { *self }
+}
+
+impl<'l, TT> TextChunksIter<'l, TT>
+    where TT: Text,
+{
+    #[inline]
+    fn new(text: &'l TT) -> Self {
+        Self {
+            state: text.iter_chunks_state(),
+        }
+    }
+}
+
+impl<'l, TT> Iterator for TextChunksIter<'l, TT>
+    where TT: Text,
+          TT::Chunk: 'l,
+{
+    type Item = &'l TT::Chunk;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.state.take()
+                  .and_then(TextIterChunksState::next)
+                  .map(|(next_chunk, next_state)| {
+            self.state = next_state;
+            next_chunk
+        })
+    }
+}
+
+/// Enables a `Text` to supply references to each of its chunks by borrowing
+/// them from its associated `Text::IterChunksState`, which must implement this
+/// trait, which is borrowed by calls to the `Text` methods, which enables the
+/// lifetimes to be related for those methods to work.
+pub trait TextIterChunksState {
+    type Chunk: TextChunk;
+
+    fn next(&self) -> Option<(&Self::Chunk, Option<&Self>)>;
+}
+
+impl<C> TextIterChunksState for [C]
+    where C: TextChunk,
+{
+    type Chunk = C;
+
+    fn next(&self) -> Option<(&Self::Chunk, Option<&Self>)> {
+        if self.len() > 0 {
+            Some((&self[0],
+                  if self.len() > 1 {
+                      Some(&self[1..])
+                  } else {
+                      None
+                  }))
+        } else {
+            None
+        }
+    }
+}
+
+
+/// A [`SourceStream`] (which is also an `Iterator`) of the logical sequence of
+/// characters (with positions) of any [`Text`], yielded as [`SourceIterItem`]
+/// items.  This is designed to handle generic chunk-chain representations.
+pub struct TextIter<'l, TT>
+    where TT: Text,
+{
+    /// The `TextChunkSourceStream` (and so also `Iterator`) for the current
+    /// chunk.
+    cur_chunk_src_strm: Option<<TT::Chunk as TextChunk>::CharsSrcStrm>,
+    /// `Iterator` of the next chunks.
+    next_chunks_iter: TextChunksIter<'l, TT>,
+    /// Accumulated chunks formed and concatenated by our
+    /// `SourceStream::next_accum` and `SourceStream::accum_done`.
+    accum: Option<TT>,
+    /// Peeked next item of our `SourceStream::peek`.
+    peeked: Option<SourceIterItem<TT::Pos>>,
+}
+
+impl<'l, TT> TextIter<'l, TT>
+    where TT: Text,
+{
+    pub fn new(text: &'l TT) -> Self {
+        let mut next_chunks_iter = text.iter_chunks();
+        let cur_chunk_src_strm = next_chunks_iter.next().map(TextChunk::src_strm);
+        Self {
+            cur_chunk_src_strm,
+            next_chunks_iter,
+            accum: None,
+            peeked: None,
+        }
+    }
+}
+
+/// All `Text` types' characters (with positions) can be iterated via a normal
+/// `Iterator` trait regardless of whether they are `TextConcat`.
+impl<'l, TT> Iterator for TextIter<'l, TT>
+    where TT: Text,
+          TT::Chunk: 'l,
+{
+    type Item = SourceIterItem<TT::Pos>;
+
+    /// Note: If `next_accum` was previously called (to do an accumulation) and
+    /// returned some item but `accum_done` was not called (to finish an
+    /// accumulation), i.e. if we have an unfinished accumulation, this will
+    /// abort and drop the unfinished accumulation.
+    fn next(&mut self) -> Option<Self::Item> {
+        self.accum = None;
+        self.peeked = None;  // Note: Can't reuse. Must do below.
+        loop {
+            if let Some(ccss) = &mut self.cur_chunk_src_strm {
+                if let it @ Some(_) = ccss.next() {
+                    break it
+                } else {
+                    self.cur_chunk_src_strm
+                        = self.next_chunks_iter.next().map(TextChunk::src_strm);
+                }
+            } else {
+                break None
+            }
+        }
+    }
+}
+
+/// `SourceStream` is only implemented where a `Text` type is a `TextConcat`.
+impl<'l, TT, DA> SourceStream<TT, DA> for TextIter<'l, TT>
+    where TT: TextConcat<DA>,
+          TT::Chunk: 'l,
+          DA: DatumAllocator<TT = TT> + ?Sized,
+{
+    /// TODO
+    fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
+        if let Some(ref it) = self.peeked {
+            return Some(it)
+        }
+        // Must use a copy of the state to avoid changing `self`'s state because
+        // that state affects the pending accumulation state which must not
+        // change for a peek.
+        let mut cur_chunk_src_strm;
+        let mut cur_chunk_src_strm_ref = &mut self.cur_chunk_src_strm;
+        let mut next_chunks_iter = self.next_chunks_iter; // copy
+        loop {
+            if let Some(ccss) = cur_chunk_src_strm_ref {
+                if let Some(it) = ccss.peek() {
+                    self.peeked = Some(it.clone());
+                    break self.peeked.as_ref()
+                } else {
+                    cur_chunk_src_strm
+                        = next_chunks_iter.next().map(TextChunk::src_strm);
+                    cur_chunk_src_strm_ref = &mut cur_chunk_src_strm;
+                }
+            } else {
+                break None
+            }
+        }
+    }
+
+    /// TODO
+    fn next_accum(&mut self, dalloc: &mut DA)
+                  -> Result<Option<<Self as Iterator>::Item>,
+                            AllocError>
+    {
+        self.peeked = None;  // Note: Can't reuse. Must do below.
+        Ok(loop {
+            if let Some(ccss) = &mut self.cur_chunk_src_strm {
+                if let it @ Some(_) = ccss.next_accum() {
+                    break it
+                } else {
+                    let chunk_ended = ccss.accum_done().into();
+                    self.accum = Some(self.accum.take().unwrap_or_else(TT::empty)
+                                      .concat(chunk_ended, dalloc)?);
+                    self.cur_chunk_src_strm
+                        = self.next_chunks_iter.next().map(TextChunk::src_strm);
+                }
+            } else {
+                break None
+            }
+        })
+    }
+
+    /// TODO
+    fn accum_done(&mut self, dalloc: &mut DA) -> Result<TT, AllocError> {
+        let mut accum = self.accum.take().unwrap_or_else(TT::empty);
+        if let Some(ccss) = &mut self.cur_chunk_src_strm {
+            let chunk_ended = ccss.accum_done().into();
+            accum = accum.concat(chunk_ended, dalloc)?;
+        }
+        Ok(accum)
+    }
+}
+
+
+/// A `TextPosition` type for character or slice values from text sources that
+/// are entire `str` strings where we can know the original source and the
+/// relative position.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct StrPos<'s> {
+    /// Original entire source string that the value is in. Might equal the
+    /// slice.
+    pub src: &'s str,
+    /// Byte position of start of the value, relative to `src`.
+    pub byte_pos: usize,
+    /// Character position of start of the value, relative to the original
+    /// source.
+    pub char_pos: usize,
+}
+
+impl<'s> TextPosition for StrPos<'s>
+{
+    #[inline]
+    fn empty() -> Self {
+        StrPos {
+            src: "",
+            byte_pos: 0,
+            char_pos: 0,
+        }
+    }
+}
+
+
+/// A string slice representation that knows what position in its original
+/// source it is at.
+#[derive(Copy, Clone, Debug)]
+pub struct PosStr<'s> {
+    /// The represented string slice.
+    pub val: &'s str,
+    /// Information about `val`'s position relative to its original source.
+    pub pos: StrPos<'s>,
+}
+
+impl<'s> PosStr<'s> {
+    fn empty() -> PosStr<'s> {
+        PosStr {
+            val: "",
+            pos: StrPos::empty(),
+        }
+    }
+}
+
+// TODO: Is 's2 needed or is lifetime subtyping automatic for this?
+impl<'s1, 's2> From<&'s2 str> for PosStr<'s1>
+    where 's2: 's1,
+{
+    fn from(val: &'s2 str) -> Self {
+        Self {
+            val,
+            pos: StrPos {
+                src: val,
+                byte_pos: 0,
+                char_pos: 0,
+            },
+        }
+    }
+}
+
+impl<'s> TextBase for PosStr<'s> {
+    type Pos = StrPos<'s>;
+
+    #[inline]
+    fn empty() -> Self {
+        PosStr::empty()
+    }
+
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.val.len() == 0
+    }
+}
+
+impl<'s> TextChunk for PosStr<'s> {
+    type CharsSrcStrm = PosStrIter<'s>;
+
+    #[inline]
+    fn src_strm(&self) -> Self::CharsSrcStrm {
+        PosStrIter::new(self)
+    }
+}
+
+pub struct PosStrIter<'s> {
+    pei_iter: Peekable<Map<Zip<Enumerate<CharIndices<'s>>,
+                               Repeat<StrPos<'s>>>,
+                           fn(((usize, (usize, char)), StrPos<'s>))
+                              -> SourceIterItem<StrPos<'s>>>>,
+    accum: Option<PosStr<'s>>,
+    posstr: PosStr<'s>,
+}
+
+impl<'s> PosStrIter<'s> {
+    fn new(posstr: &PosStr<'s>) -> Self {
+        Self {
+            pei_iter: posstr.val.char_indices()
+                                .enumerate()
+                                .zip(iter::repeat(posstr.pos))
+                                .map((|((char_pos, (byte_pos, ch)), mut pos)| {
+                                    pos.byte_pos += byte_pos;
+                                    pos.char_pos += char_pos;
+                                    SourceIterItem {
+                                        ch,
+                                        pos,
+                                    }
+                                }) as fn(((usize, (usize, char)), StrPos<'s>))
+                                         -> SourceIterItem<StrPos<'s>>)
+                                .peekable(),
+            accum: None,
+            posstr: *posstr,
+        }
+    }
+}
+
+impl<'s> Iterator for PosStrIter<'s> {
+    type Item = SourceIterItem<StrPos<'s>>;
+
+    /// Note: If `next_accum` was previously called (to do an accumulation) and
+    /// returned some item but `accum_done` was not called (to finish an
+    /// accumulation), i.e. if we have an unfinished accumulation, this will
+    /// abort and drop the unfinished accumulation.
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.accum = None;
+        self.pei_iter.next()
+    }
+}
+
+impl<'s> TextChunkSourceStream<PosStr<'s>> for PosStrIter<'s>
+{
+    #[inline]
+    fn peek(&mut self) -> Option<&SourceIterItem<StrPos<'s>>> {
+        self.pei_iter.peek()
+    }
+
+    fn next_accum(&mut self) -> Option<SourceIterItem<StrPos<'s>>> {
+        let next = self.pei_iter.next();
+        if let Some(next) = &next {
+            let end = if let Some(peek) = self.pei_iter.peek() {
+                peek.pos.byte_pos
+            } else {
+                self.posstr.pos.byte_pos + self.posstr.val.len()
+            };
+            if let Some(accum) = &mut self.accum {
+                // Already set, so extend
+                accum.val = &accum.pos.src[accum.pos.byte_pos .. end];
+            } else {
+                // Not set yet, so set
+                self.accum = Some(PosStr{
+                    val: &next.pos.src[next.pos.byte_pos .. end],
+                    pos: next.pos,
+                });
+            }
+        }
+        next
+    }
+
+    #[inline]
+    fn accum_done(&mut self) -> PosStr<'s> {
+        self.accum.take().unwrap_or_else(PosStr::empty)
+    }
+}
+
+
+/// A chunk-chain representation of texts that uses [`Datum`]s allocated by a
+/// [`Parser`] as nodes in a linked list of text chunks.  The chunk type can be
+/// any [`TextChunk`] type.  This is useful when heap allocation isn't available
+/// (or desired) and the `Parser`'s `DatumAllocator` is the only available (or
+/// desired) dynamic allocator.
+///
+/// TODO: Explain why DatumMutRef is used.
+#[derive(Debug)]
+pub struct TextDatumSeq<'d, C, ET> {
+    chunk: C,
+    next: Option<DatumMutRef<'d, Self, ET>>,
+}
+
+impl<'d, C, ET> From<C> for TextDatumSeq<'d, C, ET>
+    where C: TextChunk,
+{
+    #[inline]
+    fn from(chunk: C) -> Self {
+        Self {
+            chunk,
+            next: None,
+        }
+    }
+
+}
+
+impl<'d, TT, C, ET> PartialEq<TT> for TextDatumSeq<'d, C, ET>
+    where TT: Text,
+          C: TextChunk,
+{
+    #[inline]
+    fn eq(&self, other: &TT) -> bool {
+        Text::partial_eq(self, other)
+    }
+}
+
+impl<'d, C, ET> Eq for TextDatumSeq<'d, C, ET>
+    where C: TextChunk,
+{}
+
+// TODO: PartialOrd, Ord
+
+impl<'d, C, ET> TextIterChunksState for TextDatumSeq<'d, C, ET>
+    where C: TextChunk,
+{
+    type Chunk = C;
+
+    fn next(&self) -> Option<(&Self::Chunk, Option<&Self>)> {
+        Some((&self.chunk,
+              self.next.as_ref().map(
+                  |datum_ref|
+                  if let Datum::Text(next) = Deref::deref(datum_ref) {
+                      next
+                  } else {
+                      // Note: This won't ever fail because we always construct the
+                      // `Datum::Text` variant.
+                      unreachable!()
+                  })))
+    }
+}
+
+impl<'d, C, ET> TextBase for TextDatumSeq<'d, C, ET>
+    where C: TextChunk,
+{
+    type Pos = C::Pos;
+
+    #[inline]
+    fn empty() -> Self {
+        Self::from(C::empty())
+    }
+
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.iter_chunks().all(TextBase::is_empty)
+    }
+}
+
+impl<'d, C, ET> Text for TextDatumSeq<'d, C, ET>
+    where C: TextChunk,
+{
+    type Chunk = C;
+    type IterChunksState = Self;
+
+    #[inline]
+    fn iter_chunks_state(&self) -> Option<&Self::IterChunksState> {
+        Some(self)
+    }
+}
+
+impl<'d, DA, C, ET> TextConcat<DA> for TextDatumSeq<'d, C, ET>
+    where C: TextChunk,
+          DA: DatumAllocator<TT = Self, ET = ET, DR = DatumMutRef<'d, Self, ET>>
+              + ?Sized,
+{
+    /// Link two `TextDatumSeq`s to form a single `TextDatumSeq` that represents
+    /// their logical concatenation.  Unlike most implementations of
+    /// `TextConcat`, this does use the `datum_alloc` argument to allocate the
+    /// new `Datum`s that are used as the storage of the nodes of our
+    /// linked-list approach.
+    fn concat(mut self, other: Self, datum_alloc: &mut DA) -> Result<Self, AllocError>
+    {
+        // If either is empty, optimize.
+        if self.is_empty() {
+            return Ok(other);
+        } else if other.is_empty() {
+            return Ok(self)
+        }
+
+        // Find the end of the linked-list and link `other` from it.
+        let mut cur = &mut self;
+        loop {
+            match &mut cur.next {
+                Some(dr) =>
+                    if let Some(Datum::Text(next)) = DerefTryMut::get_mut(dr) {
+                        cur = next;
+                    } else {
+                        // Note: This won't ever fail because we never share the
+                        // datum references and always construct the
+                        // `Datum::Text` variant.
+                        unreachable!()
+                    }
+                last_next @ None => {
+                    *last_next = Some(datum_alloc.new_datum(Datum::Text(other))?);
+                    break Ok(self)
+                }
+            }
+        }
+    }
+}
 
 
 /// The abstract syntax tree (AST) type returned by parsing.  It is extensible
@@ -150,11 +883,12 @@ impl Deref for PosStr<'_> {
 /// type used to refer to the other `Datum`s in an AST.  It can also be used for
 /// DAGs.
 #[derive(Copy, Clone, Eq, Debug)]
-pub enum Datum<'s, ExtraType, DatumRef>
-    where DatumRef: DerefTryMut<Target = Datum<'s, ExtraType, DatumRef>>,
+pub enum Datum<TextType, ExtraType, DatumRef>
+    where DatumRef: DerefTryMut<Target = Datum<TextType, ExtraType, DatumRef>>,
 {
-    /// An unbroken span of text. (Only nest forms break text.)
-    Text(PosStr<'s>),
+    /// A logically unbroken span of text. (Only nest forms break text
+    /// logically, but escape characters break the representation into chunks.)
+    Text(TextType),
     /// A nest form that is not empty and so has a non-empty "operator"/"head"
     /// sub-form, as a `Datum`, and has a possibly-empty "operands" sub-form(s),
     /// as a `List` (or `EmptyList`) or a `Text`.
@@ -170,24 +904,26 @@ pub enum Datum<'s, ExtraType, DatumRef>
     Extra(ExtraType),
 }
 
+
 /// This allows different concrete [`Datum`](enum.Datum.html) types to be
 /// compared with each other for equality if their ["extra"
 /// types](enum.Datum.html#variant.Extra) can be.  This also avoids stack
 /// overflows for long lists and deep nests (but can still overflow on other
 /// deep tree shapes, but those are rare).
-impl<'s1, 's2, ET1, ET2, DR1, DR2>
-    PartialEq<Datum<'s2, ET2, DR2>>
-    for Datum<'s1, ET1, DR1>
-    where DR1: DerefTryMut<Target = Datum<'s1, ET1, DR1>>,
-          DR2: DerefTryMut<Target = Datum<'s2, ET2, DR2>>,
+impl<TT1, TT2, ET1, ET2, DR1, DR2>
+    PartialEq<Datum<TT2, ET2, DR2>>
+    for Datum<TT1, ET1, DR1>
+    where DR1: DerefTryMut<Target = Datum<TT1, ET1, DR1>>,
+          DR2: DerefTryMut<Target = Datum<TT2, ET2, DR2>>,
+          TT1: PartialEq<TT2>,
           ET1: PartialEq<ET2>,
 {
-    fn eq(&self, other: &Datum<'s2, ET2, DR2>) -> bool {
+    fn eq(&self, other: &Datum<TT2, ET2, DR2>) -> bool {
         let (mut slf, mut oth) = (self, other);
         loop {
             match (slf, oth) {
-                (Text(ps1), Text(ps2))
-                    => break ps1.val == ps2.val,
+                (Text(txt1), Text(txt2))
+                    => break *txt1 == *txt2,
                 (Combination{operator: rtr1, operands: rnds1},
                  Combination{operator: rtr2, operands: rnds2})
                     => if **rnds1 == **rnds2 {
@@ -219,10 +955,9 @@ impl<'s1, 's2, ET1, ET2, DR1, DR2>
 /// method can be used to hold [`Datum`s](enum.Datum.html).  `DerefMut` must
 /// never fail, so it can't be used.  We want mutability of `Datum`s so that we
 /// can construct [lists of them](enum.Datum.html#variant.List) using only the
-/// space of the values allocated by
-/// [`Parser::new_datum`](trait.Parser.html#tymethod.new_datum), since this
-/// crate is intended to be usable in `no_std` environments which don't provide
-/// heap allocation.
+/// space of the values allocated by a `Parser`'s
+/// [`DatumAllocator`](trait.DatumAllocator.html), since this crate is intended
+/// to be usable in `no_std` environments which don't provide heap allocation.
 ///
 /// The alternative of using tree-recursion to acheive temporary stack
 /// allocation for constructing the lists without mutation is not good because
@@ -243,27 +978,22 @@ pub trait DerefTryMut: Deref
 
 /// This assists in basic direct mutable borrow references being used as the
 /// `Datum` reference type.
-pub type MutRefDatum<'d, 's, ET> = Datum<'s, ET, DatumMutRef<'d, 's, ET>>;
+pub type MutRefDatum<'d, TT, ET> = Datum<TT, ET, DatumMutRef<'d, TT, ET>>;
 
 /// This wrapper allows the needed recursive type definition for basic direct
 /// mutable borrow references to be used as the `Datum` reference type.
 #[derive(PartialEq, Eq, Debug)]
-pub struct DatumMutRef<'d, 's, ET>(pub &'d mut MutRefDatum<'d, 's, ET>)
-    where 's: 'd;
+pub struct DatumMutRef<'d, TT, ET>(pub &'d mut MutRefDatum<'d, TT, ET>);
 
-impl<'d, 's, ET> Deref for DatumMutRef<'d, 's, ET>
-    where 's: 'd
-{
-    type Target = MutRefDatum<'d, 's, ET>;
+impl<'d, TT, ET> Deref for DatumMutRef<'d, TT, ET> {
+    type Target = MutRefDatum<'d, TT, ET>;
 
     fn deref(&self) -> &Self::Target {
         self.0
     }
 }
 
-impl<'d, 's, ET> DerefMut for DatumMutRef<'d, 's, ET>
-    where 's: 'd
-{
+impl<'d, TT, ET> DerefMut for DatumMutRef<'d, TT, ET> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
@@ -271,65 +1001,11 @@ impl<'d, 's, ET> DerefMut for DatumMutRef<'d, 's, ET>
 
 /// This allows basic direct mutable borrow references to be used as the `Datum`
 /// reference type.
-impl<'d, 's, ET> DerefTryMut for DatumMutRef<'d, 's, ET>
-    where 's: 'd
-{
+impl<'d, TT, ET> DerefTryMut for DatumMutRef<'d, TT, ET> {
     fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
         Some(DerefMut::deref_mut(this))
     }
 }
-
-
-/// This module is needed so that these are public, as required, but not
-/// exported from the crate.
-mod source_iter {
-    use super::*;
-
-    #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-    pub struct SourceIterItem {
-        pub ch: char,
-        pub byte_pos: usize,
-        pub char_pos: usize,
-    }
-
-    /// An iterator of the characters of a string that also yields the byte and
-    /// character positions and that offsets the positions according to the
-    /// string's offset relative to the original input string.
-    #[derive(Clone, Debug)]
-    pub struct SourceIter<'s> {
-        pub ei_iter: Enumerate<CharIndices<'s>>,
-        pub byte_offset: usize,
-        pub char_offset: usize,
-    }
-
-    impl<'s> SourceIter<'s> {
-        pub fn new(PosStr{val, byte_pos: byte_offset, char_pos: char_offset, ..
-                         }: PosStr<'s>)
-               -> Self
-        {
-            SourceIter {
-                ei_iter: val.char_indices().enumerate(),
-                byte_offset,
-                char_offset,
-            }
-        }
-    }
-
-    impl Iterator for SourceIter<'_> {
-        type Item = SourceIterItem;
-
-        fn next(&mut self) -> Option<Self::Item> {
-            self.ei_iter.next().map(|(char_pos, (byte_pos, ch))|
-                                    SourceIterItem{ch,
-                                                   byte_pos: self.byte_offset
-                                                             + byte_pos,
-                                                   char_pos: self.char_offset
-                                                             + char_pos})
-        }
-    }
-}
-
-use self::source_iter::*;
 
 
 // TODO: Exercise combiners in the test suite
@@ -348,9 +1024,9 @@ use self::combiner::*;
 /// form.  The `OperativeRef` and `ApplicativeRef` type parameters determine the
 /// types used to refer to the functions.
 ///
-/// While these parameters as defined here can allow a broad range of types
-/// (including possibly inconsistent ones), further bounds on these are required
-/// by the [`Parser`](trait.Parser.html) definition which ensures that only
+/// While these parameters as defined here can allow possibly inconsistent
+/// types, further bounds on these are required by a `Parser`'s
+/// [`OperatorBindings`](trait.OperatorBindings.html) which ensures that only
 /// consistent ones can be used with it, which is the only intended use of this
 /// type.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -364,12 +1040,12 @@ pub enum Combiner<OperativeRef, ApplicativeRef>
     Applicative(ApplicativeRef),
 }
 
-impl<'s, ET, DR, CE> OperativeTrait for OpFn<'s, ET, DR, CE>
-    where DR: DerefTryMut<Target = Datum<'s, ET, DR>>,
+impl<TT, ET, DR, POS, CE> OperativeTrait for OpFn<TT, ET, DR, POS, CE>
+    where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
 { }
 
-impl<'s, ET, DR, CE> ApplicativeTrait for ApFn<'s, ET, DR, CE>
-    where DR: DerefTryMut<Target = Datum<'s, ET, DR>>,
+impl<TT, ET, DR, POS, CE> ApplicativeTrait for ApFn<TT, ET, DR, POS, CE>
+    where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
 { }
 
 /// The type of "operative" functions.  First argument is the "operator"
@@ -379,7 +1055,9 @@ impl<'s, ET, DR, CE> ApplicativeTrait for ApFn<'s, ET, DR, CE>
 /// `Datum`s is needed for the return value.  See
 /// [`CombinerResult`](type.CombinerResult.html) for the description of the
 /// return value.
-pub type OpFn<'s, ET, DR, CE> = dyn FnMut(DR, DR) -> CombinerResult<'s, ET, DR, CE>;
+pub type OpFn<TT, ET, DR, POS, CE>
+    = dyn FnMut(DR, DR)
+                -> CombinerResult<TT, ET, DR, POS, CE>;
 
 /// The type of "applicative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-forms
@@ -389,76 +1067,133 @@ pub type OpFn<'s, ET, DR, CE> = dyn FnMut(DR, DR) -> CombinerResult<'s, ET, DR, 
 /// new `Datum`s is needed for the return value.  See
 /// [`CombinerResult`](type.CombinerResult.html) for the description of the
 /// return value.
-pub type ApFn<'s, ET, DR, CE> = dyn FnMut(DR, DR) -> CombinerResult<'s, ET, DR, CE>;
+pub type ApFn<TT, ET, DR, POS, CE>
+    = dyn FnMut(DR, DR)
+                -> CombinerResult<TT, ET, DR, POS, CE>;
 
 /// The type returned by "operative" and "applicative" functions.  For a
 /// successful return, the returned `Datum` is substituted for the original form
 /// by the parser in the AST it yields, and the returned allocator state is the
 /// possibly-updated state passed into the combiner function.  An
 /// [`Error`](enum.Error.html) is returned if the combiner fails for any reason.
-pub type CombinerResult<'s, ET, DR, CE> = Result<(Datum<'s, ET, DR>), Error<CE>>;
+pub type CombinerResult<TT, ET, DR, POS, CE>
+    = Result<Datum<TT, ET, DR>, Error<POS, CE>>;
 
 
 /// Represents: the ability to parse a string; the characters used to delimit
 /// the nesting form; the method of allocating the `Datum`s; and the environment
 /// of bindings of macros.
-pub trait Parser<'s> {
-    /// The ["extra" type](enum.Datum.html#variant.Extra) for our `Datum` type.
-    type ET;
-    /// The type of references to [`Datum`s](enum.Datum.html) yielded by our
-    /// parsing.
-    type DR: DerefTryMut<Target = Datum<'s, Self::ET, Self::DR>>;
-    /// The type of references to
-    /// [`Operative`](enum.Combiner.html#variant.Operative) macro functions.
-    type OR: DerefMut<Target = OpFn<'s, Self::ET, Self::DR, Self::CE>>;
-    /// The type of references to
-    /// [`Applicative`](enum.Combiner.html#variant.Applicative) macro functions.
-    type AR: DerefMut<Target = ApFn<'s, Self::ET, Self::DR, Self::CE>>;
-    /// The [combiner error extension](enum.Error.html#variant.FailedCombiner)
-    /// type.
-    type CE;
+pub struct Parser<CC, DA, OB> {
+    pub classifier: CC,
+    pub allocator: DA,
+    pub bindings: OB,
+}
 
+impl<CC, DA, OB> Parser<CC, DA, OB>
+    where CC: CharClassifier,
+          DA: DatumAllocator,
+          OB: OperatorBindings<DA = DA>,
+{
+    /// The primary method.  Parse the given text source, according to the
+    /// specific parameterization of our `Self`, and return an iterator that
+    /// yields each top-level form as a `Datum` AST.
+    pub fn parse<'p, S>(&'p mut self, source: S) -> ParseIter<'p, Self, S>
+        where S: SourceStream<DA::TT, DA>,
+    {
+        ParseIter {
+            parser: self,
+            src_strm: source,
+        }
+    }
+}
+
+/// TODO
+pub trait CharClassifier {
     /// Predicate that determines the character(s) used to delimit the start of
-    /// our nesting form.  The default implementation uses the common `{`
-    /// character.
+    /// our nesting form.
+    fn is_nest_start(&self, c: char) -> bool;
+
+    /// Predicate that determines the character(s) used to delimit the end of
+    /// our nesting form.
+    fn is_nest_end(&self, c: char) -> bool;
+
+    /// Predicate that determines the character(s) used to escape the delimiter
+    /// characters of our nesting form.
+    fn is_nest_escape(&self, c: char) -> bool;
+
+    /// Predicate that determines the character(s) considered to be whitespace,
+    /// which affects the delimiting of operator and operands in our nesting
+    /// form.
+    fn is_whitespace(&self, c: char) -> bool;
+}
+
+/// A [`CharClassifier`](trait.CharClassifier.html) that uses the common `{`,
+/// `}`, and `\` characters and the Unicode whitespace property.
+pub struct DefaultCharClassifier;
+
+impl CharClassifier for DefaultCharClassifier {
     #[inline]
     fn is_nest_start(&self, c: char) -> bool {
         '{' == c
     }
 
-    /// Predicate that determines the character(s) used to delimit the end of
-    /// our nesting form.  The default implementation uses the common `}`
-    /// character.
     #[inline]
     fn is_nest_end(&self, c: char) -> bool {
         '}' == c
     }
 
-    /// Predicate that determines the character(s) used to escape the delimiter
-    /// characters of our nesting form.  The default implementation uses the
-    /// common `\` character.
     #[inline]
     fn is_nest_escape(&self, c: char) -> bool {
         '\\' == c
     }
 
-    /// Predicate that determines the character(s) considered to be whitespace,
-    /// which affects the delimiting of operator and operands in our nesting
-    /// form.  The default implementation uses the common Unicode property.
     #[inline]
     fn is_whitespace(&self, c: char) -> bool {
         c.is_whitespace()
     }
+}
 
-    /// The primary method.  Parse the given string's text, according to the
-    /// specific parameterization of our `Self`, and return an iterator that
-    /// yields each top-level form as a `Datum` AST.  The default implementation
-    /// constructs a new iterator and supplies our allocation state to it (which
-    /// might be ignored).
-    fn parse<'p>(&'p mut self, source: &'s str) -> ParseIter<'p, 's, Self> {
-        ParseIter::new(self, PosStr{val: source, src: source,
-                                    byte_pos: 0, char_pos: 0})
-    }
+/// TODO
+pub trait DatumAllocator {
+    /// The [`Text` type](enum.Datum.html#variant.Text) for our `Datum` type. It
+    /// must be a [`TextConcat`] for our `Self` so it supports concatenation
+    /// which the parsing requires.
+    type TT: TextConcat<Self>;
+    /// The ["extra" type](enum.Datum.html#variant.Extra) for our `Datum` type.
+    type ET;
+    /// The type of references to [`Datum`s](enum.Datum.html) yielded by our
+    /// parsing.
+    type DR: DerefTryMut<Target = Datum<Self::TT, Self::ET, Self::DR>>;
+
+    /// Allocate a fresh [`Datum`](enum.Datum.html), in whatever way the
+    /// particular implementation wants, and set its initial value to that of
+    /// the `from` argument.  An [`AllocError`](enum.AllocError.html) is
+    /// returned if allocation fails for any reason.
+    fn new_datum(&mut self, from: Datum<Self::TT, Self::ET, Self::DR>)
+                 -> Result<Self::DR, AllocError>;
+}
+
+/// TODO
+pub trait OperatorBindings {
+    /// The type of references to
+    /// [`Operative`](enum.Combiner.html#variant.Operative) macro functions.
+    type OR: DerefMut<Target = OpFn<<Self::DA as DatumAllocator>::TT,
+                                    <Self::DA as DatumAllocator>::ET,
+                                    <Self::DA as DatumAllocator>::DR,
+                                    <<Self::DA as DatumAllocator>::TT as TextBase>::Pos,
+                                    Self::CE>>;
+    /// The type of references to
+    /// [`Applicative`](enum.Combiner.html#variant.Applicative) macro functions.
+    type AR: DerefMut<Target = ApFn<<Self::DA as DatumAllocator>::TT,
+                                    <Self::DA as DatumAllocator>::ET,
+                                    <Self::DA as DatumAllocator>::DR,
+                                    <<Self::DA as DatumAllocator>::TT as TextBase>::Pos,
+                                    Self::CE>>;
+    /// The [combiner error extension](enum.Error.html#variant.FailedCombiner)
+    /// type.
+    type CE;
+    /// TODO
+    type DA: DatumAllocator;
 
     /// Look-up any binding we might have associated with the given datum,
     /// referenced by the `operator` argument, which was found in operator
@@ -468,42 +1203,89 @@ pub trait Parser<'s> {
     /// ways.  Else if we do not have a binding, return `None` to indicate that
     /// the form should not be handled according to the operator and that the
     /// operands should simply be recursively parsed.
-    fn env_lookup(&mut self, operator: &Self::DR)
-                  -> Option<Combiner<Self::OR, Self::AR>>;
+    fn lookup(&mut self, operator: &<Self::DA as DatumAllocator>::DR)
+              -> Option<Combiner<Self::OR, Self::AR>>;
+}
 
-    /// Allocate a fresh [`Datum`](enum.Datum.html), in whatever way the
-    /// particular implementation wants, and set its initial value to that of
-    /// the `from` argument.  Note that the `alst` (allocation state) argument
-    /// may be ignored.  An [`Error`](enum.Error.html) is returned if allocation
-    /// fails for any reason.
-    fn new_datum(&mut self, from: Datum<'s, Self::ET, Self::DR>)
-                 -> Result<Self::DR, AllocError>;
+/// An [`OperatorBindings`](trait.OperatorBindings.html) that always has no
+/// bindings and its [`lookup`](trait.OperatorBindings.html#tymethod.lookup)
+/// method always returns `None`.
+///
+/// Note: The `DA` type parameter is needed so `OperatorBindings` can be
+/// implemented for this for all possible `DatumAllocator` types.
+pub struct EmptyOperatorBindings<DA>(PhantomData<*const DA>);
+
+impl<DA> EmptyOperatorBindings<DA> {
+    #[inline]
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+// TODO: Have this be `pub` only in a module and not exported.
+/// Trick `OperatorBindings` into accepting this for the implementation of
+/// `OperatorBindings for EmptyOperatorBindings<DA>`.
+pub struct DummyCombiner<DA>(PhantomData<*const DA>);
+
+impl<DA> Deref for DummyCombiner<DA>
+    where DA: DatumAllocator,
+{
+    type Target = dyn FnMut(DA::DR, DA::DR)
+                            -> CombinerResult<DA::TT, DA::ET, DA::DR,
+                                              <DA::TT as TextBase>::Pos,
+                                              ()>;
+
+    fn deref(&self) -> &Self::Target { unreachable!() }
+}
+
+impl<DA> DerefMut for DummyCombiner<DA>
+    where DA: DatumAllocator,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target { unreachable!() }
+}
+
+impl<DA> OperatorBindings for EmptyOperatorBindings<DA>
+    where DA: DatumAllocator,
+{
+    type OR = DummyCombiner<DA>;
+    type AR = DummyCombiner<DA>;
+    type CE = ();
+    type DA = DA;
+
+    #[inline]
+    fn lookup(&mut self, _operator: &<Self::DA as DatumAllocator>::DR)
+              -> Option<Combiner<Self::OR, Self::AR>> {
+        None
+    }
 }
 
 
 /// The type of values given by the parser iterator
-pub type ParseIterItem<DR, CE> = Result<DR, Error<CE>>;
+pub type ParseIterItem<DR, POS, CE> = Result<DR, Error<POS, CE>>;
 
 /// An [`Iterator`](http://doc.rust-lang.org/std/iter/trait.Iterator.html) that
 /// parses its input text one top-level form at a time per each call to
 /// [`next`](http://doc.rust-lang.org/std/iter/trait.Iterator.html#tymethod.next),
 /// and yields a [`Datum`](enum.Datum.html) AST for each or an
 /// [`Error`](enum.Error.html), according to the given
-/// [`Parser`](trait.Parser.html)'s parameterization.
-pub struct ParseIter<'p, 's, P>
-    where P: 'p + Parser<'s> + ?Sized,
-          's: 'p,
+/// [`Parser`](struct.Parser.html)'s parameterization.
+pub struct ParseIter<'p, Prsr, SrcStrm>
+    where Prsr: ?Sized + 'p,
 {
-    parser: &'p mut P,
-    src_str: PosStr<'s>,
-    src_iter: Peekable<SourceIter<'s>>,
+    parser: &'p mut Prsr,
+    src_strm: SrcStrm,
 }
 
-impl<'p, 's, P> Iterator for ParseIter<'p, 's, P>
-    where P: 'p + Parser<'s> + ?Sized,
-          's: 'p,
+impl<'p, CC, DA, OB, S>
+    Iterator
+    for ParseIter<'p, Parser<CC, DA, OB>, S>
+    where CC: CharClassifier,
+          DA: DatumAllocator,
+          OB: OperatorBindings<DA = DA>,
+          Parser<CC, DA, OB>: 'p,
+          S: SourceStream<DA::TT, DA>,
 {
-    type Item = ParseIterItem<<P as Parser<'s>>::DR, <P as Parser<'s>>::CE>;
+    type Item = ParseIterItem<DA::DR, <DA::TT as TextBase>::Pos, OB::CE>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.do_next() {
@@ -514,174 +1296,175 @@ impl<'p, 's, P> Iterator for ParseIter<'p, 's, P>
     }
 }
 
-impl<'p, 's, P> ParseIter<'p, 's, P>
-    where P: 'p + Parser<'s> + ?Sized,
-          's: 'p,
+impl<'p, CC, DA, OB, S>
+    ParseIter<'p, Parser<CC, DA, OB>, S>
+    where CC: CharClassifier,
+          DA: DatumAllocator,
+          OB: OperatorBindings<DA = DA>,
+          Parser<CC, DA, OB>: 'p,
+          S: SourceStream<DA::TT, DA>,
 {
     // TODO: Can `type = ...` be used here for shorter aliases of long ones below?
 
-    fn new(parser: &'p mut P, src_str: PosStr<'s>) -> Self {
-        ParseIter{
-            parser,
-            src_str,
-            src_iter: SourceIter::new(src_str).peekable(),
-        }
-    }
-
-    fn read_to_end<F: Fn(&P, char) -> bool>
+    fn read_to_end<F: Fn(&CC, char) -> bool>
         (&mut self, init_ws_sig: bool, is_end_char: F)
-         -> Result<PosStr<'s>, Error<<P as Parser<'s>>::CE>>
+         -> Result<DA::TT,
+                   Error<<DA::TT as TextBase>::Pos, OB::CE>>
     {
+        let chclass = &self.parser.classifier;
+        // Giving our allocator to the accumulation calls below enables them to
+        // have the option of using new `Datum`s to achieve text-chunking for
+        // the breaking around, and excluding of, escape characters.  While most
+        // implementations will ignore the allocator (e.g. to instead use heap
+        // allocation), this unusual support is essential for `TextDatumSeq` (or
+        // similar) which is intended for use in constrained environments
+        // without heap allocation where reusing our `Datum` allocation ability
+        // (e.g. from a stack array) is desired.
+        let dalloc = &mut self.parser.allocator;
+
+        let mut text = DA::TT::empty();
+        macro_rules! concat_accum {
+            () => {
+                let accum = self.src_strm.accum_done(dalloc)?;
+                text = text.concat(accum, dalloc)?;
+            }
+        }
+
         let mut nest_level: usize = 0;
-        let (mut _prev_byte_pos, mut prev_char_pos): (usize, usize) = (0, 0);
-        let (mut start_byte_pos, mut start_char_pos): (usize, usize) = (0, 0);
-        let end_byte_pos: usize;
-        let mut _end_char_pos: usize = 0;
         let mut first = true;
 
         loop {
-            match self.src_iter.peek() {
-                Some(&SourceIterItem{ch, byte_pos, char_pos}) => {
+            match self.src_strm.peek() {
+                Some(&SourceIterItem{ch, ..}) => {
                     if first {
                         // Skip leading whitespace if indicated
-                        if ! init_ws_sig && self.parser.is_whitespace(ch) {
-                            self.src_iter.next(); // Consume peeked
+                        if ! init_ws_sig && chclass.is_whitespace(ch) {
+                            self.src_strm.next(); // Skip peeked
                             continue;
                         }
-                        // Record first char position
                         else {
-                            start_byte_pos = byte_pos;
-                            start_char_pos = char_pos;
                             first = false;
                         }
                     }
 
                     // Reached end. Do not consume peeked end char
-                    if nest_level == 0 && is_end_char(self.parser, ch) {
-                        end_byte_pos = byte_pos;
-                        _end_char_pos = char_pos;
+                    if nest_level == 0 && is_end_char(chclass, ch) {
                         break;
                     }
-                    // Consume escaped char whatever it might be
-                    else if self.parser.is_nest_escape(ch) {
-                        self.src_iter.next(); // Consume peeked first
-                        self.src_iter.next();
+                    // Consume escaped char whatever it might be, but not the
+                    // escape char
+                    else if chclass.is_nest_escape(ch) {
+                        concat_accum!();
+                        self.src_strm.next(); // Skip peeked escape char first
+                        self.src_strm.next_accum(dalloc)?;
                     }
                     // Start of nest. Track nesting depth
-                    else if self.parser.is_nest_start(ch) {
-                        self.src_iter.next(); // Consume peeked
+                    else if chclass.is_nest_start(ch) {
+                        self.src_strm.next_accum(dalloc)?; // Accumulate peeked
                         nest_level += 1;
                     }
                     // End of nest. Check balanced nesting
-                    else if self.parser.is_nest_end(ch) {
-                        self.src_iter.next(); // Consume peeked
+                    else if chclass.is_nest_end(ch) {
+                        // Accumulate peeked. Use its `pos` if error. This
+                        // `unwrap` is ok because we already did `peek` above
+                        // and know there is a next.
+                        let n = self.src_strm.next_accum(dalloc)?.unwrap();
                         if nest_level > 0 {
                             nest_level -= 1;
                         } else {
-                            return Err(Error::UnbalancedEndChar{byte_pos, char_pos});
+                            return Err(Error::UnbalancedEndChar(n.pos));
                         }
                     }
                     // Accumulate this char
                     else {
-                        self.src_iter.next(); // Consume peeked
+                        self.src_strm.next_accum(dalloc)?;
                     }
-
-                    _prev_byte_pos = byte_pos;
-                    prev_char_pos = char_pos;
                 },
                 None => {
-                    let vlen = self.src_str.val.len();
-                    let bend = self.src_str.byte_pos + vlen;
-                    let cend;
-                    if first {
-                        // Computing clen is linear here, but this case is rare (right?)
-                        let clen = self.src_str.val.chars().count();
-                        cend = self.src_str.char_pos + clen;
-                        start_byte_pos = bend;
-                        start_char_pos = cend;
-                        // first = false; // compiler complains about "never read"
-                    } else {
-                        cend = prev_char_pos + 1;
-                    }
-                    end_byte_pos = bend;
-                    _end_char_pos = cend;
                     break;
                 }
             }
         }
-        // Now that we have the start and end identified, return a string from
-        // that which also records the position relative to the input text.
-        let val = &self.src_str.src[start_byte_pos .. end_byte_pos];
-        Ok(PosStr{val, src: self.src_str.src,
-                  byte_pos: start_byte_pos, char_pos: start_char_pos})
+        // Done. Return what we accumulated.
+        concat_accum!();
+        Ok(text)
     }
 
-    fn parse_next_text(&mut self) -> Result<<P as Parser<'s>>::DR,
-                                            Error<<P as Parser<'s>>::CE>>
+    fn parse_next_text(&mut self)
+                       -> Result<DA::DR,
+                                 Error<<DA::TT as TextBase>::Pos, OB::CE>>
     {
-        let text = Text(self.read_to_end(true, <P as Parser<'s>>::is_nest_start)?);
-        Ok(self.parser.new_datum(text)?)
+        let text = Datum::Text(self.read_to_end(true, CC::is_nest_start)?);
+        Ok(self.parser.allocator.new_datum(text)?)
     }
 
-    fn parse_nested(&mut self) -> Result<Option<(<P as Parser<'s>>::DR,
-                                                 PosStr<'s>)>,
-                                         Error<<P as Parser<'s>>::CE>>
+    fn parse_nested(&mut self)
+                    -> Result<Option<(DA::DR, DA::TT)>,
+                              Error<<DA::TT as TextBase>::Pos, OB::CE>>
     {
         // Head text is delimited by whitespace or nest chars
         let head = self.read_to_end(false, |parser, c| parser.is_whitespace(c)
                                                        || parser.is_nest_start(c)
                                                        || parser.is_nest_end(c))?;
         // Empty string, or all whitespace, is empty nest form
-        if head.len() == 0 {
+        if head.is_empty() {
             return Ok(None);
         }
         // If head delimited by following whitespace, advance passed first
         // whitespace char
-        if let Some(&SourceIterItem{ch, ..}) = self.src_iter.peek() {
-            if self.parser.is_whitespace(ch) { self.src_iter.next(); }
+        if let Some(&SourceIterItem{ch, ..}) = self.src_strm.peek() {
+            if self.parser.classifier.is_whitespace(ch) { self.src_strm.next(); }
         }
         // Head text is interpreted as an operator form to recursively
         // parse. Note that, because we know head can only be a single form at
         // this point, we know we only need the first (next) datum returned by
         // the recursive parse iterator in order to cover it completely.
-        let head = self.recur_on_str_once(head)?;
+        let head = self.recur_on_txt_once(&head)?;
         // Rest text is delimited by end of our nest, and is interpreted here as
         // unparsed text
-        let rest = self.read_to_end(true, <P as Parser<'s>>::is_nest_end)?;
+        let rest = self.read_to_end(true, CC::is_nest_end)?;
         Ok(Some((head, rest)))
     }
 
-    fn recur_on_str_once(&mut self, s: PosStr<'s>)
-                         -> Result<<P as Parser<'s>>::DR,
-                                   Error<<P as Parser<'s>>::CE>>
+    fn recur_on_txt_once(&mut self, text: &DA::TT)
+                         -> Result<DA::DR,
+                                   Error<<DA::TT as TextBase>::Pos, OB::CE>>
     {
         // Note: We use unwrap on purpose because None is impossible
-        self.recur(s, |slf| slf.do_next().map(Option::unwrap))
+        self.recur(text, |mut pi| pi.next().unwrap())
     }
 
-    fn recur<F, T>(&mut self, s: PosStr<'s>, f: F)
-                   -> Result<T, Error<<P as Parser<'s>>::CE>>
-        where F: FnOnce(&mut Self) -> Result<T, Error<<P as Parser<'s>>::CE>>
+    fn recur<'a, 't, F, R>(&'a mut self, text: &'t DA::TT, f: F)
+                           -> Result<R, Error<<DA::TT as TextBase>::Pos, OB::CE>>
+        where F: FnOnce(ParseIter<'a, Parser<CC, DA, OB>, TextIter<'t, DA::TT>>)
+                        -> Result<R, Error<<DA::TT as TextBase>::Pos, OB::CE>>,
     {
-        let save_src_str = replace(&mut self.src_str, s);
-        let save_src_iter = replace(&mut self.src_iter, SourceIter::new(s).peekable());
-        let r = f(self);
-        self.src_str = save_src_str;
-        self.src_iter = save_src_iter;
-        r
+        let text_ss = text.iter();
+        let pi = ParseIter {
+            parser: self.parser,
+            src_strm: text_ss,
+        };
+        f(pi)
+    }
+
+    fn recur_on_txt_all(&mut self, text: &DA::TT)
+                        -> Result<DA::DR,
+                                  Error<<DA::TT as TextBase>::Pos, OB::CE>>
+    {
+        self.recur(text, |mut pi| pi.collect_datumlist())
     }
 
     fn collect_datumlist(&mut self)
-                         -> Result<<P as Parser<'s>>::DR,
-                                   Error<<P as Parser<'s>>::CE>>
+                         -> Result<DA::DR,
+                                   Error<<DA::TT as TextBase>::Pos, OB::CE>>
     {
-        let mut head = self.parser.new_datum(EmptyList)?;
+        let mut head = self.parser.allocator.new_datum(EmptyList)?;
         let mut tail = &mut head;
         loop {
             let it = self.do_next()?;
             if let Some(next_it) = it {
                 if let Some(d) = DerefTryMut::get_mut(tail) {
-                    let rest = self.parser.new_datum(EmptyList)?;
+                    let rest = self.parser.allocator.new_datum(EmptyList)?;
                     *d = List{elem: next_it, next: rest};
                     match d {
                         List{next, ..} => tail = next,
@@ -697,27 +1480,19 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
         Ok(head)
     }
 
-    fn recur_on_str_all(&mut self, s: PosStr<'s>)
-                        -> Result<<P as Parser<'s>>::DR,
-                                  Error<<P as Parser<'s>>::CE>>
+    fn do_next(&mut self)
+               -> Result<Option<DA::DR>,
+                         Error<<DA::TT as TextBase>::Pos, OB::CE>>
     {
-        self.recur(s, Self::collect_datumlist)
-    }
-
-    fn do_next(&mut self) -> Result<Option<<P as Parser<'s>>::DR>,
-                                    Error<<P as Parser<'s>>::CE>>
-        // TODO?: Error variant that holds AS for errors where it is ok to return
-        // the alloc-state?
-    {
-        let (ch, byte_pos, char_pos) = match self.src_iter.peek() {
-            Some(&SourceIterItem{ch, byte_pos, char_pos}) => (ch, byte_pos, char_pos),
+        let ch = match self.src_strm.peek() {
+            Some(&SourceIterItem{ch, ..}) => ch,
             None => return Ok(None)
         };
 
         // Start of a nest, either a combination or an empty nest
-        if self.parser.is_nest_start(ch) {
+        if self.parser.classifier.is_nest_start(ch) {
             // Advance past peeked char
-            self.src_iter.next();
+            self.src_strm.next();
             // Parse to the end of our nest level.
             let nested = self.parse_nested()?;
             // Consume our nest's end char, whatever it is.  If erroneous, by
@@ -726,25 +1501,26 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
             // char shouldn't be possible.  It is possible that our nest is
             // missing its end char and end-of-stream occurred, which is the
             // `else` case.
-            if let Some(SourceIterItem{ch: ec, ..}) = self.src_iter.next() {
-                debug_assert!(self.parser.is_nest_end(ec));
+            if let Some(SourceIterItem{ch: ec, ..}) = self.src_strm.next() {
+                debug_assert!(self.parser.classifier.is_nest_end(ec));
             } else { return Err(Error::MissingEndChar); }
             // Process the nested datums accordingly.
             let next_datum = match nested {
                 Some((operator, operands)) => {
-                    match self.parser.env_lookup(&operator) {
+                    match self.parser.bindings.lookup(&operator) {
                         // Form in operator position is bound, so delegate the
                         // processing of the operands and the choice of return
                         // value.
                         Some(combiner) => match combiner {
                             Operative(mut opr) => {
-                                let operands = self.parser.new_datum(Text(operands))?;
+                                let d = Datum::Text(operands);
+                                let operands = self.parser.allocator.new_datum(d)?;
                                 // Is given the text unparsed so it can do
                                 // whatever it wants with it
                                 opr.deref_mut()(operator, operands)?
                             },
                             Applicative(mut apl) => {
-                                let rands_list = self.recur_on_str_all(operands)?;
+                                let rands_list = self.recur_on_txt_all(&operands)?;
                                 // Is given the parse of the text
                                 apl.deref_mut()(operator, rands_list)?
                             }
@@ -753,29 +1529,31 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
                         // return a value representing the "combination" of
                         // operator and operands.
                         None => {
-                            let rands_list = self.recur_on_str_all(operands)?;
+                            let rands_list = self.recur_on_txt_all(&operands)?;
                             Combination{operator, operands: rands_list}
                         },
                     }
                 },
                 None => EmptyNest,
             };
-            return Ok(Some(self.parser.new_datum(next_datum)?));
+            return Ok(Some(self.parser.allocator.new_datum(next_datum)?));
         }
 
         // Invalid unbalanced nest end character
-        else if self.parser.is_nest_end(ch) {
+        else if self.parser.classifier.is_nest_end(ch) {
             // Advance past peeked char. By consuming it, we allow the
-            // possibility that this iterator could be resumed again.
-            self.src_iter.next();
-            return Err(Error::UnbalancedEndChar{byte_pos, char_pos});
+            // possibility that this iterator could be resumed again. Also, use
+            // its `pos`. This `unwrap` is ok because we already did `peek`
+            // above and know there is a next.
+            let n = self.src_strm.next().unwrap();
+            return Err(Error::UnbalancedEndChar(n.pos));
         }
 
         // All other characters are simply retained unparsed, with our
         // minimal escape char handling
         else {
             // Note: We did not consume our peeked char, so it will be seen again.
-            // Note: parse_next_text already does parser.new_datum
+            // Note: parse_next_text already calls new_datum.
             return self.parse_next_text().map(Some);
         }
     }
@@ -785,42 +1563,40 @@ impl<'p, 's, P> ParseIter<'p, 's, P>
 mod tests {
     use super::*;
 
+    /// Used as a "text" type in tests where it does not need to be a real
+    /// `Text`.
+    #[derive(Copy, Clone, PartialEq, Debug)]
+    struct DummyText;
+
     #[test]
     fn datum_equality_same() {
         use super::Datum::*;
 
-        assert_eq!(Text::<(), DatumMutRef<()>>(
-                       PosStr{val:"", src:"", byte_pos:0, char_pos:0}),
-                   Text::<(), DatumMutRef<()>>(
-                       PosStr{val:"", src:"", byte_pos:0, char_pos:0}));
+        assert_eq!(Text::<_, (), DatumMutRef<_, ()>>(DummyText),
+                   Text::<_, (), DatumMutRef<_, ()>>(DummyText));
 
-        assert_eq!(Text::<(), DatumMutRef<()>>(
-                       PosStr{val:"z", src:"z", byte_pos:0, char_pos:0}),
-                   Text::<(), DatumMutRef<()>>(
-                       PosStr{val:"z", src:"{z}", byte_pos:1, char_pos:1}));
-
-        assert_eq!(Combination::<(), DatumMutRef<()>>{
+        assert_eq!(Combination::<DummyText, (), DatumMutRef<_, ()>>{
                        operator: DatumMutRef(&mut EmptyNest),
                        operands: DatumMutRef(&mut EmptyList)},
-                   Combination::<(), DatumMutRef<()>>{
+                   Combination::<DummyText, (), DatumMutRef<_, ()>>{
                        operator: DatumMutRef(&mut EmptyNest),
                        operands: DatumMutRef(&mut EmptyList)});
 
-        assert_eq!(EmptyNest::<(), DatumMutRef<()>>,
-                   EmptyNest::<(), DatumMutRef<()>>);
+        assert_eq!(EmptyNest::<DummyText, (), DatumMutRef<_, ()>>,
+                   EmptyNest::<DummyText, (), DatumMutRef<_, ()>>);
 
-        assert_eq!(List::<(), DatumMutRef<()>>{
+        assert_eq!(List::<DummyText, (), DatumMutRef<_, ()>>{
                        elem: DatumMutRef(&mut EmptyNest),
                        next: DatumMutRef(&mut EmptyList)},
-                   List::<(), DatumMutRef<()>>{
+                   List::<DummyText, (), DatumMutRef<_, ()>>{
                        elem: DatumMutRef(&mut EmptyNest),
                        next: DatumMutRef(&mut EmptyList)});
 
-        assert_eq!(EmptyList::<(), DatumMutRef<()>>,
-                   EmptyList::<(), DatumMutRef<()>>);
+        assert_eq!(EmptyList::<DummyText, (), DatumMutRef<_, ()>>,
+                   EmptyList::<DummyText, (), DatumMutRef<_, ()>>);
 
-        assert_eq!(Extra::<(), DatumMutRef<()>>(()),
-                   Extra::<(), DatumMutRef<()>>(()));
+        assert_eq!(Extra::<DummyText, (), DatumMutRef<_, ()>>(()),
+                   Extra::<DummyText, (), DatumMutRef<_, ()>>(()));
 
         // TODO: More cases, including !=
     }
@@ -829,20 +1605,18 @@ mod tests {
         use super::*;
 
         #[derive(Copy, Clone, Debug)]
-        pub struct DatumRef<'d, 's, ET>(pub &'d Datum<'s, ET, DatumRef<'d, 's, ET>>);
+        pub struct DatumRef<'d, TT, ET>(pub &'d Datum<TT, ET, DatumRef<'d, TT, ET>>);
 
-        impl<'d, 's, ET> Deref for DatumRef<'d, 's, ET>
-            where 's: 'd
+        impl<'d, TT, ET> Deref for DatumRef<'d, TT, ET>
         {
-            type Target = Datum<'s, ET, DatumRef<'d, 's, ET>>;
+            type Target = Datum<TT, ET, DatumRef<'d, TT, ET>>;
 
             fn deref(&self) -> &Self::Target {
                 self.0
             }
         }
 
-        impl<'d, 's, ET> DerefTryMut for DatumRef<'d, 's, ET>
-            where 's: 'd
+        impl<'d, TT, ET> DerefTryMut for DatumRef<'d, TT, ET>
         {
             fn get_mut(_this: &mut Self) -> Option<&mut Self::Target> {
                 None
@@ -855,31 +1629,31 @@ mod tests {
         use super::Datum::*;
         use self::datumref::DatumRef;
 
-        assert_eq!(Text::<(), DatumMutRef<()>>(
-                       PosStr{val:"", src:"", byte_pos:0, char_pos:0}),
-                   Text::<(), DatumRef<()>>(
-                       PosStr{val:"", src:"", byte_pos:0, char_pos:0}));
+        assert_eq!(Text::<_, (), DatumMutRef<_, ()>>(DummyText),
+                   Text::<_, (), DatumRef<_, ()>>(DummyText));
 
-        assert_eq!(Combination::<(), DatumMutRef<()>>{
+        assert_eq!(Combination::<DummyText, (), DatumMutRef<_, ()>>{
                        operator: DatumMutRef(&mut EmptyNest),
                        operands: DatumMutRef(&mut EmptyList)},
-                   Combination::<(), DatumRef<()>>{
+                   Combination::<DummyText, (), DatumRef<_, ()>>{
                        operator: DatumRef(&EmptyNest),
                        operands: DatumRef(&EmptyList)});
 
-        assert_eq!(EmptyNest::<(), DatumMutRef<()>>,
-                   EmptyNest::<(), DatumRef<()>>);
+        assert_eq!(EmptyNest::<DummyText, (), DatumMutRef<_, ()>>,
+                   EmptyNest::<DummyText, (), DatumRef<_, ()>>);
 
-        assert_eq!(List::<(), DatumMutRef<()>>{elem: DatumMutRef(&mut EmptyNest),
-                                               next: DatumMutRef(&mut EmptyList)},
-                   List::<(), DatumRef<()>>{elem: DatumRef(&EmptyNest),
-                                            next: DatumRef(&EmptyList)});
+        assert_eq!(List::<DummyText, (), DatumMutRef<_, ()>>{
+                       elem: DatumMutRef(&mut EmptyNest),
+                       next: DatumMutRef(&mut EmptyList)},
+                   List::<DummyText, (), DatumRef<_, ()>>{
+                       elem: DatumRef(&EmptyNest),
+                       next: DatumRef(&EmptyList)});
 
-        assert_eq!(EmptyList::<(), DatumMutRef<()>>,
-                   EmptyList::<(), DatumRef<()>>);
+        assert_eq!(EmptyList::<DummyText, (), DatumMutRef<_, ()>>,
+                   EmptyList::<DummyText, (), DatumRef<_, ()>>);
 
-        assert!(Extra::<(), DatumMutRef<()>>(())
-                == Extra::<(), DatumRef<()>>(()));
+        assert!(Extra::<DummyText, (), DatumMutRef<_, ()>>(())
+                == Extra::<DummyText, (), DatumRef<_, ()>>(()));
     }
 
     #[test]
@@ -887,15 +1661,15 @@ mod tests {
         use super::Datum::*;
         use self::datumref::DatumRef;
 
-        let a = List::<(), DatumRef<()>>{
-            elem: DatumRef(&EmptyNest::<(), DatumRef<()>>),
-            next: DatumRef(&EmptyList::<(), DatumRef<()>>)};
+        let a = List::<DummyText, (), DatumRef<_, ()>>{
+            elem: DatumRef(&EmptyNest::<_, (), DatumRef<_, ()>>),
+            next: DatumRef(&EmptyList::<_, (), DatumRef<_, ()>>)};
         let b = a;
         assert_eq!(a, b);
 
-        let c = List::<(), DatumRef<()>>{
-            elem: DatumRef(&EmptyNest::<(), DatumRef<()>>),
-            next: DatumRef(&EmptyList::<(), DatumRef<()>>)};
+        let c = List::<DummyText, (), DatumRef<_, ()>>{
+            elem: DatumRef(&EmptyNest::<_, (), DatumRef<_, ()>>),
+            next: DatumRef(&EmptyList::<_, (), DatumRef<_, ()>>)};
         let d = c.clone();
         assert_eq!(c, d);
     }
@@ -904,16 +1678,23 @@ mod tests {
     fn error_equality() {
         use super::Error::*;
 
-        assert_eq!(UnbalancedEndChar::<()>{byte_pos:2, char_pos:1},
-                   UnbalancedEndChar::<()>{byte_pos:2, char_pos:1});
+        assert_eq!(UnbalancedEndChar::<_, ()>(()),
+                   UnbalancedEndChar::<_, ()>(()));
 
-        assert_eq!(MissingEndChar::<()>, MissingEndChar::<()>);
+        assert_eq!(MissingEndChar::<(), ()>, MissingEndChar::<(), ()>);
 
-        assert_eq!(FailedAlloc::<()>(AllocError::AllocExhausted),
-                   FailedAlloc::<()>(AllocError::AllocExhausted));
+        assert_eq!(FailedAlloc::<(), ()>(AllocError::AllocExhausted),
+                   FailedAlloc::<(), ()>(AllocError::AllocExhausted));
 
-        assert_eq!(FailedDerefTryMut::<()>, FailedDerefTryMut::<()>);
+        assert_eq!(FailedDerefTryMut::<(), ()>, FailedDerefTryMut::<(), ()>);
 
-        assert_eq!(FailedCombiner::<i32>(1), FailedCombiner::<i32>(1));
+        assert_eq!(FailedCombiner::<(), i32>(1), FailedCombiner::<(), i32>(1));
+    }
+
+    // TODO: Move these text/chunking tests to modules along with the definitions
+
+    #[test]
+    fn strpos() {
+        assert_eq!(StrPos::empty(), StrPos{src: "", byte_pos: 0, char_pos: 0});
     }
 }

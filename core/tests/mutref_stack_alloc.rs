@@ -5,37 +5,37 @@ use kruvi_core::Datum::*;
 use kruvi_shared_tests::suites::*;
 
 
-#[derive(PartialEq, Eq, Debug)]
-struct ParserMutRef<'a> {
-    datum_array_free: Option<&'a mut [MutRefDatum<'a, 'static, ()>]>,
-}
+type TxtTy<'a> = TextDatumSeq<'a, PosStr<'static>, ()>;
 
-impl<'a> ParserMutRef<'a> {
-    fn new(arr: &'a mut [MutRefDatum<'a, 'static, ()>]) -> Self {
-        ParserMutRef {datum_array_free: Some(arr)}
+fn parser<'a>(arr: &'a mut [MutRefDatum<'a, TxtTy<'a>, ()>])
+              -> Parser<DefaultCharClassifier,
+                        ArrayDatumAllocator,
+                        EmptyOperatorBindings<ArrayDatumAllocator>>
+{
+    Parser {
+        classifier: DefaultCharClassifier,
+        allocator: ArrayDatumAllocator{free: Some(arr)},
+        bindings: EmptyOperatorBindings::new(),
     }
 }
 
-impl<'a> Parser<'static> for ParserMutRef<'a> {
+struct ArrayDatumAllocator<'a> {
+    free: Option<&'a mut [MutRefDatum<'a, TxtTy<'a>, ()>]>,
+}
+
+impl<'a> DatumAllocator for ArrayDatumAllocator<'a> {
+    type TT = TxtTy<'a>;
     type ET = ();
-    type DR = DatumMutRef<'a, 'static, Self::ET>;
-    // Note: OR and DR are not actually used for this test case
-    type OR = &'a mut OpFn<'static, Self::ET, Self::DR, Self::CE>;
-    type AR = &'a mut ApFn<'static, Self::ET, Self::DR, Self::CE>;
-    type CE = ();
+    type DR = DatumMutRef<'a, Self::TT, Self::ET>;
 
-    fn env_lookup(&mut self, _operator: &Self::DR)
-                  -> Option<Combiner<Self::OR, Self::AR>>
-    { None } // Not actually used for this test case
-
-    fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>)
+    fn new_datum(&mut self, from: Datum<Self::TT, Self::ET, Self::DR>)
                  -> Result<Self::DR, AllocError>
     {
-        let free = self.datum_array_free.take().unwrap();
+        let free = self.free.take().unwrap();
         match free.split_first_mut() {
             Some((dr, rest)) => {
                 *dr = from;
-                self.datum_array_free = Some(rest);
+                self.free = Some(rest);
                 Ok(DatumMutRef(dr))
             }
             None => Err(AllocError::AllocExhausted)
@@ -44,10 +44,9 @@ impl<'a> Parser<'static> for ParserMutRef<'a> {
 }
 
 #[test]
-fn suites() {
+fn suite0() {
     // TODO?: Make this smaller so it's easier to test allocator exhaustion?
-    let mut datum_array: [MutRefDatum<'_, 'static, ()>; 256] = [Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(())];
+    let mut datum_array: [MutRefDatum<'_, TxtTy<'_>, ()>; 256] = [Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(()), Extra(())];
 
-    let mut p = ParserMutRef::new(&mut datum_array);
-    test_suite0(&mut p);
+    test_suite0(parser(&mut datum_array));
 }

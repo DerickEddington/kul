@@ -8,6 +8,8 @@
 //! * Provides [`Datum`] reference types that wrap the standard [`Box`], [`Rc`],
 //! and [`Arc`] types, for heap-allocating `Datum`s.
 //!
+//! * Provides [`Text`] types that use heap allocation for their chunking.
+//!
 //! * Avoids stack overflows (when possible) when dropping the provided
 //! heap-allocated `Datum` types, so they can handle being used for very-deep
 //! trees (e.g. long lists), by using a custom [`Drop`] implementation for them.
@@ -21,8 +23,9 @@
 //! [`Box`]: http://doc.rust-lang.org/std/boxed/struct.Box.html
 //! [`Rc`]: http://doc.rust-lang.org/std/rc/struct.Rc.html
 //! [`Arc`]: http://doc.rust-lang.org/std/sync/struct.Arc.html
+//! [`Text`]: trait.Text.html
 //! [`Drop`]: http://doc.rust-lang.org/std/ops/trait.Drop.html
-//! [`Parser`]: trait.Parser.html
+//! [`Parser`]: struct.Parser.html
 
 use std::boxed::Box;
 use std::rc::Rc;
@@ -37,35 +40,35 @@ pub mod drop;
 
 
 /// This assists in `Box` being used as the `Datum` reference type.
-pub type BoxDatum<'s, ET> = Datum<'s, ET, DatumBox<'s, ET>>;
+pub type BoxDatum<TT, ET> = Datum<TT, ET, DatumBox<TT, ET>>;
 
 /// This wrapper allows the needed recursive type definition for `Box` to be
 /// used as the `Datum` reference type.
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct DatumBox<'s, ET>(pub Box<BoxDatum<'s, ET>>);
+pub struct DatumBox<TT, ET>(pub Box<BoxDatum<TT, ET>>);
 
-impl<'s, ET> DatumBox<'s, ET> {
-    pub fn new(val: BoxDatum<'s, ET>) -> Self {
+impl<TT, ET> DatumBox<TT, ET> {
+    pub fn new(val: BoxDatum<TT, ET>) -> Self {
         DatumBox(Box::new(val))
     }
 }
 
-impl<'s, ET> Deref for DatumBox<'s, ET> {
-    type Target = BoxDatum<'s, ET>;
+impl<TT, ET> Deref for DatumBox<TT, ET> {
+    type Target = BoxDatum<TT, ET>;
 
     fn deref(&self) -> &Self::Target {
         Deref::deref(&self.0)
     }
 }
 
-impl<'s, ET> DerefMut for DatumBox<'s, ET> {
+impl<TT, ET> DerefMut for DatumBox<TT, ET> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         DerefMut::deref_mut(&mut self.0)
     }
 }
 
 /// This allows `Box` to be used as the `Datum` reference type.
-impl<'s, ET> DerefTryMut for DatumBox<'s, ET> {
+impl<TT, ET> DerefTryMut for DatumBox<TT, ET> {
     fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
         Some(DerefMut::deref_mut(this))
     }
@@ -73,21 +76,21 @@ impl<'s, ET> DerefTryMut for DatumBox<'s, ET> {
 
 
 /// This assists in `Rc` being used as the `Datum` reference type.
-pub type RcDatum<'s, ET> = Datum<'s, ET, DatumRc<'s, ET>>;
+pub type RcDatum<TT, ET> = Datum<TT, ET, DatumRc<TT, ET>>;
 
 /// This wrapper allows the needed recursive type definition for `Rc` to be used
 /// as the `Datum` reference type.
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct DatumRc<'s, ET>(pub Rc<RcDatum<'s, ET>>);
+pub struct DatumRc<TT, ET>(pub Rc<RcDatum<TT, ET>>);
 
-impl<'s, ET> DatumRc<'s, ET> {
-    pub fn new(val: RcDatum<'s, ET>) -> Self {
+impl<TT, ET> DatumRc<TT, ET> {
+    pub fn new(val: RcDatum<TT, ET>) -> Self {
         DatumRc(Rc::new(val))
     }
 }
 
-impl<'s, ET> Deref for DatumRc<'s, ET> {
-    type Target = RcDatum<'s, ET>;
+impl<TT, ET> Deref for DatumRc<TT, ET> {
+    type Target = RcDatum<TT, ET>;
 
     fn deref(&self) -> &Self::Target {
         Deref::deref(&self.0)
@@ -95,7 +98,7 @@ impl<'s, ET> Deref for DatumRc<'s, ET> {
 }
 
 /// This allows `Rc` to be used as the `Datum` reference type.
-impl<'s, ET> DerefTryMut for DatumRc<'s, ET> {
+impl<TT, ET> DerefTryMut for DatumRc<TT, ET> {
     fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
         Rc::get_mut(&mut this.0)
     }
@@ -103,21 +106,21 @@ impl<'s, ET> DerefTryMut for DatumRc<'s, ET> {
 
 
 /// This assists in `Arc` being used as the `Datum` reference type.
-pub type ArcDatum<'s, ET> = Datum<'s, ET, DatumArc<'s, ET>>;
+pub type ArcDatum<TT, ET> = Datum<TT, ET, DatumArc<TT, ET>>;
 
 /// This wrapper allows the needed recursive type definition for `Arc` to be
 /// used as the `Datum` reference type.
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct DatumArc<'s, ET>(pub Arc<ArcDatum<'s, ET>>);
+pub struct DatumArc<TT, ET>(pub Arc<ArcDatum<TT, ET>>);
 
-impl<'s, ET> DatumArc<'s, ET> {
-    pub fn new(val: ArcDatum<'s, ET>) -> Self {
+impl<TT, ET> DatumArc<TT, ET> {
+    pub fn new(val: ArcDatum<TT, ET>) -> Self {
         DatumArc(Arc::new(val))
     }
 }
 
-impl<'s, ET> Deref for DatumArc<'s, ET> {
-    type Target = ArcDatum<'s, ET>;
+impl<TT, ET> Deref for DatumArc<TT, ET> {
+    type Target = ArcDatum<TT, ET>;
 
     fn deref(&self) -> &Self::Target {
         Deref::deref(&self.0)
@@ -125,11 +128,97 @@ impl<'s, ET> Deref for DatumArc<'s, ET> {
 }
 
 /// This allows `Arc` to be used as the `Datum` reference type.
-impl<'s, ET> DerefTryMut for DatumArc<'s, ET> {
+impl<TT, ET> DerefTryMut for DatumArc<TT, ET> {
     fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
         Arc::get_mut(&mut this.0)
     }
 }
+
+
+/// A text representation that uses a `Vec` to keep its chunks, that can work
+/// with any [`TextChunk`] type, and that is a [`TextConcat`] that can be used
+/// with [`Parser`s].
+#[derive(Clone, Debug)]
+pub struct TextVec<C> {
+    chunks: Vec<C>,
+}
+
+impl<C> From<C> for TextVec<C>
+    where C: TextChunk,
+{
+    #[inline]
+    fn from(chunk: C) -> Self {
+        Self {
+            chunks: vec![chunk],
+        }
+    }
+}
+
+impl<TT, C> PartialEq<TT> for TextVec<C>
+    where TT: Text,
+          C: TextChunk,
+{
+    #[inline]
+    fn eq(&self, other: &TT) -> bool {
+        Text::partial_eq(self, other)
+    }
+}
+
+impl<C> Eq for TextVec<C>
+    where C: TextChunk,
+{}
+
+// TODO: PartialOrd, Ord
+
+impl<C> TextBase for TextVec<C>
+    where C: TextChunk,
+{
+    type Pos = C::Pos;
+
+    #[inline]
+    fn empty() -> Self {
+        Self {
+            chunks: vec![],
+        }
+    }
+
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.chunks.iter().all(TextBase::is_empty)
+    }
+}
+
+impl<C> Text for TextVec<C>
+    where C: TextChunk,
+{
+    type Chunk = C;
+    type IterChunksState = [Self::Chunk];
+
+    #[inline]
+    fn iter_chunks_state(&self) -> Option<&Self::IterChunksState> {
+        Some(&self.chunks[..])
+    }
+
+}
+
+impl<C, DA> TextConcat<DA> for TextVec<C>
+    where C: TextChunk,
+          DA: DatumAllocator<TT = Self>,
+{
+    fn concat(mut self, mut other: Self, _: &mut DA) -> Result<Self, AllocError> {
+        self.chunks.append(&mut other.chunks);
+        Ok(self)
+    }
+}
+
+// TODO: Impl SourceStream for:
+// - IntoIterator<Item=char>, by embedding in some struct that uses heap-alloc
+//   for the accum'ing
+
+// TODO: Integration tests that impl Text (and so a SourceStream) for:
+// - Vec<char>, using kruvi_core's Text impl for &[char]
+// - LinkedList<char>, just to test it can be done
+
 
 
 // TODO: Parser impl that makes it easier by using Box and that provides API for
@@ -141,70 +230,77 @@ mod tests {
     use super::*;
     use kruvi_shared_tests::utils::*;
 
+    /// Used as a "text" type in tests where it does not need to be a real
+    /// `Text`.
+    #[derive(Copy, Clone, PartialEq, Debug)]
+    struct DummyText;
+
     #[test]
     fn datum_ref_equality_same() {
         use super::Datum::*;
 
-        assert_eq!(DatumBox::new(EmptyNest::<u32, DatumBox<u32>>),
-                   DatumBox::new(EmptyNest::<u32, DatumBox<u32>>));
+        assert_eq!(DatumBox::new(EmptyNest::<DummyText, u32, _>),
+                   DatumBox::new(EmptyNest::<_, _, _>));
 
-        assert_ne!(DatumBox::new(EmptyNest::<(), DatumBox<()>>),
-                   DatumBox::new(EmptyList::<(), DatumBox<()>>));
+        assert_ne!(DatumBox::new(EmptyNest::<DummyText, (), _>),
+                   DatumBox::new(EmptyList::<_, _, _>));
 
-        assert_eq!(DatumRc::new(EmptyNest::<bool, DatumRc<bool>>),
-                   DatumRc::new(EmptyNest::<bool, DatumRc<bool>>));
+        assert_eq!(DatumRc::new(EmptyNest::<DummyText, bool, _>),
+                   DatumRc::new(EmptyNest::<_, _, _>));
 
-        assert_ne!(DatumRc::new(EmptyNest::<(), DatumRc<()>>),
-                   DatumRc::new(EmptyList::<(), DatumRc<()>>));
+        assert_ne!(DatumRc::new(EmptyNest::<DummyText, (), _>),
+                   DatumRc::new(EmptyList::<_, _, _>));
 
-        assert_eq!(DatumArc::new(EmptyNest::<char, DatumArc<char>>),
-                   DatumArc::new(EmptyNest::<char, DatumArc<char>>));
+        assert_eq!(DatumArc::new(EmptyNest::<DummyText, char, _>),
+                   DatumArc::new(EmptyNest::<_, _, _>));
 
-        assert_ne!(DatumArc::new(EmptyNest::<(), DatumArc<()>>),
-                   DatumArc::new(EmptyList::<(), DatumArc<()>>));
+        assert_ne!(DatumArc::new(EmptyNest::<DummyText, (), _>),
+                   DatumArc::new(EmptyList::<_, _, _>));
     }
 
     #[test]
     fn datum_equality_diff_ref() {
         use super::Datum::*;
 
-        assert_eq!(*DatumBox::new(EmptyNest::<u32, _>),
-                   *DatumRc::new(EmptyNest::<u32, _>));
+        assert_eq!(*DatumBox::new(EmptyNest::<DummyText, u32, _>),
+                   *DatumRc::new(EmptyNest::<DummyText, u32, _>));
 
-        assert_eq!(*DatumBox::new(EmptyNest::<f64, _>),
-                   *DatumArc::new(EmptyNest::<f64, _>));
+        assert_eq!(*DatumBox::new(EmptyNest::<DummyText, f64, _>),
+                   *DatumArc::new(EmptyNest::<DummyText, f64, _>));
 
-        assert_eq!(*DatumBox::new(EmptyList::<bool, _>),
-                   *DatumRc::new(EmptyList::<bool, _>));
+        assert_eq!(*DatumBox::new(EmptyList::<DummyText, bool, _>),
+                   *DatumRc::new(EmptyList::<DummyText, bool, _>));
 
-        assert_ne!(*DatumArc::new(EmptyList::<i128, _>),
-                   *DatumRc::new(EmptyNest::<i128, _>));
+        assert_ne!(*DatumArc::new(EmptyList::<DummyText, i128, _>),
+                   *DatumRc::new(EmptyNest::<DummyText, i128, _>));
 
-        assert_eq!(*DatumBox::new(List{elem: DatumBox::new(Extra('λ')),
-                                       next: DatumBox::new(EmptyList)}),
-                   *DatumRc::new(List{elem: DatumRc::new(Extra('λ')),
-                                      next: DatumRc::new(EmptyList)}));
+        assert_eq!(*DatumBox::new(List::<DummyText, _, _>{
+                                      elem: DatumBox::new(Extra('λ')),
+                                      next: DatumBox::new(EmptyList)}),
+                   *DatumRc::new(List::<DummyText, _, _>{
+                                     elem: DatumRc::new(Extra('λ')),
+                                     next: DatumRc::new(EmptyList)}));
     }
 
     #[test]
     fn datum_clone() {
         use super::Datum::*;
 
-        let a = List::<(), DatumBox<()>>{
-            elem: DatumBox::new(EmptyNest::<(), DatumBox<()>>),
-            next: DatumBox::new(EmptyList::<(), DatumBox<()>>)};
+        let a = List::<DummyText, (), _>{
+                    elem: DatumBox::new(EmptyNest::<_, _, _>),
+                    next: DatumBox::new(EmptyList::<_, _, _>)};
         let b = a.clone();
         assert_eq!(a, b);
 
-        let c = List::<(), DatumRc<()>>{
-            elem: DatumRc::new(EmptyNest::<(), DatumRc<()>>),
-            next: DatumRc::new(EmptyList::<(), DatumRc<()>>)};
+        let c = List::<DummyText, (), _>{
+                    elem: DatumRc::new(EmptyNest::<_, _, _>),
+                    next: DatumRc::new(EmptyList::<_, _, _>)};
         let d = c.clone();
         assert_eq!(c, d);
 
-        let e = List::<(), DatumArc<()>>{
-            elem: DatumArc::new(EmptyNest::<(), DatumArc<()>>),
-            next: DatumArc::new(EmptyList::<(), DatumArc<()>>)};
+        let e = List::<DummyText, (), _>{
+                    elem: DatumArc::new(EmptyNest::<_, _, _>),
+                    next: DatumArc::new(EmptyList::<_, _, _>)};
         let f = e.clone();
         assert_eq!(e, f);
     }
@@ -276,7 +372,9 @@ mod tests {
     #[ignore]
     fn deep_unusual_zigzag_equality_overflow()
     {
-        fn make_unusual_zigzag(depth: usize) -> DatumBox<'static, usize> {
+        use kruvi_shared_tests::TestStrText;
+
+        fn make_unusual_zigzag(depth: usize) -> DatumBox<TestStrText, usize> {
             use super::Datum::*;
             make_zigzag(depth, &DatumBox::new,
                         || EmptyNest,

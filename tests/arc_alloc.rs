@@ -1,25 +1,27 @@
-use std::boxed::Box;
-
 use kruvi::*;
 use kruvi_shared_tests::suites::*;
 
 
-#[derive(PartialEq, Eq, Debug)]
-struct ParserArc();
+fn parser() -> Parser<DefaultCharClassifier,
+                      ArcDatumAllocator,
+                      EmptyOperatorBindings<ArcDatumAllocator>>
+{
+    Parser {
+        classifier: DefaultCharClassifier,
+        allocator: ArcDatumAllocator,
+        bindings: EmptyOperatorBindings::new(),
+    }
+}
 
-impl Parser<'static> for ParserArc {
+#[derive(Debug)]
+struct ArcDatumAllocator;
+
+impl DatumAllocator for ArcDatumAllocator {
+    type TT = TextVec<PosStr<'static>>;
     type ET = ();
-    type DR = DatumArc<'static, Self::ET>;
-    // Note: OR and DR are not actually used for this test case
-    type OR = Box<OpFn<'static, Self::ET, Self::DR, Self::CE>>;
-    type AR = Box<ApFn<'static, Self::ET, Self::DR, Self::CE>>;
-    type CE = ();
+    type DR = DatumArc<Self::TT, Self::ET>;
 
-    fn env_lookup(&mut self, _operator: &Self::DR)
-                  -> Option<Combiner<Self::OR, Self::AR>>
-    { None }
-
-    fn new_datum(&mut self, from: Datum<'static, Self::ET, Self::DR>)
+    fn new_datum(&mut self, from: Datum<Self::TT, Self::ET, Self::DR>)
                  -> Result<Self::DR, AllocError>
     {
         Ok(DatumArc::new(from))
@@ -27,7 +29,6 @@ impl Parser<'static> for ParserArc {
 }
 
 #[test]
-fn suites() {
-    let mut p = ParserArc();
-    test_suite0(&mut p);
+fn suite0() {
+    test_suite0(parser());
 }

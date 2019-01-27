@@ -6,23 +6,25 @@ use super::*;
 
 /// Basic test suite that checks the basic syntax and forms and does not
 /// exercise macros/combiners nor extra types.
-pub fn test_suite0<P>(p: &mut P)
-    where P: Parser<'static>,
-          P::DR: Debug,
-          P::CE: Debug,
+pub fn test_suite0<DA>(mut p: Parser<DefaultCharClassifier,
+                                     DA,
+                                     EmptyOperatorBindings<DA>>)
+    where DA: DatumAllocator,
+          <DA::TT as Text>::Chunk: From<&'static str>,
+          DA::DR: Debug,
+          <DA::TT as TextBase>::Pos: Debug,
 {
-    use kruvi_core::Datum::*;
+    use Datum::*;
+    use Error::*;
 
-    let current_input = std::cell::Cell::new("");
-
-    let text = |val, byte_pos, char_pos|
-                   Text(PosStr{val, src: current_input.get(), byte_pos, char_pos});
+    let text = |val| Text(ExpectedText(val));
 
     let comb = |rator, rands|
                    Combination{operator: dr(rator), operands: dr(rands)};
 
     let list = |elem, next| List{elem: dr(elem), next: dr(next)};
     let list1 = |elem| list(elem, EmptyList);
+    // let list2 = |e1, e2| list(e1, list(e2, EmptyList));
 
     macro_rules! test {
         ($input:expr => [$($expected:expr),*])
@@ -43,100 +45,123 @@ pub fn test_suite0<P>(p: &mut P)
 
         ($input:expr => ($ass:ident $parser:expr) [$($expected:expr),*])
             =>
-        {current_input.set($input);
-         $ass!(expect(vec![$($expected),*]),
-               parse_all($parser, current_input.get()));};
+        {$ass!(expect(vec![$($expected),*]),
+               parse_all(&mut $parser,
+                         DA::TT::from_str($input).iter()));};
     }
 
     // Basics
     test!("" => []);
-    test!(" " => [Ok(text(" ", 0, 0))]);
-    test!("  " => [Ok(text("  ", 0, 0))]);
-    test!("a" => [Ok(text("a", 0, 0))]);
-    test!("a " => [Ok(text("a ", 0, 0))]);
-    test!(" a" => [Ok(text(" a", 0, 0))]);
-    test!(" a " => [Ok(text(" a ", 0, 0))]);
-    test!("xyz" => [Ok(text("xyz", 0, 0))]);
-    test!("a b" => [Ok(text("a b", 0, 0))]);
-    test!("a  b" => [Ok(text("a  b", 0, 0))]);
-    test!("a b c" => [Ok(text("a b c", 0, 0))]);
-    test!("   a  b c    " => [Ok(text("   a  b c    ", 0, 0))]);
+    test!(" " => [Ok(text(" "))]);
+    test!("  " => [Ok(text("  "))]);
+    test!("a" => [Ok(text("a"))]);
+    test!("a " => [Ok(text("a "))]);
+    test!(" a" => [Ok(text(" a"))]);
+    test!(" a " => [Ok(text(" a "))]);
+    test!("xyz" => [Ok(text("xyz"))]);
+    test!("a b" => [Ok(text("a b"))]);
+    test!("a  b" => [Ok(text("a  b"))]);
+    test!("a b c" => [Ok(text("a b c"))]);
+    test!("   a  b c    " => [Ok(text("   a  b c    "))]);
 
-    test!("{b}" => [Ok(comb(text("b", 1, 1), EmptyList))]);
-    test!("{bob}" => [Ok(comb(text("bob", 1, 1), EmptyList))]);
-    test!("{b o b}" => [Ok(comb(text("b", 1, 1), list1(text("o b", 3, 3))))]);
-    test!("{ bo b }" => [Ok(comb(text("bo", 2, 2), list1(text("b ", 5, 5))))]);
+    test!("{b}" => [Ok(comb(text("b"), EmptyList))]);
+    test!("{bob}" => [Ok(comb(text("bob"), EmptyList))]);
+    test!("{b o b}" => [Ok(comb(text("b"), list1(text("o b"))))]);
+    test!("{ bo b }" => [Ok(comb(text("bo"), list1(text("b "))))]);
     test!(" c  d   { e  f   g    }     hi  j "
-          => [Ok(text(" c  d   ", 0, 0)),
-              Ok(comb(text("e", 10, 10), list1(text(" f   g    ", 12, 12)))),
-              Ok(text("     hi  j ", 23, 23))]);
-    test!(r"\\" => [Ok(text(r"\\", 0, 0))]);
-    test!(r"\{" => [Ok(text(r"\{", 0, 0))]);
-    test!(r"\}" => [Ok(text(r"\}", 0, 0))]);
-    test!(r"\{\}" => [Ok(text(r"\{\}", 0, 0))]);
+          => [Ok(text(" c  d   ")),
+              Ok(comb(text("e"), list1(text(" f   g    ")))),
+              Ok(text("     hi  j "))]);
 
-    // Custom delimiters
-    {
-        let c = &mut CustomDelimParser {
-            parser: p,
-            nest_start: Some(vec!['⟪']),
-            nest_end: Some(vec!['⟫']),
-            nest_escape: Some(vec!['␛']),
-            whitespace: Some(vec!['-']),
-        };
-        test!("" =>(c) []);
-        test!("{}" =>(c) [Ok(text("{}", 0, 0))]);
-        test!("{a}" =>(c) [Ok(text("{a}", 0, 0))]);
-        test!("⟪⟫" =>(c) [Ok(EmptyNest)]);
-        test!("⟪ ⟫" =>(c) [Ok(comb(text(" ", 3, 1), EmptyList))]);
-        test!("⟪a⟫" =>(c) [Ok(comb(text("a", 3, 1), EmptyList))]);
-        test!("⟪ a ⟫" =>(c) [Ok(comb(text(" a ", 3, 1), EmptyList))]);
-        test!("⟪a⟫" =>(c) [Ok(comb(text("a", 3, 1), EmptyList))]);
-        test!("⟪-a⟫" =>(c) [Ok(comb(text("a", 4, 2), EmptyList))]);
-        test!("⟪-a-⟫" =>(c) [Ok(comb(text("a", 4, 2), EmptyList))]);
-        test!("⟪a-b⟫" =>(c) [Ok(comb(text("a", 3, 1), list1(text("b", 5, 3))))]);
-        test!("⟪--a---b--⟫"
-              =>(c) [Ok(comb(text("a", 5, 3), list1(text("--b--", 7, 5))))]);
-        test!("␛␛" =>(c) [Ok(text("␛␛", 0, 0))]);
-        test!("␛⟪" =>(c) [Ok(text("␛⟪", 0, 0))]);
-        test!("␛⟫" =>(c) [Ok(text("␛⟫", 0, 0))]);
-        test!("␛⟪␛⟫" =>(c) [Ok(text("␛⟪␛⟫", 0, 0))]);
-        test!("a-⟪b-c⟫d-" =>(c) [Ok(text("a-", 0, 0)),
-                                 Ok(comb(text("b", 5, 3), list1(text("c", 7, 5)))),
-                                 Ok(text("d-", 11, 7))]);
-    }
-    {
-        let c = &mut CustomDelimParser {
-            parser: p,
-            nest_start: Some(vec!['[']),
-            nest_end: Some(vec![']']),
-            nest_escape: None,
-            whitespace: None,
-        };
-        test!("{}" =>(c) [Ok(text("{}", 0, 0))]);
-        test!("[]" =>(c) [Ok(EmptyNest)]);
-        test!("[ ]" =>(c) [Ok(EmptyNest)]);
-        test!("[  a   b  ]"
-              =>(c) [Ok(comb(text("a", 3, 3), list1(text("  b  ", 5, 5))))]);
-        test!(r"\\" =>(c) [Ok(text(r"\\", 0, 0))]);
-        test!(r"\[" =>(c) [Ok(text(r"\[", 0, 0))]);
-        test!(r"\]" =>(c) [Ok(text(r"\]", 0, 0))]);
-        test!(r"\[\]" =>(c) [Ok(text(r"\[\]", 0, 0))]);
-    }
-    {
-        let c = &mut CustomDelimParser {
-            parser: p,
-            nest_start: Some(vec!['⟪', '⟦']),
-            nest_end: Some(vec!['⟫', '⟧']),
-            nest_escape: Some(vec!['␛', '⃠']),
-            whitespace: Some(vec!['.', ':']),
-        };
-        test!("⟪⟫" =>(c) [Ok(EmptyNest)]);
-        test!("⟦⟧" =>(c) [Ok(EmptyNest)]);
-        test!("⟪⟧" =>(c) [Ok(EmptyNest)]);
-        test!("⟦.:..::⟫" =>(c) [Ok(EmptyNest)]);
-        test!("⃠⟪␛⟫" =>(c) [Ok(text("⃠⟪␛⟫", 0, 0))]);
-    }
+    test!("{}" => [Ok(EmptyNest)]);
+    // test!("{{}}" => [Ok(comb(comb(EmptyNest, EmptyList), EmptyList))]);
+
+    test!(r"\\" => [Ok(text(r"\"))]);
+    test!(r"\{" => [Ok(text("{"))]);
+    test!(r"\}" => [Ok(text("}"))]);
+    test!(r"\{\}" => [Ok(text("{}"))]);
+    test!(r"\a" => [Ok(text("a"))]);
+    test!(r"\a\b" => [Ok(text("ab"))]);
+    test!(r"\" => [Ok(text(""))]);
+    test!(r"a\" => [Ok(text("a"))]);
+    test!(r"a\b\" => [Ok(text("ab"))]);
+
+    test!(r"{b\ o b}" => [Ok(comb(text("b o"), list1(text("b"))))]);
+    test!(r"{\ bo b }" => [Ok(comb(text(" bo"), list1(text("b "))))]);
+    test!(r"{\ bo\ b }" => [Ok(comb(text(" bo b"), EmptyList))]);
+    test!(r"{\ bo\ b  }" => [Ok(comb(text(" bo b"), list1(text(" "))))]);
+    test!(r"{yz\ }" => [Ok(comb(text("yz "), EmptyList))]);
+    test!(r"{yz\ \ }" => [Ok(comb(text("yz  "), EmptyList))]);
+    test!(r"{yz\ \  \ }" => [Ok(comb(text("yz  "), list1(text(" "))))]);
+    // test!(r"{y\\z}" => [Ok(comb(text(r"y\z"), EmptyList))]);
+    // test!(r"{yz\}}" => [Ok(comb(text("yz}"), EmptyList))]);
+    // test!(r"{yz\{}" => [Ok(comb(text("yz{"), EmptyList))]);
+    // test!(r"{y\{z}" => [Ok(comb(text("y{z"), EmptyList))]);
+    // test!(r"{\{ yz}" => [Ok(comb(text("{"), list1(text("yz"))))]);
+
+    test!("{" => [Err(MissingEndChar)]);
+    test!("}" => [Err(UnbalancedEndChar(PosIgnore))]);
+    test!("␛{" => [Ok(text("␛")),
+                   Err(MissingEndChar)]);
+    test!("␛}" => [Err(UnbalancedEndChar(PosIgnore))]);
 
     // TODO: A lot more
+
+    // Custom delimiters
+
+    let mut c = custom_delim::parser(p, custom_delim::Spec {
+        nest_start: vec!['⟪'],
+        nest_end: vec!['⟫'],
+        nest_escape: vec!['␛'],
+        whitespace: vec!['-'],
+    });
+    test!("" =>(c) []);
+    test!("{}" =>(c) [Ok(text("{}"))]);
+    test!("{a}" =>(c) [Ok(text("{a}"))]);
+    test!("⟪⟫" =>(c) [Ok(EmptyNest)]);
+    test!("⟪ ⟫" =>(c) [Ok(comb(text(" "), EmptyList))]);
+    test!("⟪a⟫" =>(c) [Ok(comb(text("a"), EmptyList))]);
+    test!("⟪ a ⟫" =>(c) [Ok(comb(text(" a "), EmptyList))]);
+    test!("⟪a⟫" =>(c) [Ok(comb(text("a"), EmptyList))]);
+    test!("⟪-a⟫" =>(c) [Ok(comb(text("a"), EmptyList))]);
+    test!("⟪--a⟫" =>(c) [Ok(comb(text("a"), EmptyList))]);
+    test!("⟪a-⟫" =>(c) [Ok(comb(text("a"), EmptyList))]);
+    test!("⟪a--⟫" =>(c) [Ok(comb(text("a"), list1(text("-"))))]);
+    test!("⟪-a-⟫" =>(c) [Ok(comb(text("a"), EmptyList))]);
+    test!("⟪a-b⟫" =>(c) [Ok(comb(text("a"), list1(text("b"))))]);
+    test!("⟪--a---b--⟫" =>(c) [Ok(comb(text("a"), list1(text("--b--"))))]);
+    test!("a-⟪b-c⟫d-" =>(c) [Ok(text("a-")),
+                             Ok(comb(text("b"), list1(text("c")))),
+                             Ok(text("d-"))]);
+    test!("␛␛" =>(c) [Ok(text("␛"))]);
+    test!("␛⟪" =>(c) [Ok(text("⟪"))]);
+    test!("␛⟫" =>(c) [Ok(text("⟫"))]);
+    test!("␛⟪␛⟫" =>(c) [Ok(text("⟪⟫"))]);
+    test!(r"\\" =>(c) [Ok(text(r"\\"))]);
+    test!(r"\⟪\⟫" =>(c) [Ok(text(r"\")),
+                         Ok(comb(text(r"\"), EmptyList))]);
+    test!(r"\⟪" =>(c) [Ok(text(r"\")),
+                       Err(MissingEndChar)]);
+    test!(r"\⟫" =>(c) [Err(UnbalancedEndChar(PosIgnore))]);
+
+    let mut c = custom_delim::parser(c, custom_delim::Spec {
+        nest_start: vec!['⟪', '⟦'],
+        nest_end: vec!['⟫', '⟧'],
+        nest_escape: vec!['␛', '⃠'],
+        whitespace: vec!['.', ':'],
+    });
+    test!("⟪⟫" =>(c) [Ok(EmptyNest)]);
+    test!("⟦⟧" =>(c) [Ok(EmptyNest)]);
+    test!("⟪⟧" =>(c) [Ok(EmptyNest)]);
+    test!("⟦.:..::⟫" =>(c) [Ok(EmptyNest)]);
+    test!("␛⃠" =>(c) [Ok(text("⃠"))]);
+    test!("⃠␛" =>(c) [Ok(text("␛"))]);
+    test!("⃠⟪␛⟫" =>(c) [Ok(text("⟪⟫"))]);
+    test!(r"\⟦" =>(c) [Ok(text(r"\")),
+                       Err(MissingEndChar)]);
+    test!(r"\⟧" =>(c) [Err(UnbalancedEndChar(PosIgnore))]);
 }
+
+// TODO: Suite for Parsers that provide character position.
+
+// TODO: Suite for Parsers that provide UTF-8 byte position.
