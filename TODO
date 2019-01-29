@@ -1,3 +1,10 @@
+Should CharClassifier instead have only a single `classify(char) -> CharClass`
+   method where `CharClass` is an enum of variants `NestStart`, `NestEnd`,
+   `Escape`, `Text`?  Seems like it'd avoid multiple method calls in some cases,
+   and possibly be cleaner.
+
+
+
 Review whether `DR: DerefTryMut` could and should instead be `DR: Deref` in some
    places where mutability is not needed.  Why not...
 
@@ -8,12 +15,6 @@ Should PartialOrd be implemented for Datum altogether?  Probably not Ord though,
 
 
 
-Make sure all points of fn-call recursion are limited, either inherently or will
-   need to add manual limiting, to avoid unexpected stack overflow crashes and
-   instead return error(s) that indicate what happened.
-
-
-
 Learn about and probably use `#![forbid(unsafe_code)]`
 
 Add statement to docs/desc that the crates "have no dependencies and do not use
@@ -21,6 +22,15 @@ Add statement to docs/desc that the crates "have no dependencies and do not use
 
 Add statement to docs/desc that the array-allocation ability can be used to
    prevent memory-consumption DoS attacks.
+
+
+
+Maybe the parsing should not allocate Datums so eagerly, and instead the
+   combiners should be passed moved Datum values instead of datum-refs.  Seems
+   like combiners often don't need them to be allocated and just drop them, and
+   for apps that allocate from limited stack arrays, e.g. using DatumMutRef,
+   this is quite a waste since they typically aren't reclaimed as free.  Also
+   seems like it could be a cleaner API, not needing to deref the datum-refs.
 
 
 
@@ -35,3 +45,25 @@ https://tonyarcieri.com/rust-in-2019-security-maturity-stability#bad-interaction
 
 examples/ directories with hopefully-realistic examples, including a use of
    kruvi_core from a C program
+
+
+
+Make sure all points of fn-call recursion are limited, either inherently or will
+   need to add manual limiting, to avoid unexpected stack overflow crashes and
+   instead return error(s) that indicate what happened.  Esp. w.r.t. parsing
+   input texts, which are often untrusted, where our nest form syntax allows
+   very deep nesting that causes recursion in the parsing.
+
+This will be challenging to do well.  Basic numeric limits on nest depth (or
+   call recursion) aren't a very good way because stack overflow can still occur
+   if the stack happens to already be significantly consumed, which could be the
+   case for some users' apps at the points they call our parsing.  Knowing how
+   much stack space is left and dynamically limiting based on that seems like
+   the only proper way.  Need to research these issues and what Rust can do
+   about them.
+
+Maybe ParseIter::incr_nest_depth could be enhanced somehow to check and enforce
+   depth/recursion limiting.  It could return a Result so an error can be
+   returned to abort before further call recursion overflows, and it could
+   delegate the checking to some user- or Rust- or library- provided
+   functionality that can dynamically check the remaining stack space properly.

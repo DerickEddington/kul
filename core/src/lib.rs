@@ -1099,10 +1099,7 @@ impl<CC, DA, OB> Parser<CC, DA, OB>
     pub fn parse<'p, S>(&'p mut self, source: S) -> ParseIter<'p, Self, S>
         where S: SourceStream<DA::TT, DA>,
     {
-        ParseIter {
-            parser: self,
-            src_strm: source,
-        }
+        ParseIter::new(self, source)
     }
 }
 
@@ -1252,6 +1249,7 @@ pub struct ParseIter<'p, Prsr, SrcStrm>
 {
     parser: &'p mut Prsr,
     src_strm: SrcStrm,
+    nest_depth: usize,
 }
 
 impl<'p, CC, DA, OB, S>
@@ -1274,6 +1272,13 @@ impl<'p, CC, DA, OB, S>
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+enum ParseTextMode {
+    Base,
+    Operator,
+    Operands,
+}
+
 impl<'p, CC, DA, OB, S>
     ParseIter<'p, Parser<CC, DA, OB>, S>
     where CC: CharClassifier,
@@ -1284,12 +1289,75 @@ impl<'p, CC, DA, OB, S>
 {
     // TODO: Can `type = ...` be used here for shorter aliases of long ones below?
 
-    fn read_to_end<F: Fn(&CC, char) -> bool>
-        (&mut self, init_ws_sig: bool, is_end_char: F)
-         -> Result<DA::TT,
-                   Error<<DA::TT as TextBase>::Pos, OB::CE>>
+    #[inline]
+    fn new(parser: &'p mut Parser<CC, DA, OB>, src_strm: S) -> Self {
+        Self {
+            parser,
+            src_strm,
+            nest_depth: 0,
+        }
+    }
+
+    #[inline]
+    fn do_next(&mut self) -> Result<Option<DA::DR>,
+                                    Error<<DA::TT as TextBase>::Pos, OB::CE>>
     {
-        let chclass = &self.parser.classifier;
+        self.parse_next(ParseTextMode::Base)
+    }
+
+    fn parse_next(&mut self, mode: ParseTextMode)
+                  -> Result<Option<DA::DR>,
+                            Error<<DA::TT as TextBase>::Pos, OB::CE>>
+    {
+        // Peek some next char for below, or abort appropriately if none.
+        let ch = match self.src_strm.peek() {
+            Some(&SourceIterItem{ch, ..}) => ch,
+            None =>
+                return if self.nest_depth == 0 {
+                    Ok(None)
+                } else {
+                    Err(Error::MissingEndChar)
+                }
+        };
+        // Start of a nest, either a combination or an empty nest. Parse it to
+        // its end and return it.
+        if self.parser.classifier.is_nest_start(ch) {
+            self.incr_nest_depth();
+            let result = self.parse_nested();
+            self.decr_nest_depth();
+            result.map(Some)
+        }
+        // End of a nest, or error. Don't parse nor return an item, only check
+        // validity.
+        else if self.parser.classifier.is_nest_end(ch) {
+            self.check_end_char().map(|_| None)
+        }
+        // Start of a text. Parse it to its end and return it.
+        else {
+            self.parse_text(mode).map(Some)
+        }
+    }
+
+    fn parse_text(&mut self, mode: ParseTextMode)
+                  -> Result<DA::DR,
+                            Error<<DA::TT as TextBase>::Pos, OB::CE>>
+    {
+        #[inline]
+        fn is_end_char<CC>(ch: char, chclass: &CC, mode: ParseTextMode) -> bool
+            where CC: CharClassifier,
+        {
+            match mode {
+                ParseTextMode::Base
+                    => chclass.is_nest_start(ch),
+                ParseTextMode::Operator
+                    => chclass.is_whitespace(ch)
+                    || chclass.is_nest_start(ch)
+                    || chclass.is_nest_end(ch),
+                ParseTextMode::Operands
+                    => chclass.is_nest_end(ch),
+            }
+        }
+
         // Giving our allocator to the accumulation calls below enables them to
         // have the option of using new `Datum`s to achieve text-chunking for
         // the breaking around, and excluding of, escape characters.  While most
@@ -1298,148 +1366,146 @@ impl<'p, CC, DA, OB, S>
         // similar) which is intended for use in constrained environments
         // without heap allocation where reusing our `Datum` allocation ability
         // (e.g. from a stack array) is desired.
-        let dalloc = &mut self.parser.allocator;
 
         let mut text = DA::TT::empty();
         macro_rules! concat_accum {
             () => {
-                let accum = self.src_strm.accum_done(dalloc)?;
-                text = text.concat(accum, dalloc)?;
+                let accum = self.src_strm.accum_done(&mut self.parser.allocator)?;
+                text = text.concat(accum, &mut self.parser.allocator)?;
             }
         }
 
         let mut nest_level: usize = 0;
-        let mut first = true;
 
         loop {
             match self.src_strm.peek() {
                 Some(&SourceIterItem{ch, ..}) => {
-                    if first {
-                        // Skip leading whitespace if indicated
-                        if ! init_ws_sig && chclass.is_whitespace(ch) {
-                            self.src_strm.next(); // Skip peeked
-                            continue;
-                        }
-                        else {
-                            first = false;
-                        }
-                    }
-
                     // Reached end. Do not consume peeked end char
-                    if nest_level == 0 && is_end_char(chclass, ch) {
+                    if nest_level == 0 && is_end_char(ch, &self.parser.classifier, mode)
+                    {
                         break;
                     }
-                    // Consume escaped char whatever it might be, but not the
+                    // Accumulate escaped char whatever it might be, but not the
                     // escape char
-                    else if chclass.is_nest_escape(ch) {
-                        concat_accum!();
+                    else if self.parser.classifier.is_nest_escape(ch) {
+                        concat_accum!(); // Break chunk before escape char
                         self.src_strm.next(); // Skip peeked escape char first
-                        self.src_strm.next_accum(dalloc)?;
+                        self.src_strm.next_accum(&mut self.parser.allocator)?;
                     }
                     // Start of nest. Track nesting depth
-                    else if chclass.is_nest_start(ch) {
-                        self.src_strm.next_accum(dalloc)?; // Accumulate peeked
+                    else if self.parser.classifier.is_nest_start(ch) {
+                        // Accumulate peeked
+                        self.src_strm.next_accum(&mut self.parser.allocator)?;
                         nest_level += 1;
                     }
                     // End of nest. Check balanced nesting
-                    else if chclass.is_nest_end(ch) {
-                        // Accumulate peeked. Use its `pos` if error. This
-                        // `unwrap` is ok because we already did `peek` above
-                        // and know there is a next.
-                        let n = self.src_strm.next_accum(dalloc)?.unwrap();
+                    else if self.parser.classifier.is_nest_end(ch) {
                         if nest_level > 0 {
+                            // Accumulate peeked
+                            self.src_strm.next_accum(&mut self.parser.allocator)?;
                             nest_level -= 1;
                         } else {
-                            return Err(Error::UnbalancedEndChar(n.pos));
+                            self.check_end_char()?;
+                            break;
                         }
                     }
-                    // Accumulate this char
+                    // Accumulate peeked
                     else {
-                        self.src_strm.next_accum(dalloc)?;
+                        self.src_strm.next_accum(&mut self.parser.allocator)?;
                     }
                 },
+                // End of source stream
                 None => {
                     break;
                 }
             }
         }
-        // Done. Return what we accumulated.
-        concat_accum!();
-        Ok(text)
-    }
-
-    fn parse_next_text(&mut self)
-                       -> Result<DA::DR,
-                                 Error<<DA::TT as TextBase>::Pos, OB::CE>>
-    {
-        let text = Datum::Text(self.read_to_end(true, CC::is_nest_start)?);
-        Ok(self.parser.allocator.new_datum(text)?)
-    }
-
-    fn parse_nested(&mut self)
-                    -> Result<Option<(DA::DR, DA::TT)>,
-                              Error<<DA::TT as TextBase>::Pos, OB::CE>>
-    {
-        // Head text is delimited by whitespace or nest chars
-        let head = self.read_to_end(false, |parser, c| parser.is_whitespace(c)
-                                                       || parser.is_nest_start(c)
-                                                       || parser.is_nest_end(c))?;
-        // Empty string, or all whitespace, is empty nest form
-        if head.is_empty() {
-            return Ok(None);
+        // Done. Return what we accumulated. Or error if unbalanced nesting.
+        if nest_level == 0 {
+            concat_accum!();
+            Ok(self.parser.allocator.new_datum(Datum::Text(text))?)
+        } else {
+            Err(Error::MissingEndChar)
         }
-        // If head delimited by following whitespace, advance passed first
-        // whitespace char
+    }
+
+    fn parse_nested(&mut self) -> Result<DA::DR,
+                                         Error<<DA::TT as TextBase>::Pos, OB::CE>>
+    {
+        let end = |slf: &mut Self| {
+            // Consume our nest's end char. A missing end char is possible, but
+            // an erroneous non-end char shouldn't be.
+            if let Some(SourceIterItem{ch, ..}) = slf.src_strm.next() {
+                debug_assert!(slf.parser.classifier.is_nest_end(ch));
+                Ok(())
+            } else {
+                Err(Error::MissingEndChar)
+            }
+        };
+
+        // Advance past nest start char.
+        let start = self.src_strm.next();
+        debug_assert_eq!(start.map(|SourceIterItem{ch, ..}|
+                                   self.parser.classifier.is_nest_start(ch)),
+                         Some(true));
+        // Skip any leading whitespace before head form.
+        self.skip_whitespace();
+        // Parse form in operator position, or empty.
+        let operator = self.parse_next(ParseTextMode::Operator)?;
+        // If operator delimited by following whitespace, advance past first
+        // whitespace char.
         if let Some(&SourceIterItem{ch, ..}) = self.src_strm.peek() {
             if self.parser.classifier.is_whitespace(ch) { self.src_strm.next(); }
         }
-        // Head text is interpreted as an operator form to recursively
-        // parse. Note that, because we know head can only be a single form at
-        // this point, we know we only need the first (next) datum returned by
-        // the recursive parse iterator in order to cover it completely.
-        let head = self.recur_on_txt_once(&head)?;
-        // Rest text is delimited by end of our nest, and is interpreted here as
-        // unparsed text
-        let rest = self.read_to_end(true, CC::is_nest_end)?;
-        Ok(Some((head, rest)))
-    }
-
-    fn recur_on_txt_once(&mut self, text: &DA::TT)
-                         -> Result<DA::DR,
-                                   Error<<DA::TT as TextBase>::Pos, OB::CE>>
-    {
-        // Note: We use unwrap on purpose because None is impossible
-        self.recur(text, |mut pi| pi.next().unwrap())
-    }
-
-    fn recur<'a, 't, F, R>(&'a mut self, text: &'t DA::TT, f: F)
-                           -> Result<R, Error<<DA::TT as TextBase>::Pos, OB::CE>>
-        where F: FnOnce(ParseIter<'a, Parser<CC, DA, OB>, TextIter<'t, DA::TT>>)
-                        -> Result<R, Error<<DA::TT as TextBase>::Pos, OB::CE>>,
-    {
-        let text_ss = text.iter();
-        let pi = ParseIter {
-            parser: self.parser,
-            src_strm: text_ss,
+        // Determine the result.
+        let result = match operator {
+            // Parse the operands according to the operator.
+            Some(operator) => match self.parser.bindings.lookup(&operator) {
+                // Operator is bound to a combiner macro which will process the
+                // operands and determine the return value.
+                Some(combiner) => match combiner {
+                    // Operatives are given the operands text unparsed to do
+                    // whatever they want with it.
+                    Operative(mut opr) => {
+                        let operands = self.parse_text(ParseTextMode::Operands)?;
+                        end(self)?;
+                        opr.deref_mut()(operator, operands)?
+                    },
+                    // Applicatives are given the recursive parse of the
+                    // operands text as a list of "arguments".
+                    Applicative(mut apl) => {
+                        let arguments = self.parse_all(ParseTextMode::Base)?;
+                        end(self)?;
+                        apl.deref_mut()(operator, arguments)?
+                    }
+                },
+                // Not bound, so simply recursively parse operands and return a
+                // value representing the "combination" of operator and operands
+                // forms.
+                None => {
+                    let operands = self.parse_all(ParseTextMode::Base)?;
+                    end(self)?;
+                    Combination{operator, operands}
+                },
+            }
+            // No operator nor operands. Empty nest form.
+            None => {
+                end(self)?;
+                EmptyNest
+            }
         };
-        f(pi)
+        // Return result as newly allocated `Datum`.
+        Ok(self.parser.allocator.new_datum(result)?)
     }
 
-    fn recur_on_txt_all(&mut self, text: &DA::TT)
-                        -> Result<DA::DR,
-                                  Error<<DA::TT as TextBase>::Pos, OB::CE>>
-    {
-        self.recur(text, |mut pi| pi.collect_datumlist())
-    }
-
-    fn collect_datumlist(&mut self)
-                         -> Result<DA::DR,
-                                   Error<<DA::TT as TextBase>::Pos, OB::CE>>
+    fn parse_all(&mut self, mode: ParseTextMode)
+                 -> Result<DA::DR,
+                           Error<<DA::TT as TextBase>::Pos, OB::CE>>
     {
         let mut head = self.parser.allocator.new_datum(EmptyList)?;
         let mut tail = &mut head;
         loop {
-            let it = self.do_next()?;
+            let it = self.parse_next(mode)?;
             if let Some(next_it) = it {
                 if let Some(d) = DerefTryMut::get_mut(tail) {
                     let rest = self.parser.allocator.new_datum(EmptyList)?;
@@ -1458,84 +1524,50 @@ impl<'p, CC, DA, OB, S>
         Ok(head)
     }
 
-    fn do_next(&mut self)
-               -> Result<Option<DA::DR>,
-                         Error<<DA::TT as TextBase>::Pos, OB::CE>>
-    {
-        let ch = match self.src_strm.peek() {
-            Some(&SourceIterItem{ch, ..}) => ch,
-            None => return Ok(None)
-        };
-
-        // Start of a nest, either a combination or an empty nest
-        if self.parser.classifier.is_nest_start(ch) {
-            // Advance past peeked char
-            self.src_strm.next();
-            // Parse to the end of our nest level.
-            let nested = self.parse_nested()?;
-            // Consume our nest's end char, whatever it is.  If erroneous, by
-            // consuming it, we could allow the possibility that this iterator
-            // could be resumed again, but, in the current design, an erroneous
-            // char shouldn't be possible.  It is possible that our nest is
-            // missing its end char and end-of-stream occurred, which is the
-            // `else` case.
-            if let Some(SourceIterItem{ch: ec, ..}) = self.src_strm.next() {
-                debug_assert!(self.parser.classifier.is_nest_end(ec));
-            } else { return Err(Error::MissingEndChar); }
-            // Process the nested datums accordingly.
-            let next_datum = match nested {
-                Some((operator, operands)) => {
-                    match self.parser.bindings.lookup(&operator) {
-                        // Form in operator position is bound, so delegate the
-                        // processing of the operands and the choice of return
-                        // value.
-                        Some(combiner) => match combiner {
-                            Operative(mut opr) => {
-                                let d = Datum::Text(operands);
-                                let operands = self.parser.allocator.new_datum(d)?;
-                                // Is given the text unparsed so it can do
-                                // whatever it wants with it
-                                opr.deref_mut()(operator, operands)?
-                            },
-                            Applicative(mut apl) => {
-                                let rands_list = self.recur_on_txt_all(&operands)?;
-                                // Is given the parse of the text
-                                apl.deref_mut()(operator, rands_list)?
-                            }
-                        },
-                        // Not bound, so simply recursively parse operands and
-                        // return a value representing the "combination" of
-                        // operator and operands.
-                        None => {
-                            let rands_list = self.recur_on_txt_all(&operands)?;
-                            Combination{operator, operands: rands_list}
-                        },
-                    }
-                },
-                None => EmptyNest,
-            };
-            return Ok(Some(self.parser.allocator.new_datum(next_datum)?));
-        }
-
-        // Invalid unbalanced nest end character
-        else if self.parser.classifier.is_nest_end(ch) {
-            // Advance past peeked char. By consuming it, we allow the
-            // possibility that this iterator could be resumed again. Also, use
-            // its `pos`. This `unwrap` is ok because we already did `peek`
-            // above and know there is a next.
-            let n = self.src_strm.next().unwrap();
-            return Err(Error::UnbalancedEndChar(n.pos));
-        }
-
-        // All other characters are simply retained unparsed, with our
-        // minimal escape char handling
-        else {
-            // Note: We did not consume our peeked char, so it will be seen again.
-            // Note: parse_next_text already calls new_datum.
-            return self.parse_next_text().map(Some);
+    #[inline]
+    fn skip_whitespace(&mut self) {
+        let chclass = &self.parser.classifier;
+        while self.src_strm.peek()
+                           .map(|&SourceIterItem{ch, ..}| chclass.is_whitespace(ch))
+                           .unwrap_or(false)
+        {
+            self.src_strm.next(); // Skip peeked whitespace char
         }
     }
+
+    #[inline]
+    fn check_end_char(&mut self) -> Result<(), Error<<DA::TT as TextBase>::Pos, OB::CE>>
+    {
+        {
+            let chclass = &self.parser.classifier;
+            debug_assert_eq!(self.src_strm.peek().map(|&SourceIterItem{ch, ..}|
+                                                      chclass.is_nest_end(ch)),
+                             Some(true));
+        }
+        if self.nest_depth > 0 {
+            // Valid end of nest. Do not consume peeked char.
+            Ok(())
+        } else {
+            // Invalid unbalanced nest end character. Consume peeked char, to
+            // allow the possibility that this iterator could be resumed
+            // again. Also, use its `pos` in the error. This `unwrap` will never
+            // fail because we already did `peek` and know there is a next.
+            let n = self.src_strm.next().unwrap();
+            Err(Error::UnbalancedEndChar(n.pos))
+        }
+    }
+
+    #[inline]
+    fn incr_nest_depth(&mut self) {
+        self.nest_depth += 1;
+    }
+
+    #[inline]
+    fn decr_nest_depth(&mut self) {
+        self.nest_depth -= 1;
+    }
 }
+
 
 #[cfg(test)]
 mod tests {
