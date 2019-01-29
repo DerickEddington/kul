@@ -70,7 +70,6 @@ use core::ops::{Deref, DerefMut};
 use core::str::CharIndices;
 use core::iter::{self, Peekable, Map, Zip, Repeat, Enumerate};
 use core::cmp::Ordering;
-use core::marker::PhantomData;
 
 // TODO: Delete these to require full paths, for clarity now that this crate is
 // more complex
@@ -1092,7 +1091,7 @@ pub struct Parser<CC, DA, OB> {
 impl<CC, DA, OB> Parser<CC, DA, OB>
     where CC: CharClassifier,
           DA: DatumAllocator,
-          OB: OperatorBindings<DA = DA>,
+          OB: OperatorBindings<DA>,
 {
     /// The primary method.  Parse the given text source, according to the
     /// specific parameterization of our `Self`, and return an iterator that
@@ -1174,26 +1173,22 @@ pub trait DatumAllocator {
 }
 
 /// TODO
-pub trait OperatorBindings {
+pub trait OperatorBindings<DA>
+    where DA: DatumAllocator,
+{
     /// The type of references to
     /// [`Operative`](enum.Combiner.html#variant.Operative) macro functions.
-    type OR: DerefMut<Target = OpFn<<Self::DA as DatumAllocator>::TT,
-                                    <Self::DA as DatumAllocator>::ET,
-                                    <Self::DA as DatumAllocator>::DR,
-                                    <<Self::DA as DatumAllocator>::TT as TextBase>::Pos,
+    type OR: DerefMut<Target = OpFn<DA::TT, DA::ET, DA::DR,
+                                    <DA::TT as TextBase>::Pos,
                                     Self::CE>>;
     /// The type of references to
     /// [`Applicative`](enum.Combiner.html#variant.Applicative) macro functions.
-    type AR: DerefMut<Target = ApFn<<Self::DA as DatumAllocator>::TT,
-                                    <Self::DA as DatumAllocator>::ET,
-                                    <Self::DA as DatumAllocator>::DR,
-                                    <<Self::DA as DatumAllocator>::TT as TextBase>::Pos,
+    type AR: DerefMut<Target = ApFn<DA::TT, DA::ET, DA::DR,
+                                    <DA::TT as TextBase>::Pos,
                                     Self::CE>>;
     /// The [combiner error extension](enum.Error.html#variant.FailedCombiner)
     /// type.
     type CE;
-    /// TODO
-    type DA: DatumAllocator;
 
     /// Look-up any binding we might have associated with the given datum,
     /// referenced by the `operator` argument, which was found in operator
@@ -1203,58 +1198,41 @@ pub trait OperatorBindings {
     /// ways.  Else if we do not have a binding, return `None` to indicate that
     /// the form should not be handled according to the operator and that the
     /// operands should simply be recursively parsed.
-    fn lookup(&mut self, operator: &<Self::DA as DatumAllocator>::DR)
-              -> Option<Combiner<Self::OR, Self::AR>>;
+    fn lookup(&mut self, operator: &DA::DR) -> Option<Combiner<Self::OR, Self::AR>>;
 }
 
 /// An [`OperatorBindings`](trait.OperatorBindings.html) that always has no
 /// bindings and its [`lookup`](trait.OperatorBindings.html#tymethod.lookup)
 /// method always returns `None`.
-///
-/// Note: The `DA` type parameter is needed so `OperatorBindings` can be
-/// implemented for this for all possible `DatumAllocator` types.
-pub struct EmptyOperatorBindings<DA>(PhantomData<*const DA>);
-
-impl<DA> EmptyOperatorBindings<DA> {
-    #[inline]
-    pub fn new() -> Self {
-        Self(PhantomData)
-    }
-}
+pub struct EmptyOperatorBindings;
 
 // TODO: Have this be `pub` only in a module and not exported.
 /// Trick `OperatorBindings` into accepting this for the implementation of
-/// `OperatorBindings for EmptyOperatorBindings<DA>`.
-pub struct DummyCombiner<DA>(PhantomData<*const DA>);
+/// it for `EmptyOperatorBindings`.
+pub struct DummyCombiner<TT, ET, DR, POS, CE>(TT, ET, DR, POS, CE);
 
-impl<DA> Deref for DummyCombiner<DA>
-    where DA: DatumAllocator,
+impl<TT, ET, DR, POS, CE> Deref for DummyCombiner<TT, ET, DR, POS, CE>
+    where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
 {
-    type Target = dyn FnMut(DA::DR, DA::DR)
-                            -> CombinerResult<DA::TT, DA::ET, DA::DR,
-                                              <DA::TT as TextBase>::Pos,
-                                              ()>;
-
+    type Target = dyn FnMut(DR, DR) -> CombinerResult<TT, ET, DR, POS, CE>;
     fn deref(&self) -> &Self::Target { unreachable!() }
 }
 
-impl<DA> DerefMut for DummyCombiner<DA>
-    where DA: DatumAllocator,
+impl<TT, ET, DR, POS, CE> DerefMut for DummyCombiner<TT, ET, DR, POS, CE>
+    where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target { unreachable!() }
 }
 
-impl<DA> OperatorBindings for EmptyOperatorBindings<DA>
+impl<DA> OperatorBindings<DA> for EmptyOperatorBindings
     where DA: DatumAllocator,
 {
-    type OR = DummyCombiner<DA>;
-    type AR = DummyCombiner<DA>;
+    type OR = DummyCombiner<DA::TT, DA::ET, DA::DR, <DA::TT as TextBase>::Pos, Self::CE>;
+    type AR = DummyCombiner<DA::TT, DA::ET, DA::DR, <DA::TT as TextBase>::Pos, Self::CE>;
     type CE = ();
-    type DA = DA;
 
     #[inline]
-    fn lookup(&mut self, _operator: &<Self::DA as DatumAllocator>::DR)
-              -> Option<Combiner<Self::OR, Self::AR>> {
+    fn lookup(&mut self, _operator: &DA::DR) -> Option<Combiner<Self::OR, Self::AR>> {
         None
     }
 }
@@ -1281,7 +1259,7 @@ impl<'p, CC, DA, OB, S>
     for ParseIter<'p, Parser<CC, DA, OB>, S>
     where CC: CharClassifier,
           DA: DatumAllocator,
-          OB: OperatorBindings<DA = DA>,
+          OB: OperatorBindings<DA>,
           Parser<CC, DA, OB>: 'p,
           S: SourceStream<DA::TT, DA>,
 {
@@ -1300,7 +1278,7 @@ impl<'p, CC, DA, OB, S>
     ParseIter<'p, Parser<CC, DA, OB>, S>
     where CC: CharClassifier,
           DA: DatumAllocator,
-          OB: OperatorBindings<DA = DA>,
+          OB: OperatorBindings<DA>,
           Parser<CC, DA, OB>: 'p,
           S: SourceStream<DA::TT, DA>,
 {

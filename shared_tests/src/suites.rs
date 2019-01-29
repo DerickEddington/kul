@@ -8,7 +8,7 @@ use super::*;
 /// exercise macros/combiners nor extra types.
 pub fn test_suite0<DA>(mut p: Parser<DefaultCharClassifier,
                                      DA,
-                                     EmptyOperatorBindings<DA>>)
+                                     EmptyOperatorBindings>)
     where DA: DatumAllocator,
           <DA::TT as Text>::Chunk: From<&'static str>,
           DA::DR: Debug,

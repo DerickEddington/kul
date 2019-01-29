@@ -41,7 +41,7 @@ fn parse_all<CC, DA, OB, S>(
                          OB::CE>>
     where CC: CharClassifier,
           DA: DatumAllocator,
-          OB: OperatorBindings<DA = DA>,
+          OB: OperatorBindings<DA>,
           S: SourceStream<DA::TT, DA>,
           // DA::DR: Debug,
           // DA::TT: Debug,
@@ -275,13 +275,13 @@ mod tests {
 
         fn wimpy_parser() -> Parser<DefaultCharClassifier,
                                     WimpyDatumAllocator,
-                                    EmptyOperatorBindings<WimpyDatumAllocator>>
+                                    EmptyOperatorBindings>
         {
             Parser {
                 classifier: DefaultCharClassifier,
                 allocator: WimpyDatumAllocator{single_datum:
                                                Some(DatumBox::new(Datum::EmptyNest))},
-                bindings: EmptyOperatorBindings::new(),
+                bindings: EmptyOperatorBindings,
             }
         }
 

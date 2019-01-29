@@ -10,12 +10,12 @@ type TxtTy<'a> = TextDatumSeq<'a, PosStr<'static>, ()>;
 fn parser<'a>(arr: &'a mut [MutRefDatum<'a, TxtTy<'a>, ()>])
               -> Parser<DefaultCharClassifier,
                         ArrayDatumAllocator,
-                        EmptyOperatorBindings<ArrayDatumAllocator>>
+                        EmptyOperatorBindings>
 {
     Parser {
         classifier: DefaultCharClassifier,
         allocator: ArrayDatumAllocator{free: Some(arr)},
-        bindings: EmptyOperatorBindings::new(),
+        bindings: EmptyOperatorBindings,
     }
 }
 

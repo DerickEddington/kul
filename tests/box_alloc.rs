@@ -4,12 +4,12 @@ use kruvi_shared_tests::suites::*;
 
 fn parser() -> Parser<DefaultCharClassifier,
                       BoxDatumAllocator,
-                      EmptyOperatorBindings<BoxDatumAllocator>>
+                      EmptyOperatorBindings>
 {
     Parser {
         classifier: DefaultCharClassifier,
         allocator: BoxDatumAllocator,
-        bindings: EmptyOperatorBindings::new(),
+        bindings: EmptyOperatorBindings,
     }
 }
 
