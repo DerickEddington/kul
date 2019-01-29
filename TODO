@@ -1,3 +1,12 @@
+Should combiners' return type be changed to have the Datum be Option'al so they
+   can choose whether the form they're handling should be omitted from the
+   resulting AST?  This would enable better "comment" forms that don't result in
+   any node in the AST, and could be useful for whatever forms users might want
+   that end up being completely ignored (which they could make a dynamic
+   decision).
+
+
+
 Should CharClassifier instead have only a single `classify(char) -> CharClass`
    method where `CharClass` is an enum of variants `NestStart`, `NestEnd`,
    `Escape`, `Text`?  Seems like it'd avoid multiple method calls in some cases,
