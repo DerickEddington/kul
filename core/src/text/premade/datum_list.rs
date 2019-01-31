@@ -4,6 +4,7 @@
 //! `DatumAllocator` is the only available (or desired) dynamic allocator.
 
 use core::ops::Deref;
+use core::cmp::Ordering;
 
 use crate::text;
 use crate::{Text, TextBase, TextChunk, TextConcat, Datum, DerefTryMut};
@@ -61,7 +62,24 @@ impl<'d, C, ET> Eq for TextDatumList<'d, C, ET>
     where C: TextChunk,
 {}
 
-// TODO: PartialOrd, Ord
+impl<'d, TT, C, ET> PartialOrd<TT> for TextDatumList<'d, C, ET>
+    where TT: Text,
+          C: TextChunk,
+{
+    #[inline]
+    fn partial_cmp(&self, other: &TT) -> Option<Ordering> {
+        Text::partial_cmp(self, other)
+    }
+}
+
+impl<'d, C, ET> Ord for TextDatumList<'d, C, ET>
+    where C: TextChunk,
+{
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        Text::cmp(self, other)
+    }
+}
 
 
 /// Enables iterating the chunks of a `TextDatumList`, by traversing the linked

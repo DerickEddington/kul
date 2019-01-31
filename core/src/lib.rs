@@ -59,8 +59,6 @@
 //! both into a hybrid and where there are two complementary ways of processing
 //! forms like in Kernel.
 
-// TODO: Impl PartialEq, Eq, PartialOrd, and Ord for the new text types
-
 // TODO: Derive the usual traits like Debug, for the new types, as appropriate
 
 // TODO: Impl `Text` (and so a SourceStream too) for:

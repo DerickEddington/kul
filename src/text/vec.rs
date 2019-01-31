@@ -1,6 +1,8 @@
 //! A generic `Text` implementation for chaining underlying chunks by using a
 //! `Vec`.
 
+use std::cmp::Ordering;
+
 use crate::{Text, TextChunk, TextBase, TextConcat};
 use crate::parser::{DatumAllocator, AllocError};
 
@@ -40,7 +42,24 @@ impl<C> Eq for TextVec<C>
     where C: TextChunk,
 {}
 
-// TODO: PartialOrd, Ord
+impl<TT, C> PartialOrd<TT> for TextVec<C>
+    where TT: Text,
+          C: TextChunk,
+{
+    #[inline]
+    fn partial_cmp(&self, other: &TT) -> Option<Ordering> {
+        Text::partial_cmp(self, other)
+    }
+}
+
+impl<C> Ord for TextVec<C>
+    where C: TextChunk,
+{
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        Text::cmp(self, other)
+    }
+}
 
 
 impl<C> TextBase for TextVec<C>
