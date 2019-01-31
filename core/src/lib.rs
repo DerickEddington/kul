@@ -59,8 +59,6 @@
 //! both into a hybrid and where there are two complementary ways of processing
 //! forms like in Kernel.
 
-// TODO: Derive the usual traits like Debug, for the new types, as appropriate
-
 // TODO: Impl `Text` (and so a SourceStream too) for:
 // - &[char] (which will also work for Vec<char> outside this crate with `std`)
 // ? &[u16] for UTF-16 support (or whatever type makes sense for UTF-16)
@@ -173,6 +171,7 @@ pub trait SourceStream<TT, DA>: Iterator<Item = SourceIterItem<TT::Pos>>
 /// Represents: the ability to parse a string; the characters used to delimit
 /// the nesting form; the method of allocating the `Datum`s; and the environment
 /// of bindings of macros.
+#[derive(Debug)]
 pub struct Parser<CC, DA, OB> {
     pub classifier: CC,
     pub allocator: DA,
@@ -204,6 +203,7 @@ pub type ParseIterItem<DR, POS, CE> = Result<DR, Error<POS, CE>>;
 /// and yields a [`Datum`](enum.Datum.html) AST for each or an
 /// [`Error`](enum.Error.html), according to the given
 /// [`Parser`](struct.Parser.html)'s parameterization.
+#[derive(Debug)]
 pub struct ParseIter<'p, Prsr, SrcStrm>
     where Prsr: ?Sized + 'p,
 {
@@ -232,7 +232,7 @@ impl<'p, CC, DA, OB, S>
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum ParseTextMode {
     Base,
     Operator,

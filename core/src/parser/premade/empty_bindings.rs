@@ -8,6 +8,7 @@ use crate::{Datum, DerefTryMut, TextBase};
 /// An [`OperatorBindings`](trait.OperatorBindings.html) that always has no
 /// bindings and its [`lookup`](trait.OperatorBindings.html#tymethod.lookup)
 /// method always returns `None`.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct EmptyOperatorBindings;
 
 

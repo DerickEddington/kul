@@ -117,7 +117,7 @@ mod tests {
 
     /// Used as a "text" type in tests where it does not need to be a real
     /// `Text`.
-    #[derive(Copy, Clone, PartialEq, Debug)]
+    #[derive(Copy, Clone, PartialEq, Eq, Debug)]
     struct DummyText;
 
     #[test]
