@@ -5,9 +5,10 @@ use std::rc::{Rc, Weak as WeakRc};
 use std::sync::{Arc, Weak as WeakArc};
 use std::cell::Cell;
 
-use kruvi::{DatumBox, DatumRc, RcDatum, DatumArc, ArcDatum};
-use kruvi_core::Datum::*;
-use super::*;
+use kruvi::datum::{DatumBox, DatumRc, RcDatum, DatumArc, ArcDatum};
+use kruvi_core::{Datum::{self, *}, DerefTryMut};
+
+use crate::TestStrText;
 
 
 type TT = TestStrText;
@@ -327,6 +328,7 @@ pub fn make_arc_multi_strong_list(len: usize, strong_step: usize)
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{ExpectedDatumRef, dr, EtIgnore};
 
     macro_rules! test_meta {
         (($args:tt) (=> $($make:ident),+) ($expected:expr))

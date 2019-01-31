@@ -1,4 +1,4 @@
-//! Used by the integration tests of both the [core](../kruvi_core/index.html)
+//! Used by the tests of both the [core](../kruvi_core/index.html)
 //! and the [full](../kruvi/index.html) crates.  It provides test suites that
 //! can be run against many types of [`Parser`](../kruvi_core/struct.Parser.html),
 //! and it uses tricks so that its representation of expected results can be
@@ -7,7 +7,7 @@
 
 
 // TODO: Support checking of the generic character position
-// information. Probably with some new trait for converting a TextPosition to
+// information. Probably with some new trait for converting a SourcePosition to
 // one concrete type this crate can deal with.
 // Maybe simply `(char_pos, Option<utf8_byte_pos>, Option<utf16_byte_pos>)`
 // where `None` values cause those byte positions to not be checked.
@@ -16,10 +16,12 @@
 // so that functionality can be tested globally too.
 
 use std::ops::{Deref, DerefMut};
-use std::fmt::Debug;
 
-use kruvi_core::*;
-use kruvi::TextVec;
+use kruvi_core::{SourceStream, SourceIterItem, Parser, ParseIterItem,
+                 Datum, DerefTryMut, Text, TextBase, Error};
+use kruvi_core::parser::{CharClassifier, DatumAllocator, OperatorBindings};
+use kruvi_core::text::chunk::premade::PosStr;
+use kruvi::text::TextVec;
 
 
 pub mod suites;
@@ -189,10 +191,12 @@ mod custom_delim {
     }
 }
 
+
 // This only tests the internal units of this module
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kruvi_core::parser::AllocError;
 
     #[test]
     fn extratype_ignore_eq() {
@@ -221,6 +225,7 @@ mod tests {
     #[test]
     fn datum_equality() {
         use Datum::{Combination, EmptyNest, List, EmptyList, Extra};
+        use kruvi_core::datum::premade::DatumMutRef;
 
         assert_eq!(Datum::Text::<_, EtIgnore, ExpectedDatumRef>(ExpectedText("a")),
                    Datum::Text::<TestStrText, (), DatumMutRef<TestStrText, ()>>(
@@ -252,7 +257,7 @@ mod tests {
 
     #[test]
     fn error_equality() {
-        use kruvi_core::Error::*;
+        use Error::*;
 
         assert_eq!(UnbalancedEndChar::<PosIgnore, CeIgnore>(PosIgnore),
                    UnbalancedEndChar::<usize, ()>(7));
@@ -271,7 +276,8 @@ mod tests {
 
     mod basic_parse_all {
         use super::*;
-        use kruvi::{DatumBox};
+        use kruvi_core::parser::premade::{DefaultCharClassifier, EmptyOperatorBindings};
+        use kruvi::datum::DatumBox;
 
         fn wimpy_parser() -> Parser<DefaultCharClassifier,
                                     WimpyDatumAllocator,

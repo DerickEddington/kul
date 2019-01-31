@@ -76,3 +76,9 @@ Maybe ParseIter::incr_nest_depth could be enhanced somehow to check and enforce
    returned to abort before further call recursion overflows, and it could
    delegate the checking to some user- or Rust- or library- provided
    functionality that can dynamically check the remaining stack space properly.
+
+
+
+Finish/fix doc-comment links.  Hopefully the `intra_rustdoc_links` feature (RFC
+   1946) will become stable soon and can be used to make this task easier and
+   better.

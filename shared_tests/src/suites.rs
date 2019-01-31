@@ -1,7 +1,14 @@
 //! Suites of tests applied across multiple crates
 
 use std::mem::replace;
-use super::*;
+use std::fmt::Debug;
+
+use kruvi_core::{Parser, Text, TextBase, Datum, Combiner, Error, DerefTryMut};
+use kruvi_core::parser::{DatumAllocator, OperatorBindings,
+                         premade::{DefaultCharClassifier, EmptyOperatorBindings}};
+use kruvi_core::combiner::{OpFn, ApFn};
+
+use crate::{parse_all, expect, dr, ExpectedText, PosIgnore, custom_delim};
 
 
 /// Basic test suite that checks the basic syntax and forms and does not

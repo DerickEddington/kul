@@ -4,12 +4,16 @@
 //! automatic recursive dropping).  Can also be used for any other `Datum`
 //! reference types of yours if they meet the requirements.
 
-use core::mem::replace;
+use std::ops::{Deref, DerefMut};
+use std::mem::replace;
+use std::rc::Rc;
+use std::sync::Arc;
 
-use super::*;
+use crate::{Datum, DerefTryMut};
+use crate::datum::{DatumBox, RcDatum, DatumRc, ArcDatum, DatumArc};
 
-use self::Datum::{List, Combination};
-pub use self::Datum::EmptyList as TempLeaf;
+use Datum::{List, Combination};
+use Datum::EmptyList as TempLeaf;
 
 
 /// Avoids extensive recursive dropping by using a loop and moving-out the
@@ -576,7 +580,6 @@ impl<TT, ET> Drop for DatumArc<TT, ET> {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
     use kruvi_shared_tests::utils::*;
 
     // Pure lists (right-sided depth), pure nests (left-sided depth), and pure
