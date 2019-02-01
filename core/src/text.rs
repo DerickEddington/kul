@@ -112,10 +112,17 @@ pub trait Text: TextBase
     type IterChunksState: iter::chunks::State<Chunk = Self::Chunk> + ?Sized;
 
     #[inline]
+    fn from_chunkish<T>(v: T) -> Self
+        where T: Into<Self::Chunk>
+    {
+        Self::from(v.into())
+    }
+
+    #[inline]
     fn from_str<'s>(s: &'s str) -> Self
         where Self::Chunk: From<&'s str>
     {
-        Self::from(Self::Chunk::from(s))
+        Self::from_chunkish(s)
     }
 
     fn partial_eq<O: Text>(&self, other: &O) -> bool {
