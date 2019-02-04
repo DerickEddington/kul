@@ -58,11 +58,20 @@
 //! the denoted values, which seems fitting for this crate which kind of blends
 //! both into a hybrid and where there are two complementary ways of processing
 //! forms like in Kernel.
+//!
+//! # Unicode
+//!
+//! Parsing is done based on Rust's `char` type (which is a Unicode scalar
+//! value).  The configurable delimiters are single `char`s, and so they cannot
+//! be general grapheme clusters (because those can be sequences of multiple
+//! `char`s).  It seems very unlikely that anyone would seriously want to use
+//! grapheme clusters as the delimiters because the few delimiters only have
+//! bracket and escape semantics.  For a parsed input text, all non-delimiter
+//! `char`s are preserved exactly (except whitespace around head forms), and so
+//! grapheme clusters are always preserved where it makes sense for our format.
 
 // TODO: Impl `Text` (and so a SourceStream too) for:
 // - &[char] (which will also work for Vec<char> outside this crate with `std`)
-// ? &[u16] for UTF-16 support (or whatever type makes sense for UTF-16)
-// ? Others like CStr, OsStr, etc?
 
 // TODO: Exercise combiners in some test suite
 
