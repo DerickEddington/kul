@@ -113,7 +113,6 @@ pub struct PosStrIter<'s> {
                            fn(((usize, (usize, char)), StrPos<'s>))
                               -> SourceIterItem<StrPos<'s>>>>,
     accum: Option<PosStr<'s>>,
-    posstr: PosStr<'s>,
 }
 
 impl<'s> PosStrIter<'s> {
@@ -133,7 +132,6 @@ impl<'s> PosStrIter<'s> {
                                          -> SourceIterItem<StrPos<'s>>)
                                 .peekable(),
             accum: None,
-            posstr: *posstr,
         }
     }
 }
@@ -170,11 +168,7 @@ impl<'s> text::chunk::SourceStream<PosStr<'s>> for PosStrIter<'s>
     fn next_accum(&mut self) -> Option<SourceIterItem<StrPos<'s>>> {
         let next = self.pei_iter.next();
         if let Some(next) = &next {
-            let end = if let Some(peek) = self.pei_iter.peek() {
-                peek.pos.byte_pos
-            } else {
-                self.posstr.pos.byte_pos + self.posstr.val.len()
-            };
+            let end = next.pos.byte_pos + next.ch.len_utf8();
             if let Some(accum) = &mut self.accum {
                 // Already set, so extend
                 accum.val = &accum.pos.src[accum.pos.byte_pos .. end];
