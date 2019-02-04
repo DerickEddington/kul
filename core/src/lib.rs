@@ -8,6 +8,8 @@
 //! including for its generic designs of chunked text representations and
 //! omitting escape characters.
 //!
+//! # Overview
+//!
 //! The notation is similar to Lisp S-expressions in that there are nested forms
 //! delimited by brackets and in that the first sub-form in a nest (the "head")
 //! can be interpreted as an operator (which can also be thought of as a
@@ -49,16 +51,6 @@
 //! in sub-modules named `premade`, and these might be sufficient by themselves
 //! for some limited applications.
 //!
-//! TODO?: Should the Kernel terms be dropped in favor of terms like "text
-//! macro", "form macro", and "constructor" instead?  Those terms are probably
-//! more familiar for a language focused on textual syntax, vs. the Kernel terms
-//! which require an analogy between expression-form evaluation and
-//! extensible-parsing to really understand.  I like the Kernel terms and
-//! analogy because parsing can be viewed as evaluation of text and the AST as
-//! the denoted values, which seems fitting for this crate which kind of blends
-//! both into a hybrid and where there are two complementary ways of processing
-//! forms like in Kernel.
-//!
 //! # Unicode
 //!
 //! Parsing is done based on Rust's `char` type (which is a Unicode scalar
@@ -69,6 +61,16 @@
 //! bracket and escape semantics.  For a parsed input text, all non-delimiter
 //! `char`s are preserved exactly (except whitespace around head forms), and so
 //! grapheme clusters are always preserved where it makes sense for our format.
+
+// TODO?: Should the Kernel terms be dropped in favor of terms like "text
+// macro", "form macro", and "constructor" instead?  Those terms are probably
+// more familiar for a language focused on textual syntax, vs. the Kernel terms
+// which require an analogy between expression-form evaluation and
+// extensible-parsing to really understand.  I like the Kernel terms and
+// analogy because parsing can be viewed as evaluation of text and the AST as
+// the denoted values, which seems fitting for this crate which kind of blends
+// both into a hybrid and where there are two complementary ways of processing
+// forms like in Kernel.
 
 // TODO: Impl `Text` (and so a SourceStream too) for:
 // - &[char] (which will also work for Vec<char> outside this crate with `std`)
