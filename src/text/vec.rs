@@ -99,7 +99,7 @@ impl<C> Text for TextVec<C>
 /// type.
 impl<C, DA> TextConcat<DA> for TextVec<C>
     where C: TextChunk,
-          DA: DatumAllocator<TT = Self>,
+          DA: DatumAllocator<TT = Self> + ?Sized,
 {
     fn concat(mut self, mut other: Self, _: &mut DA) -> Result<Self, AllocError> {
         self.chunks.append(&mut other.chunks);
