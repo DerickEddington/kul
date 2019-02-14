@@ -40,10 +40,6 @@
 //! [`Drop`]: http://doc.rust-lang.org/std/ops/trait.Drop.html
 //! [`Parser`]: ../kruvi_core/struct.Parser.html
 
-// TODO: Integration tests that impl Text (and so a SourceStream) for:
-// - Vec<char>, using kruvi_core's Text impl for &[char]
-// - LinkedList<char>, just to test it can be done
-
 // TODO: Parser impl that makes it easier by using Box and that provides API for
 // establishing combiner bindings.
 
