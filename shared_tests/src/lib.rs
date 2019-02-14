@@ -51,12 +51,7 @@ fn parse_all<CC, DA, OB, S>(
           // <DA::TT as Text>::Chunk: Debug,
           // OB::CE: Debug,
 {
-    let mut result = vec![];
-    let mut iter = parser.parse(input);
-    while let Some(next) = iter.next() {
-        result.push(next);
-    }
-    result
+    parser.parse(input).collect()
 }
 
 fn expect(e: Vec<Result<ExpectedDatum, Error<PosIgnore, CeIgnore>>>) -> Expected {
