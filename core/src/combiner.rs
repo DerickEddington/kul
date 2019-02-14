@@ -37,11 +37,11 @@ pub enum Combiner<OperativeRef, ApplicativeRef>
     Applicative(ApplicativeRef),
 }
 
-impl<TT, ET, DR, POS, CE> OperativeTrait for OpFn<TT, ET, DR, POS, CE>
+impl<TT, ET, DR, Pos, CE> OperativeTrait for OpFn<TT, ET, DR, Pos, CE>
     where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
 { }
 
-impl<TT, ET, DR, POS, CE> ApplicativeTrait for ApFn<TT, ET, DR, POS, CE>
+impl<TT, ET, DR, Pos, CE> ApplicativeTrait for ApFn<TT, ET, DR, Pos, CE>
     where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
 { }
 
@@ -52,7 +52,7 @@ impl<TT, ET, DR, POS, CE> ApplicativeTrait for ApFn<TT, ET, DR, POS, CE>
 /// `Datum`s is needed for the return value.  See
 /// [`CombinerResult`](type.CombinerResult.html) for the description of the
 /// return value.
-pub type OpFn<TT, ET, DR, POS, CE> = dyn FnMut(DR, DR) -> Result<TT, ET, DR, POS, CE>;
+pub type OpFn<TT, ET, DR, Pos, CE> = dyn FnMut(DR, DR) -> Result<TT, ET, DR, Pos, CE>;
 
 /// The type of "applicative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-forms
@@ -62,11 +62,11 @@ pub type OpFn<TT, ET, DR, POS, CE> = dyn FnMut(DR, DR) -> Result<TT, ET, DR, POS
 /// new `Datum`s is needed for the return value.  See
 /// [`CombinerResult`](type.CombinerResult.html) for the description of the
 /// return value.
-pub type ApFn<TT, ET, DR, POS, CE> = dyn FnMut(DR, DR) -> Result<TT, ET, DR, POS, CE>;
+pub type ApFn<TT, ET, DR, Pos, CE> = dyn FnMut(DR, DR) -> Result<TT, ET, DR, Pos, CE>;
 
 /// The type returned by "operative" and "applicative" functions.  For a
 /// successful return, the returned `Datum` is substituted for the original form
 /// by the parser in the AST it yields.  An [`Error`](enum.Error.html) is
 /// returned if the combiner fails for any reason.
-pub type Result<TT, ET, DR, POS, CE>
-    = core::result::Result<Datum<TT, ET, DR>, Error<POS, CE>>;
+pub type Result<TT, ET, DR, Pos, CE>
+    = core::result::Result<Datum<TT, ET, DR>, Error<Pos, CE>>;

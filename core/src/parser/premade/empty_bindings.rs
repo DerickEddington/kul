@@ -14,18 +14,18 @@ pub struct EmptyOperatorBindings;
 
 /// Trick `OperatorBindings` into accepting this for the implementation of
 /// it for `EmptyOperatorBindings`.
-pub struct DummyCombiner<TT, ET, DR, POS, CE>(TT, ET, DR, POS, CE);
+pub struct DummyCombiner<TT, ET, DR, Pos, CE>(TT, ET, DR, Pos, CE);
 
 
-impl<TT, ET, DR, POS, CE> Deref for DummyCombiner<TT, ET, DR, POS, CE>
+impl<TT, ET, DR, Pos, CE> Deref for DummyCombiner<TT, ET, DR, Pos, CE>
     where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
 {
-    type Target = dyn FnMut(DR, DR) -> combiner::Result<TT, ET, DR, POS, CE>;
+    type Target = dyn FnMut(DR, DR) -> combiner::Result<TT, ET, DR, Pos, CE>;
     fn deref(&self) -> &Self::Target { unreachable!() }
 }
 
 
-impl<TT, ET, DR, POS, CE> DerefMut for DummyCombiner<TT, ET, DR, POS, CE>
+impl<TT, ET, DR, Pos, CE> DerefMut for DummyCombiner<TT, ET, DR, Pos, CE>
     where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target { unreachable!() }

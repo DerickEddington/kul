@@ -25,7 +25,7 @@ pub enum AllocError {
     AllocExhausted,
 }
 
-impl<POS, CE> From<AllocError> for Error<POS, CE> {
+impl<Pos, CE> From<AllocError> for Error<Pos, CE> {
     fn from(ae: AllocError) -> Self {
         Error::FailedAlloc(ae)
     }

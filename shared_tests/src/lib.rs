@@ -72,13 +72,13 @@ struct Item (ParseIterItem<ExpectedDatumRef, PosIgnore, CeIgnore>);
 
 /// This allows `Item` to be compared with any type of `ParseIterItem`, and it
 /// compares in our special ways
-impl<DR, POS, CE> PartialEq<ParseIterItem<DR, POS, CE>> for Item
+impl<DR, Pos, CE> PartialEq<ParseIterItem<DR, Pos, CE>> for Item
     where DR: Deref,
           ExpectedDatum: PartialEq<DR::Target>,
-          PosIgnore: PartialEq<POS>,
+          PosIgnore: PartialEq<Pos>,
           CeIgnore: PartialEq<CE>,
 {
-    fn eq(&self, other: &ParseIterItem<DR, POS, CE>) -> bool {
+    fn eq(&self, other: &ParseIterItem<DR, Pos, CE>) -> bool {
         match (&self.0, other) {
             (Ok(dr1), Ok(dr2)) => *dr1.0 == **dr2,
             (Err(e1), Err(e2)) => *e1 == *e2,

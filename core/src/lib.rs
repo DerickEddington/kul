@@ -206,7 +206,7 @@ impl<CC, DA, OB> Parser<CC, DA, OB>
 
 
 /// The type of values given by the parser iterator
-pub type ParseIterItem<DR, POS, CE> = Result<DR, Error<POS, CE>>;
+pub type ParseIterItem<DR, Pos, CE> = Result<DR, Error<Pos, CE>>;
 
 /// An [`Iterator`](http://doc.rust-lang.org/std/iter/trait.Iterator.html) that
 /// parses its input text one top-level form at a time per each call to
