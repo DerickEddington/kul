@@ -31,14 +31,14 @@
 //! `kruvi_core`.
 //!
 //! [`kruvi_core`]: ../kruvi_core/index.html
-//! [`Datum`]: enum.Datum.html
+//! [`Datum`]: ../kruvi_core/enum.Datum.html
 //! [`Box`]: http://doc.rust-lang.org/std/boxed/struct.Box.html
 //! [`Rc`]: http://doc.rust-lang.org/std/rc/struct.Rc.html
 //! [`Arc`]: http://doc.rust-lang.org/std/sync/struct.Arc.html
-//! [`Text`]: trait.Text.html
+//! [`Text`]: ../kruvi_core/trait.Text.html
 //! [`SourceStream`]: ../kruvi_core/trait.SourceStream.html
 //! [`Drop`]: http://doc.rust-lang.org/std/ops/trait.Drop.html
-//! [`Parser`]: struct.Parser.html
+//! [`Parser`]: ../kruvi_core/struct.Parser.html
 
 // TODO: Integration tests that impl Text (and so a SourceStream) for:
 // - Vec<char>, using kruvi_core's Text impl for &[char]
