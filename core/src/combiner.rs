@@ -47,21 +47,17 @@ impl<TT, ET, DR, Pos, CE> ApplicativeTrait for ApFn<TT, ET, DR, Pos, CE>
 
 /// The type of "operative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-form as
-/// a `Datum::Text` containing the unparsed operands text; and the third
-/// argument is the allocator state which can be used if constructing new
-/// `Datum`s is needed for the return value.  See
-/// [`CombinerResult`](type.CombinerResult.html) for the description of the
-/// return value.
+/// a `Datum::Text` containing the unparsed operands text.  See
+/// [`combiner::Result`](type.Result.html) for the description of the return
+/// value.
 pub type OpFn<TT, ET, DR, Pos, CE> = dyn FnMut(DR, DR) -> Result<TT, ET, DR, Pos, CE>;
 
 /// The type of "applicative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-forms
 /// as a `Datum::List` containing the recursively parsed operands as separate
-/// `Datum`s, or it is a `Datum::EmptyList` if the operands text was empty; and
-/// the third argument is the allocator state which can be used if constructing
-/// new `Datum`s is needed for the return value.  See
-/// [`CombinerResult`](type.CombinerResult.html) for the description of the
-/// return value.
+/// `Datum`s, or it is a `Datum::EmptyList` if the operands text was empty.  See
+/// [`combiner::Result`](type.Result.html) for the description of the return
+/// value.
 pub type ApFn<TT, ET, DR, Pos, CE> = dyn FnMut(DR, DR) -> Result<TT, ET, DR, Pos, CE>;
 
 /// The type returned by "operative" and "applicative" functions.  For a
