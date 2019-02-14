@@ -42,7 +42,7 @@ pub mod chunk {
     /// Implementations provided for ready use.
     pub mod premade {
         mod pos_str;
-        pub use pos_str::{StrPos, PosStr, PosStrIter};
+        pub use pos_str::*;
     }
 
     /// Like [`kruvi_core::SourceStream`](TODO), but without `DatumAllocator`,

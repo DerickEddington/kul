@@ -10,6 +10,12 @@
 //!
 //! * Provides [`Text`] types that use heap allocation for their chunking.
 //!
+//! * Provides [`SourceStream`] types suitable for efficient use with streaming
+//! sources that buffer into heap-allocated string chunks.  It is possible to
+//! achieve minimal copying such that streamed data is only copied once from the
+//! OS into the user-space string chunks.  Once buffered, these types produce
+//! `Text` types that have zero-copy operation.
+//!
 //! * Avoids stack overflows (when possible) when dropping the provided
 //! heap-allocated `Datum` types, so they can handle being used for very-deep
 //! trees (e.g. long lists), by using a custom [`Drop`] implementation for them.
@@ -30,12 +36,9 @@
 //! [`Rc`]: http://doc.rust-lang.org/std/rc/struct.Rc.html
 //! [`Arc`]: http://doc.rust-lang.org/std/sync/struct.Arc.html
 //! [`Text`]: trait.Text.html
+//! [`SourceStream`]: ../kruvi_core/trait.SourceStream.html
 //! [`Drop`]: http://doc.rust-lang.org/std/ops/trait.Drop.html
 //! [`Parser`]: struct.Parser.html
-
-// TODO: Impl SourceStream for:
-// - IntoIterator<Item=char>, by embedding in some struct that uses heap-alloc
-//   for the accum'ing
 
 // TODO: Integration tests that impl Text (and so a SourceStream) for:
 // - Vec<char>, using kruvi_core's Text impl for &[char]
@@ -50,6 +53,15 @@
 pub use kruvi_core::*;
 
 pub mod drop;
+
+/// `SourceStream` types that use the `std` library, including heap allocation.
+pub mod source_stream {
+    mod char_iter_src_strm;
+    pub use char_iter_src_strm::*;
+
+    mod strish_iter_src_strm;
+    pub use strish_iter_src_strm::*;
+}
 
 // The below modules shadow those of `kruvi_core` but re-export everything from
 // those in addition to providing some of their own items.
@@ -68,10 +80,14 @@ pub mod text {
     #[doc(no_inline)]
     pub use kruvi_core::text::{*, premade::*};
 
-    /// Re-exports the core crate's module and premades.
+    /// `TextChunk` types that use the `std` library, including heap allocation.
+    /// Also re-exports the core crate's module and premades.
     pub mod chunk {
         #[doc(no_inline)]
         pub use kruvi_core::text::chunk::{*, premade::*};
+
+        mod pos_strish;
+        pub use pos_strish::*;
     }
 
     mod vec;

@@ -3,7 +3,8 @@
 use std::mem::replace;
 use std::fmt::Debug;
 
-use kruvi_core::{Parser, Text, TextBase, Datum, Combiner, Error, DerefTryMut};
+use kruvi_core::{Parser, SourceStream, Text, TextBase, Datum, Combiner,
+                 Error, DerefTryMut};
 use kruvi_core::parser::{DatumAllocator, OperatorBindings,
                          premade::{DefaultCharClassifier, EmptyOperatorBindings}};
 use kruvi_core::combiner::{OpFn, ApFn};
@@ -11,15 +12,81 @@ use kruvi_core::combiner::{OpFn, ApFn};
 use crate::{parse_all, expect, dr, ExpectedText, PosIgnore, custom_delim};
 
 
-/// Basic test suite that checks the basic syntax and forms and does not
-/// exercise macros/combiners nor extra types.
-pub fn test_suite0<DA>(mut p: Parser<DefaultCharClassifier,
-                                     DA,
-                                     EmptyOperatorBindings>)
+/// Basic interface to test suite #0 that only requires giving a `Parser`.  This
+/// will exercise the given `Parser`'s `Text` type as a `SourceStream` as well
+/// as in produced `Datum`s.
+pub fn test_suite0<DA>(p: Parser<DefaultCharClassifier,
+                                 DA,
+                                 EmptyOperatorBindings>)
     where DA: DatumAllocator,
           <DA::TT as Text>::Chunk: From<&'static str>,
           DA::DR: Debug,
           <DA::TT as TextBase>::Pos: Debug,
+{
+    use kruvi_core::{SourceIterItem, parser::AllocError};
+
+    struct DummySourceStream<DA>(DA);
+
+    impl<DA> Iterator for DummySourceStream<DA>
+        where DA: DatumAllocator,
+    {
+        type Item = SourceIterItem<<DA::TT as TextBase>::Pos>;
+        fn next(&mut self) -> Option<Self::Item> { unreachable!() }
+    }
+
+    impl<DA> SourceStream<DA::TT, DA> for DummySourceStream<DA>
+        where DA: DatumAllocator,
+    {
+        fn peek(&mut self) -> Option<&<Self as Iterator>::Item> { unreachable!() }
+
+        fn next_accum(&mut self, _: &mut DA)
+                      -> Result<Option<<Self as Iterator>::Item>, AllocError>
+        { unreachable!() }
+
+        fn accum_done(&mut self, _: &mut DA) -> Result<DA::TT, AllocError>
+        { unreachable!() }
+    }
+
+    type DummyFn<DA> = fn(&'static str) -> DummySourceStream<DA>;
+
+    test_suite0_with(p, None::<DummyFn<DA>>);
+}
+
+
+/// Test suite that checks the basic syntax and forms, which exercises the
+/// generic parsing logic, and does not exercise macros/combiners nor extra
+/// types.
+///
+/// The given `Parser` is required to use the default character classifier and
+/// the empty operator bindings so we know what we're starting with.  We will
+/// later mutate the parser to test non-default character classifiers and to
+/// test the parsing logic for non-empty operator bindings.
+///
+/// If the `str_to_src_strm` argument is `None`, the test-case inputs will be
+/// converted to the given `Parser`'s `Text` type's iterator to be used as the
+/// `SourceStream` to parse.  This is both more convenient and it exercises the
+/// text type's ability to be used as a `SourceStream`.  This is used by
+/// `test_suite0` which is used by many integration tests.
+///
+/// If the `str_to_src_strm` argument is `Some`, the test inputs will be
+/// converted by the function given in the argument, and the only requirement is
+/// that a compatible `SourceStream` be returned.  This enables supplying
+/// various types of `SourceStream`s to parse.  This is used by other
+/// integration tests that exercise different types of `SourceStream`s.
+///
+/// In either case, the given `Parser`'s `Text` type is always exercised to the
+/// degree that parsing constructs values of it in the produced `Datum`s which
+/// are compared with the expected test-case outputs.
+pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
+                                                    DA,
+                                                    EmptyOperatorBindings>,
+                                      str_to_src_strm: Option<F>)
+    where DA: DatumAllocator,
+          <DA::TT as Text>::Chunk: From<&'static str>,
+          DA::DR: Debug,
+          <DA::TT as TextBase>::Pos: Debug,
+          F: Fn(&'static str) -> S,
+          S: SourceStream<DA::TT, DA>,
 {
     use Datum::{Combination, EmptyNest, List, EmptyList};
     use Error::*;
@@ -56,9 +123,15 @@ pub fn test_suite0<DA>(mut p: Parser<DefaultCharClassifier,
         ($input:expr => ($ass:ident $parser:expr) [$($expected:expr),*])
             =>
         {//dbg!($input);
+         let parser = &mut $parser;
+         let input = $input;
          $ass!(expect(vec![$($expected),*]),
-               parse_all(&mut $parser,
-                         DA::TT::from_str($input).iter()));};
+               if let Some(str_to_src_strm) = &str_to_src_strm {
+                   parse_all(parser, str_to_src_strm(input))
+               } else {
+                   parse_all(parser, DA::TT::from_str(input).iter())
+               });
+        };
     }
 
     // Basics
