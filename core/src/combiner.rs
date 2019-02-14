@@ -61,8 +61,10 @@ pub type OpFn<TT, ET, DR, Pos, CE> = dyn FnMut(DR, DR) -> Result<TT, ET, DR, Pos
 pub type ApFn<TT, ET, DR, Pos, CE> = dyn FnMut(DR, DR) -> Result<TT, ET, DR, Pos, CE>;
 
 /// The type returned by "operative" and "applicative" functions.  For a
-/// successful return, the returned `Datum` is substituted for the original form
-/// by the parser in the AST it yields.  An [`Error`](enum.Error.html) is
-/// returned if the combiner fails for any reason.
+/// successful `Some` return, the returned `Datum` is substituted for the
+/// original form by the parser in the AST it yields.  For a successful `None`
+/// return, the original form is removed from the AST.  An
+/// [`Error`](../enum.Error.html) is returned if the combiner fails for any
+/// reason.
 pub type Result<TT, ET, DR, Pos, CE>
-    = core::result::Result<Datum<TT, ET, DR>, Error<Pos, CE>>;
+    = core::result::Result<Option<Datum<TT, ET, DR>>, Error<Pos, CE>>;

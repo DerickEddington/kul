@@ -167,7 +167,7 @@ fn suite0_text_datum_list<F, R>(converter: F)
     use Datum::Extra;
 
     let mut datum_array: Box<Array<'_, R>> =
-        Vec::from_iter(repeat_with(|| Extra(())).take(0x200))
+        Vec::from_iter(repeat_with(|| Extra(())).take(0x300))
         .into_boxed_slice();
 
     test_suite0_with(parser::<ArrayDatumAllocator<'_, R>, _>(&mut datum_array[..]),

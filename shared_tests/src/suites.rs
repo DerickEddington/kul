@@ -285,7 +285,7 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
     // exercise combiners/macros, just does the bare minimum with them to test
     // the core parser's fixed modes for them.)
 
-    struct BasicCombiners{o: &'static str, a: &'static str};
+    struct BasicCombiners{o: &'static str, a: &'static str, r: &'static str};
 
     impl<DA> OperatorBindings<DA> for BasicCombiners
         where DA: DatumAllocator,
@@ -300,8 +300,12 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
             let just_operands = |_operator, mut operands| {
                 // Note: This `unwrap` won't ever fail because these datum
                 // references are never shared.
-                Ok(replace(DerefTryMut::get_mut(&mut operands).unwrap(),
-                           EmptyNest))
+                Ok(Some(replace(DerefTryMut::get_mut(&mut operands).unwrap(),
+                                EmptyNest)))
+            };
+
+            let remove = |_operator, _operands| {
+                Ok(None)
             };
 
             if let Datum::Text(text) = &**operator {
@@ -309,6 +313,8 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
                     return Some(Combiner::Operative(Box::new(just_operands)))
                 } else if text.partial_eq(&DA::TT::from_str(self.a)) {
                     return Some(Combiner::Applicative(Box::new(just_operands)))
+                } else if text.partial_eq(&DA::TT::from_str(self.r)) {
+                    return Some(Combiner::Applicative(Box::new(remove)))
                 }
             }
             None
@@ -318,7 +324,7 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
     let mut c = Parser {
         classifier: DefaultCharClassifier,
         allocator: c.allocator,
-        bindings: BasicCombiners{o: "oo", a: "aa"},
+        bindings: BasicCombiners{o: "oo", a: "aa", r: "#"},
     };
     // Operatives get all the text to the end of the nest form unbroken
     // regardless if any of it looks like other nest forms.
@@ -354,6 +360,32 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
     test!("{aa {" =>(c) [Err(MissingEndChar)]);
     test!("{aa}}" =>(c) [Ok(EmptyList),
                          Err(UnbalancedEndChar(PosIgnore))]);
+    // Combiners can indicate that the original form should be entirely removed.
+    test!("{#}" =>(c) []);
+    test!("{# foo}" =>(c) []);
+    test!("{# {oo zab {zz} yo}}" =>(c) []);
+    test!("{# {aa zab {zz} yo}}" =>(c) []);
+    test!("{# {u oof}}" =>(c) []);
+    test!("{oo {#}}" =>(c) [Ok(text("{#}"))]);
+    test!("{oo {# {oo zab}}}" =>(c) [Ok(text("{# {oo zab}}"))]);
+    test!("{aa {#}}" =>(c) [Ok(EmptyList)]);
+    test!("{aa {# {aa bar}}}" =>(c) [Ok(EmptyList)]);
+    test!("{aa {#}{##}{#}}" =>(c) [Ok(list1(comb(text("##"), EmptyList)))]);
+    test!("{u {#}}" =>(c) [Ok(comb(text("u"), EmptyList))]);
+    test!("{u z {#} y}" =>(c) [Ok(comb(text("u"), list2(text("z "), text(" y"))))]);
+    test!("{{#}}" =>(c) [Ok(EmptyNest)]);
+    test!("{{# aa}oo xyz}" =>(c) [Ok(text("xyz"))]);
+    test!("{{# oo}aa xyz}" =>(c) [Ok(list1(text("xyz")))]);
+    test!("{{# {oo {#}}} u}" =>(c) [Ok(comb(text("u"), EmptyList))]);
+    test!("{ {#}  u}" =>(c) [Ok(comb(text("u"), EmptyList))]);
+    test!("{  {#}  {#}  u}" =>(c) [Ok(comb(text("u"), EmptyList))]);
+    test!("{  {#}  {#}  u{# u}x{#}\n{# y}{#}{# z}z}"
+          =>(c) [Ok(comb(text("u"), list3(text("x"), text("\n"), text("z"))))]);
+    test!("x{#}X" =>(c) [Ok(text("x")),
+                         Ok(text("X"))]);
+    test!(" {# oo}  x {# aa} X  {#}" =>(c) [Ok(text(" ")),
+                                            Ok(text("  x ")),
+                                            Ok(text(" X  "))]);
 }
 
 // TODO: Suite for Parsers that provide character position.

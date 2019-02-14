@@ -280,34 +280,47 @@ impl<'p, CC, DA, OB, S>
                   -> Result<Option<DA::DR>,
                             Error<<DA::TT as TextBase>::Pos, OB::CE>>
     {
-        // Peek some next char for below, or abort appropriately if none.
-        let ch = match self.src_strm.peek() {
-            Some(&SourceIterItem{ch, ..}) => ch,
-            None =>
-                return if self.nest_depth == 0 {
-                    Ok(None)
+        loop {
+            if mode == ParseTextMode::Operator {
+                // Skip any leading whitespace before head form.
+                self.skip_whitespace();
+            }
+            // Peek some next char for below, or abort appropriately if none.
+            let ch = match self.src_strm.peek() {
+                Some(&SourceIterItem{ch, ..}) => ch,
+                None =>
+                    return if self.nest_depth == 0 {
+                        Ok(None)
+                    } else {
+                        Err(Error::MissingEndChar)
+                    }
+            };
+            // Start of a nest, either a combination or an empty nest. Parse it
+            // to its end and return it if its combiner didn't remove it.
+            if self.parser.classifier.is_nest_start(ch) {
+                self.incr_nest_depth();
+                let result = self.parse_nested();
+                self.decr_nest_depth();
+                // If a combiner indicated to remove the nest form, continue our
+                // loop to parse the next form, effectively removing the current
+                // nest form.  Else, return the result whatever it is.
+                if let Ok(None) = &result {
+                    continue
                 } else {
-                    Err(Error::MissingEndChar)
+                    return result
                 }
-        };
-        // Start of a nest, either a combination or an empty nest. Parse it to
-        // its end and return it.
-        if self.parser.classifier.is_nest_start(ch) {
-            self.incr_nest_depth();
-            let result = self.parse_nested();
-            self.decr_nest_depth();
-            result.map(Some)
-        }
-        // End of a nest, or error. Don't parse nor return an item, only check
-        // validity.
-        else if self.parser.classifier.is_nest_end(ch) {
-            self.check_end_char().map(|_| None)
-        }
-        // Start of a text. Parse it to its end and return it.
-        else {
-            self.parse_text(mode).map(Some)
-        }
-    }
+            }
+            // End of a nest, or error. Don't parse nor return an item, only
+            // check validity.
+            else if self.parser.classifier.is_nest_end(ch) {
+                return self.check_end_char().map(|_| None)
+            }
+            // Start of a text. Parse it to its end and return it.
+            else {
+                return self.parse_text(mode).map(Some)
+            }
+       }
+     }
 
     fn parse_text(&mut self, mode: ParseTextMode)
                   -> Result<DA::DR,
@@ -400,7 +413,7 @@ impl<'p, CC, DA, OB, S>
         }
     }
 
-    fn parse_nested(&mut self) -> Result<DA::DR,
+    fn parse_nested(&mut self) -> Result<Option<DA::DR>,
                                          Error<<DA::TT as TextBase>::Pos, OB::CE>>
     {
         let end = |slf: &mut Self| {
@@ -419,8 +432,6 @@ impl<'p, CC, DA, OB, S>
         debug_assert_eq!(start.map(|SourceIterItem{ch, ..}|
                                    self.parser.classifier.is_nest_start(ch)),
                          Some(true));
-        // Skip any leading whitespace before head form.
-        self.skip_whitespace();
         // Parse form in operator position, or empty.
         let operator = self.parse_next(ParseTextMode::Operator)?;
         // If operator delimited by following whitespace, advance past first
@@ -456,17 +467,21 @@ impl<'p, CC, DA, OB, S>
                 None => {
                     let operands = self.parse_all(ParseTextMode::Base)?;
                     end(self)?;
-                    Datum::Combination{operator, operands}
+                    Some(Datum::Combination{operator, operands})
                 },
             }
             // No operator nor operands. Empty nest form.
             None => {
                 end(self)?;
-                Datum::EmptyNest
+                Some(Datum::EmptyNest)
             }
         };
-        // Return result as newly allocated `Datum`.
-        Ok(self.parser.allocator.new_datum(result)?)
+        // Return result as `Some` newly allocated `Datum` or `None`.
+        Ok(if let Some(result) = result {
+            Some(self.parser.allocator.new_datum(result)?)
+        } else {
+            None
+        })
     }
 
     fn parse_all(&mut self, mode: ParseTextMode)

@@ -204,30 +204,30 @@ fn suite0_text_datum_list<SI, F>(str_to_strish_iter: F, array_size: usize)
 
 #[test]
 fn suite0_text_datum_list_each_char_rc_string() {
-    suite0_text_datum_list(each_char::<Rc<String>>, 0x300);
+    suite0_text_datum_list(each_char::<Rc<String>>, 0x400);
 }
 
 #[test]
 fn suite0_text_datum_list_each_char_rc_box_str() {
-    suite0_text_datum_list(each_char::<Rc<Box<str>>>, 0x300);
+    suite0_text_datum_list(each_char::<Rc<Box<str>>>, 0x400);
 }
 
 #[test]
 fn suite0_text_datum_list_variable_grouped_rc_str() {
-    suite0_text_datum_list(grouped::<Rc<str>>(vec![2, 1, 4, 3]), 0x200);
+    suite0_text_datum_list(grouped::<Rc<str>>(vec![2, 1, 4, 3]), 0x300);
 }
 
 #[test]
 fn suite0_text_datum_list_constant_grouped_arc_string() {
-    suite0_text_datum_list(grouped::<Arc<String>>(vec![2]), 0x200);
+    suite0_text_datum_list(grouped::<Arc<String>>(vec![2]), 0x300);
 }
 
 #[test]
 fn suite0_text_datum_list_single_arc_box_str() {
-    suite0_text_datum_list(single::<Arc<Box<str>>>, 0x200);
+    suite0_text_datum_list(single::<Arc<Box<str>>>, 0x300);
 }
 
 #[test]
 fn suite0_text_datum_list_single_arc_str() {
-    suite0_text_datum_list(single::<Arc<str>>, 0x200);
+    suite0_text_datum_list(single::<Arc<str>>, 0x300);
 }
