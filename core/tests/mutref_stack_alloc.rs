@@ -39,8 +39,7 @@ impl<'a> DatumAllocator for ArrayDatumAllocator<'a> {
     fn new_datum(&mut self, from: Datum<Self::TT, Self::ET, Self::DR>)
                  -> Result<Self::DR, AllocError>
     {
-        let free = self.free.take().unwrap();
-        match free.split_first_mut() {
+        match self.free.take().and_then(|a| a.split_first_mut()) {
             Some((dr, rest)) => {
                 *dr = from;
                 self.free = Some(rest);
