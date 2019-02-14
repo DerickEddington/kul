@@ -25,7 +25,9 @@ use kruvi::text::TextVec;
 
 
 pub mod suites;
-pub mod utils;
+pub mod utils {
+    pub mod tree_shapes;
+}
 
 
 pub type TestStrText = TextVec<PosStr<'static>>;

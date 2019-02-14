@@ -114,7 +114,7 @@ impl<TT, ET> DerefTryMut for DatumArc<TT, ET> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kruvi_shared_tests::utils::*;
+    use kruvi_shared_tests::utils::tree_shapes::*;
     use Datum::*;
 
     /// Used as a "text" type in tests where it does not need to be a real

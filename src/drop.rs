@@ -580,7 +580,7 @@ impl<TT, ET> Drop for DatumArc<TT, ET> {
 
 #[cfg(test)]
 mod tests {
-    use kruvi_shared_tests::utils::*;
+    use kruvi_shared_tests::utils::tree_shapes::*;
 
     // Pure lists (right-sided depth), pure nests (left-sided depth), and pure
     // zig-zags (alternating left-right depth) have the optimal shapes for our
