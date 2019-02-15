@@ -4,7 +4,7 @@ use std::fmt::Debug;
 
 use kruvi_core::{Parser, SourceStream, Text, TextBase, Datum, Combiner,
                  Error};
-use kruvi_core::parser::{DatumAllocator, OperatorBindings,
+use kruvi_core::parser::{DatumAllocator, OperatorBindings, AllocError,
                          premade::{DefaultCharClassifier, EmptyOperatorBindings}};
 use kruvi_core::combiner::{OpFn, ApFn};
 
@@ -24,7 +24,7 @@ pub fn test_suite0<DA>(p: Parser<DefaultCharClassifier,
           DA::DR: Debug,
           <DA::TT as TextBase>::Pos: Debug,
 {
-    use kruvi_core::{SourceIterItem, parser::AllocError};
+    use kruvi_core::SourceIterItem;
 
     struct DummySourceStream<DA>(DA);
 
@@ -288,25 +288,42 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
     // exercise combiners/macros, just does the bare minimum with them to test
     // the core parser's fixed modes for them.)
 
-    struct BasicCombiners{o: &'static str, a: &'static str, r: &'static str};
+    struct BasicCombiners {
+        o: &'static str, // operative
+        a: &'static str, // applicative
+        r: &'static str, // remove form
+        c: &'static str, // allocate combination form
+        f: &'static str, // failing allocate
+    };
 
     impl<DA> OperatorBindings<DA> for BasicCombiners
         where DA: DatumAllocator,
               <DA::TT as Text>::Chunk: From<&'static str>,
     {
-        type OR = Box<OpFn<DA::TT, DA::ET, DA::DR, <DA::TT as TextBase>::Pos, ()>>;
-        type AR = Box<ApFn<DA::TT, DA::ET, DA::DR, <DA::TT as TextBase>::Pos, ()>>;
+        type OR = Box<OpFn<DA, Self::CE>>;
+        type AR = Box<ApFn<DA, Self::CE>>;
         type CE = ();
 
         fn lookup(&mut self, operator: &Datum<DA::TT, DA::ET, DA::DR>)
                   -> Option<Combiner<Self::OR, Self::AR>>
         {
-            let just_operands = |_operator, operands| {
+            let just_operands = |_operator, operands, _dalloc: &mut DA| {
                 Ok(Some(operands))
             };
 
-            let remove = |_operator, _operands| {
+            let remove = |_operator, _operands, _dalloc: &mut DA| {
                 Ok(None)
+            };
+
+            let comb_alloc = |_operator, _operands, dalloc: &mut DA| {
+                Ok(Some(Datum::Combination {
+                    operator: dalloc.new_datum(Datum::EmptyNest)?,
+                    operands: dalloc.new_datum(Datum::EmptyList)?,
+                }))
+            };
+
+            let fail_alloc = |_operator, _operands, _dalloc: &mut DA| {
+                Err(FailedAlloc(AllocError::AllocExhausted))
             };
 
             if let Datum::Text(text) = operator {
@@ -316,6 +333,10 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
                     return Some(Combiner::Applicative(Box::new(just_operands)))
                 } else if text.partial_eq(&DA::TT::from_str(self.r)) {
                     return Some(Combiner::Applicative(Box::new(remove)))
+                } else if text.partial_eq(&DA::TT::from_str(self.c)) {
+                    return Some(Combiner::Operative(Box::new(comb_alloc)))
+                } else if text.partial_eq(&DA::TT::from_str(self.f)) {
+                    return Some(Combiner::Operative(Box::new(fail_alloc)))
                 }
             }
             None
@@ -325,7 +346,7 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
     let mut c = Parser {
         classifier: DefaultCharClassifier,
         allocator: c.allocator,
-        bindings: BasicCombiners{o: "oo", a: "aa", r: "#"},
+        bindings: BasicCombiners{o: "oo", a: "aa", r: "#", c: "cc", f: "ff"},
     };
     // Operatives get all the text to the end of the nest form unbroken
     // regardless if any of it looks like other nest forms.
@@ -387,6 +408,20 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
     test!(" {# oo}  x {# aa} X  {#}" =>(c) [Ok(text(" ")),
                                             Ok(text("  x ")),
                                             Ok(text(" X  "))]);
+    // Combiners can use the `Parser`'s allocator.
+    test!("{cc}" =>(c) [Ok(comb(EmptyNest, EmptyList))]);
+    test!("{cc} {cc}" =>(c) [Ok(comb(EmptyNest, EmptyList)),
+                             Ok(text(" ")),
+                             Ok(comb(EmptyNest, EmptyList))]);
+    test!("{oo {cc a b}}" =>(c) [Ok(text("{cc a b}"))]);
+    test!("{aa {cc 1 2}{cc 3 4 5}}" =>(c) [Ok(list2(comb(EmptyNest, EmptyList),
+                                                    comb(EmptyNest, EmptyList)))]);
+    test!("{ff}" =>(c) [Err(FailedAlloc(AllocError::AllocExhausted))]);
+    test!("{ff} zab" =>(c) [Err(FailedAlloc(AllocError::AllocExhausted)),
+                            Ok(text(" zab"))]);
+    test!("{oo {ff}}" =>(c) [Ok(text("{ff}"))]);
+    test!("{aa x{ff}y}" =>(c) [Err(FailedAlloc(AllocError::AllocExhausted)),
+                               Err(UnbalancedEndChar(PosIgnore))]);
 }
 
 // TODO: Suite for Parsers that provide character position.

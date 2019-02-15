@@ -3,7 +3,7 @@
 
 use core::ops::DerefMut;
 
-use crate::{Datum, DerefTryMut, Combiner, TextConcat, TextBase, Error};
+use crate::{Datum, DerefTryMut, Combiner, TextConcat, Error};
 use crate::combiner::{OpFn, ApFn};
 
 
@@ -80,14 +80,10 @@ pub trait OperatorBindings<DA>
 {
     /// The type of references to
     /// [`Operative`](enum.Combiner.html#variant.Operative) macro functions.
-    type OR: DerefMut<Target = OpFn<DA::TT, DA::ET, DA::DR,
-                                    <DA::TT as TextBase>::Pos,
-                                    Self::CE>>;
+    type OR: DerefMut<Target = OpFn<DA, Self::CE>>;
     /// The type of references to
     /// [`Applicative`](enum.Combiner.html#variant.Applicative) macro functions.
-    type AR: DerefMut<Target = ApFn<DA::TT, DA::ET, DA::DR,
-                                    <DA::TT as TextBase>::Pos,
-                                    Self::CE>>;
+    type AR: DerefMut<Target = ApFn<DA, Self::CE>>;
     /// The [combiner error extension](enum.Error.html#variant.FailedCombiner)
     /// type.
     type CE;

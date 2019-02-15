@@ -3,7 +3,10 @@
 
 use core::ops::DerefMut;
 
-use crate::{Datum, DerefTryMut, Error};
+use crate::{
+    Datum, Error, TextBase,
+    parser::DatumAllocator,
+};
 
 
 // TODO: Still needed?
@@ -37,30 +40,30 @@ pub enum Combiner<OperativeRef, ApplicativeRef>
     Applicative(ApplicativeRef),
 }
 
-impl<TT, ET, DR, Pos, CE> OperativeTrait for OpFn<TT, ET, DR, Pos, CE>
-    where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
+impl<DA, CE> OperativeTrait for OpFn<DA, CE>
+    where DA: DatumAllocator,
 { }
 
-impl<TT, ET, DR, Pos, CE> ApplicativeTrait for ApFn<TT, ET, DR, Pos, CE>
-    where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
+impl<DA, CE> ApplicativeTrait for ApFn<DA, CE>
+    where DA: DatumAllocator,
 { }
 
 /// The type of "operative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-form as
-/// a `Datum::Text` containing the unparsed operands text.  See
+/// a `Datum::Text` containing the unparsed operands text; and the third
+/// argument is the `Parser`'s `DatumAllocator`.  See
 /// [`combiner::Result`](type.Result.html) for the description of the return
 /// value.
-pub type OpFn<TT, ET, DR, Pos, CE> = dyn FnMut(Datum<TT, ET, DR>, Datum<TT, ET, DR>)
-                                               -> Result<TT, ET, DR, Pos, CE>;
+pub type OpFn<DA, CE> = dyn FnMut(DADatum<DA>, DADatum<DA>, &mut DA) -> Result<DA, CE>;
 
 /// The type of "applicative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-forms
 /// as a `Datum::List` containing the recursively parsed operands as separate
-/// `Datum`s, or it is a `Datum::EmptyList` if the operands text was empty.  See
+/// `Datum`s, or it is a `Datum::EmptyList` if the operands text was empty; and
+/// the third argument is the `Parser`'s `DatumAllocator`.  See
 /// [`combiner::Result`](type.Result.html) for the description of the return
 /// value.
-pub type ApFn<TT, ET, DR, Pos, CE> = dyn FnMut(Datum<TT, ET, DR>, Datum<TT, ET, DR>)
-                                               -> Result<TT, ET, DR, Pos, CE>;
+pub type ApFn<DA, CE> = dyn FnMut(DADatum<DA>, DADatum<DA>, &mut DA) -> Result<DA, CE>;
 
 /// The type returned by "operative" and "applicative" functions.  For a
 /// successful `Some` return, the returned `Datum` is substituted for the
@@ -68,5 +71,10 @@ pub type ApFn<TT, ET, DR, Pos, CE> = dyn FnMut(Datum<TT, ET, DR>, Datum<TT, ET, 
 /// return, the original form is removed from the AST.  An
 /// [`Error`](../enum.Error.html) is returned if the combiner fails for any
 /// reason.
-pub type Result<TT, ET, DR, Pos, CE>
-    = core::result::Result<Option<Datum<TT, ET, DR>>, Error<Pos, CE>>;
+pub type Result<DA, CE>
+    = core::result::Result<Option<DADatum<DA>>,
+                           Error<<<DA as DatumAllocator>::TT as TextBase>::Pos, CE>>;
+
+type DADatum<DA> = Datum<<DA as DatumAllocator>::TT,
+                         <DA as DatumAllocator>::ET,
+                         <DA as DatumAllocator>::DR>;

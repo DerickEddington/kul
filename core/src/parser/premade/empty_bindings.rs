@@ -1,8 +1,8 @@
 use core::ops::{Deref, DerefMut};
 
 use crate::parser::{OperatorBindings, DatumAllocator};
-use crate::combiner::{self, Combiner};
-use crate::{Datum, DerefTryMut, TextBase};
+use crate::combiner::{Combiner, OpFn};
+use crate::Datum;
 
 
 /// An [`OperatorBindings`](trait.OperatorBindings.html) that always has no
@@ -14,20 +14,19 @@ pub struct EmptyOperatorBindings;
 
 /// Trick `OperatorBindings` into accepting this for the implementation of
 /// it for `EmptyOperatorBindings`.
-pub struct DummyCombiner<TT, ET, DR, Pos, CE>(TT, ET, DR, Pos, CE);
+pub struct DummyCombiner<DA, CE>(DA, CE);
 
 
-impl<TT, ET, DR, Pos, CE> Deref for DummyCombiner<TT, ET, DR, Pos, CE>
-    where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
+impl<DA, CE> Deref for DummyCombiner<DA, CE>
+    where DA: DatumAllocator,
 {
-    type Target = dyn FnMut(Datum<TT, ET, DR>, Datum<TT, ET, DR>)
-                            -> combiner::Result<TT, ET, DR, Pos, CE>;
+    type Target = OpFn<DA, CE>;
     fn deref(&self) -> &Self::Target { unreachable!() }
 }
 
 
-impl<TT, ET, DR, Pos, CE> DerefMut for DummyCombiner<TT, ET, DR, Pos, CE>
-    where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
+impl<DA, CE> DerefMut for DummyCombiner<DA, CE>
+    where DA: DatumAllocator,
 {
     fn deref_mut(&mut self) -> &mut Self::Target { unreachable!() }
 }
@@ -36,8 +35,8 @@ impl<TT, ET, DR, Pos, CE> DerefMut for DummyCombiner<TT, ET, DR, Pos, CE>
 impl<DA> OperatorBindings<DA> for EmptyOperatorBindings
     where DA: DatumAllocator,
 {
-    type OR = DummyCombiner<DA::TT, DA::ET, DA::DR, <DA::TT as TextBase>::Pos, Self::CE>;
-    type AR = DummyCombiner<DA::TT, DA::ET, DA::DR, <DA::TT as TextBase>::Pos, Self::CE>;
+    type OR = DummyCombiner<DA, Self::CE>;
+    type AR = DummyCombiner<DA, Self::CE>;
     type CE = ();
 
     #[inline]

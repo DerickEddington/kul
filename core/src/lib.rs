@@ -452,14 +452,14 @@ impl<'p, CC, DA, OB, S>
                     Combiner::Operative(mut opr) => {
                         let operands = self.parse_text(ParseTextMode::Operands)?;
                         end(self)?;
-                        opr.deref_mut()(operator, operands)?
+                        opr.deref_mut()(operator, operands, &mut self.parser.allocator)?
                     },
                     // Applicatives are given the recursive parse of the
                     // operands text as a list of "arguments".
                     Combiner::Applicative(mut apl) => {
                         let arguments = self.parse_all(ParseTextMode::Base)?;
                         end(self)?;
-                        apl.deref_mut()(operator, arguments)?
+                        apl.deref_mut()(operator, arguments, &mut self.parser.allocator)?
                     }
                 },
                 // Not bound, so simply recursively parse operands and return a
