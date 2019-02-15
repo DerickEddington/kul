@@ -358,6 +358,10 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
     test!("{\n oo  {\n zab {{} yo}}}" =>(c) [Ok(text(" {\n zab {{} yo}}"))]);
     test!("{u {oo zab {zz} yo}}" =>(c) [Ok(comb(text("u"),
                                                 list1(text("zab {zz} yo"))))]);
+    test!("{{oo}}" =>(c) [Ok(comb(text(""), EmptyList))]);
+    test!("{{oo zz} yy}" =>(c) [Ok(comb(text("zz"), list1(text("yy"))))]);
+    test!("{{oo oo} yy}" =>(c) [Ok(text("yy"))]);
+    test!("{{{oo oo} oo} yy}" =>(c) [Ok(text("yy"))]);
     test!("{oo {}" =>(c) [Err(MissingEndChar)]);
     test!("{oo {" =>(c) [Err(MissingEndChar)]);
     test!("{oo}}" =>(c) [Ok(text("")),
@@ -378,6 +382,13 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
           =>(c) [Ok(comb(text("u"), list1(list3(text("zab "),
                                                 comb(text("zz"), EmptyList),
                                                 text(" yo")))))]);
+    test!("{{aa}}" =>(c) [Ok(comb(EmptyList, EmptyList))]);
+    test!("{{aa zz} yy}" =>(c) [Ok(comb(list1(text("zz")), list1(text("yy"))))]);
+    test!("{{aa oo} yy}" =>(c) [Ok(comb(list1(text("oo")), list1(text("yy"))))]);
+    test!("{{oo aa} yy}" =>(c) [Ok(list1(text("yy")))]);
+    test!("{{{aa aa} aa} yy}" =>(c) [Ok(comb(comb(list1(text("aa")), list1(text("aa"))),
+                                             list1(text("yy"))))]);
+    test!("{{{oo aa} oo} yy}" =>(c) [Ok(comb(list1(text("oo")), list1(text("yy"))))]);
     test!("{aa {}" =>(c) [Err(MissingEndChar)]);
     test!("{aa {" =>(c) [Err(MissingEndChar)]);
     test!("{aa}}" =>(c) [Ok(EmptyList),
