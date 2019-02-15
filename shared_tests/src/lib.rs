@@ -18,7 +18,7 @@
 use std::ops::{Deref, DerefMut};
 
 use kruvi_core::{SourceStream, SourceIterItem, Parser, ParseIterItem,
-                 Datum, DerefTryMut, Text, TextBase, Error};
+                 Datum, DerefTryMut, Text, Error};
 use kruvi_core::parser::{CharClassifier, DatumAllocator, OperatorBindings};
 use kruvi_core::text::chunk::premade::PosStr;
 use kruvi::text::TextVec;
@@ -40,9 +40,7 @@ fn parse_all<CC, DA, OB, S>(
     parser: &mut Parser<CC, DA, OB>,
     input: S,
 )
-    -> Vec<ParseIterItem<DA::DR,
-                         <DA::TT as TextBase>::Pos,
-                         OB::CE>>
+    -> Vec<ParseIterItem<DA, OB>>
     where CC: CharClassifier,
           DA: DatumAllocator,
           OB: OperatorBindings<DA>,
@@ -57,7 +55,7 @@ fn parse_all<CC, DA, OB, S>(
 }
 
 fn expect(e: Vec<Result<ExpectedDatum, Error<PosIgnore, CeIgnore>>>) -> Expected {
-    e.into_iter().map(|r| Item(r.map(dr))).collect()
+    e.into_iter().map(Item).collect()
 }
 
 fn dr(from: ExpectedDatum) -> ExpectedDatumRef {
@@ -68,19 +66,21 @@ type Expected = Vec<Item>;
 
 /// Newtype wrapper needed to implement our `PartialEq` trick
 #[derive(PartialEq, Eq, Debug)]
-struct Item (ParseIterItem<ExpectedDatumRef, PosIgnore, CeIgnore>);
+struct Item (Result<ExpectedDatum, Error<PosIgnore, CeIgnore>>);
 
 /// This allows `Item` to be compared with any type of `ParseIterItem`, and it
 /// compares in our special ways
-impl<DR, Pos, CE> PartialEq<ParseIterItem<DR, Pos, CE>> for Item
-    where DR: Deref,
-          ExpectedDatum: PartialEq<DR::Target>,
+impl<TT, ET, DR, Pos, CE>
+    PartialEq<Result<Datum<TT, ET, DR>, Error<Pos, CE>>>
+    for Item
+    where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
+          ExpectedDatum: PartialEq<Datum<TT, ET, DR>>,
           PosIgnore: PartialEq<Pos>,
           CeIgnore: PartialEq<CE>,
 {
-    fn eq(&self, other: &ParseIterItem<DR, Pos, CE>) -> bool {
+    fn eq(&self, other: &Result<Datum<TT, ET, DR>, Error<Pos, CE>>) -> bool {
         match (&self.0, other) {
-            (Ok(dr1), Ok(dr2)) => *dr1.0 == **dr2,
+            (Ok(d1), Ok(d2)) => *d1 == *d2,
             (Err(e1), Err(e2)) => *e1 == *e2,
             _ => false
         }
@@ -331,7 +331,7 @@ mod tests {
                                    Err(Error::FailedAlloc(AllocError::AllocExhausted)),
                                    Err(Error::UnbalancedEndChar(PosIgnore))]),
                        parse_all(&mut wimpy_parser(),
-                                 TestStrText::from_str("good {shit}").iter()));
+                                 TestStrText::from_str("good {sh it}").iter()));
         }
 
         // // WimpyParser won't work for most cases of test_suite0. But this can be

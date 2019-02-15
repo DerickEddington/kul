@@ -1,10 +1,9 @@
 //! Suites of tests applied across multiple crates
 
-use std::mem::replace;
 use std::fmt::Debug;
 
 use kruvi_core::{Parser, SourceStream, Text, TextBase, Datum, Combiner,
-                 Error, DerefTryMut};
+                 Error};
 use kruvi_core::parser::{DatumAllocator, OperatorBindings,
                          premade::{DefaultCharClassifier, EmptyOperatorBindings}};
 use kruvi_core::combiner::{OpFn, ApFn};
@@ -20,6 +19,8 @@ pub fn test_suite0<DA>(p: Parser<DefaultCharClassifier,
                                  EmptyOperatorBindings>)
     where DA: DatumAllocator,
           <DA::TT as Text>::Chunk: From<&'static str>,
+          DA::TT: Debug,
+          DA::ET: Debug,
           DA::DR: Debug,
           <DA::TT as TextBase>::Pos: Debug,
 {
@@ -83,6 +84,8 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
                                       str_to_src_strm: Option<F>)
     where DA: DatumAllocator,
           <DA::TT as Text>::Chunk: From<&'static str>,
+          DA::TT: Debug,
+          DA::ET: Debug,
           DA::DR: Debug,
           <DA::TT as TextBase>::Pos: Debug,
           F: Fn(&'static str) -> S,
@@ -295,20 +298,18 @@ pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
         type AR = Box<ApFn<DA::TT, DA::ET, DA::DR, <DA::TT as TextBase>::Pos, ()>>;
         type CE = ();
 
-        fn lookup(&mut self, operator: &DA::DR) -> Option<Combiner<Self::OR, Self::AR>>
+        fn lookup(&mut self, operator: &Datum<DA::TT, DA::ET, DA::DR>)
+                  -> Option<Combiner<Self::OR, Self::AR>>
         {
-            let just_operands = |_operator, mut operands| {
-                // Note: This `unwrap` won't ever fail because these datum
-                // references are never shared.
-                Ok(Some(replace(DerefTryMut::get_mut(&mut operands).unwrap(),
-                                EmptyNest)))
+            let just_operands = |_operator, operands| {
+                Ok(Some(operands))
             };
 
             let remove = |_operator, _operands| {
                 Ok(None)
             };
 
-            if let Datum::Text(text) = &**operator {
+            if let Datum::Text(text) = operator {
                 if text.partial_eq(&DA::TT::from_str(self.o)) {
                     return Some(Combiner::Operative(Box::new(just_operands)))
                 } else if text.partial_eq(&DA::TT::from_str(self.a)) {

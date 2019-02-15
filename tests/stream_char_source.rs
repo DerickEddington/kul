@@ -110,8 +110,8 @@ fn posstrish() {
     let pi = p.parse(ciss);
     let all = pi.collect::<Vec<_>>();
     assert_eq!(all.len(), 1);
-    let datumref = all[0].as_ref().unwrap();
-    let chunks = match &**datumref {
+    let datum = all[0].as_ref().unwrap();
+    let chunks = match datum {
         Datum::Text(textvec) => textvec.iter_chunks().collect::<Vec<_>>(),
         _ => unreachable!(),
     };
@@ -167,7 +167,7 @@ fn suite0_text_datum_list<F, R>(converter: F)
     use Datum::Extra;
 
     let mut datum_array: Box<Array<'_, R>> =
-        Vec::from_iter(repeat_with(|| Extra(())).take(0x300))
+        Vec::from_iter(repeat_with(|| Extra(())).take(0x200))
         .into_boxed_slice();
 
     test_suite0_with(parser::<ArrayDatumAllocator<'_, R>, _>(&mut datum_array[..]),

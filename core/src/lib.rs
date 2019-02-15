@@ -205,9 +205,6 @@ impl<CC, DA, OB> Parser<CC, DA, OB>
 }
 
 
-/// The type of values given by the parser iterator
-pub type ParseIterItem<DR, Pos, CE> = Result<DR, Error<Pos, CE>>;
-
 /// An [`Iterator`](http://doc.rust-lang.org/std/iter/trait.Iterator.html) that
 /// parses its input text one top-level form at a time per each call to
 /// [`next`](http://doc.rust-lang.org/std/iter/trait.Iterator.html#tymethod.next),
@@ -232,16 +229,30 @@ impl<'p, CC, DA, OB, S>
           Parser<CC, DA, OB>: 'p,
           S: SourceStream<DA::TT, DA>,
 {
-    type Item = ParseIterItem<DA::DR, <DA::TT as TextBase>::Pos, OB::CE>;
+    type Item = ParseIterItem<DA, OB>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.do_next() {
-            Ok(Some(dr)) => Some(Ok(dr)),
+            Ok(Some(d)) => Some(Ok(d)),
             Ok(None) => None,
             Err(e) => Some(Err(e))
         }
     }
 }
+
+/// The type of values given by the parser iterator
+pub type ParseIterItem<DA, OB> = ParseResult<DA, OB>;
+
+type ParseDatum<DA> = Datum<<DA as DatumAllocator>::TT,
+                            <DA as DatumAllocator>::ET,
+                            <DA as DatumAllocator>::DR>;
+
+type ParseError<DA, OB> = Error<<<DA as DatumAllocator>::TT as TextBase>::Pos,
+                                <OB as OperatorBindings<DA>>::CE>;
+
+type ParseResult<DA, OB> = Result<ParseDatum<DA>, ParseError<DA, OB>>;
+
+type ParseResultOption<DA, OB> = Result<Option<ParseDatum<DA>>, ParseError<DA, OB>>;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum ParseTextMode {
@@ -258,8 +269,6 @@ impl<'p, CC, DA, OB, S>
           Parser<CC, DA, OB>: 'p,
           S: SourceStream<DA::TT, DA>,
 {
-    // TODO: Can `type = ...` be used here for shorter aliases of long ones below?
-
     #[inline]
     fn new(parser: &'p mut Parser<CC, DA, OB>, src_strm: S) -> Self {
         Self {
@@ -270,16 +279,11 @@ impl<'p, CC, DA, OB, S>
     }
 
     #[inline]
-    fn do_next(&mut self) -> Result<Option<DA::DR>,
-                                    Error<<DA::TT as TextBase>::Pos, OB::CE>>
-    {
+    fn do_next(&mut self) -> ParseResultOption<DA, OB> {
         self.parse_next(ParseTextMode::Base)
     }
 
-    fn parse_next(&mut self, mode: ParseTextMode)
-                  -> Result<Option<DA::DR>,
-                            Error<<DA::TT as TextBase>::Pos, OB::CE>>
-    {
+    fn parse_next(&mut self, mode: ParseTextMode) -> ParseResultOption<DA, OB> {
         loop {
             if mode == ParseTextMode::Operator {
                 // Skip any leading whitespace before head form.
@@ -322,9 +326,7 @@ impl<'p, CC, DA, OB, S>
        }
      }
 
-    fn parse_text(&mut self, mode: ParseTextMode)
-                  -> Result<DA::DR,
-                            Error<<DA::TT as TextBase>::Pos, OB::CE>>
+    fn parse_text(&mut self, mode: ParseTextMode) -> ParseResult<DA, OB>
     {
         #[inline]
         fn is_end_char<CC>(ch: char, chclass: &CC, mode: ParseTextMode) -> bool
@@ -407,14 +409,13 @@ impl<'p, CC, DA, OB, S>
         // Done. Return what we accumulated. Or error if unbalanced nesting.
         if nest_level == 0 {
             concat_accum!();
-            Ok(self.parser.allocator.new_datum(Datum::Text(text))?)
+            Ok(Datum::Text(text))
         } else {
             Err(Error::MissingEndChar)
         }
     }
 
-    fn parse_nested(&mut self) -> Result<Option<DA::DR>,
-                                         Error<<DA::TT as TextBase>::Pos, OB::CE>>
+    fn parse_nested(&mut self) -> ParseResultOption<DA, OB>
     {
         let end = |slf: &mut Self| {
             // Consume our nest's end char. A missing end char is possible, but
@@ -467,7 +468,10 @@ impl<'p, CC, DA, OB, S>
                 None => {
                     let operands = self.parse_all(ParseTextMode::Base)?;
                     end(self)?;
-                    Some(Datum::Combination{operator, operands})
+                    Some(Datum::Combination {
+                        operator: self.parser.allocator.new_datum(operator)?,
+                        operands: self.parser.allocator.new_datum(operands)?,
+                    })
                 },
             }
             // No operator nor operands. Empty nest form.
@@ -476,32 +480,28 @@ impl<'p, CC, DA, OB, S>
                 Some(Datum::EmptyNest)
             }
         };
-        // Return result as `Some` newly allocated `Datum` or `None`.
-        Ok(if let Some(result) = result {
-            Some(self.parser.allocator.new_datum(result)?)
-        } else {
-            None
-        })
+        // Return result
+        Ok(result)
     }
 
-    fn parse_all(&mut self, mode: ParseTextMode)
-                 -> Result<DA::DR,
-                           Error<<DA::TT as TextBase>::Pos, OB::CE>>
-    {
-        let mut head = self.parser.allocator.new_datum(Datum::EmptyList)?;
+    fn parse_all(&mut self, mode: ParseTextMode) -> ParseResult<DA, OB> {
+        let mut head = Datum::EmptyList;
         let mut tail = &mut head;
         loop {
             let it = self.parse_next(mode)?;
             if let Some(next_it) = it {
-                if let Some(d) = DerefTryMut::get_mut(tail) {
-                    let rest = self.parser.allocator.new_datum(Datum::EmptyList)?;
-                    *d = Datum::List{elem: next_it, next: rest};
-                    match d {
-                        Datum::List{next, ..} => tail = next,
-                        _ => unreachable!()
+                *tail = Datum::List {
+                    elem: self.parser.allocator.new_datum(next_it)?,
+                    next: self.parser.allocator.new_datum(Datum::EmptyList)?,
+                };
+                if let Datum::List{ref mut next, ..} = tail {
+                    if let Some(next) = DerefTryMut::get_mut(next) {
+                        tail = next;
+                    } else {
+                        return Err(Error::FailedDerefTryMut);
                     }
                 } else {
-                    return Err(Error::FailedDerefTryMut);
+                    unreachable!()
                 }
             } else {
                 break;
@@ -522,8 +522,7 @@ impl<'p, CC, DA, OB, S>
     }
 
     #[inline]
-    fn check_end_char(&mut self) -> Result<(), Error<<DA::TT as TextBase>::Pos, OB::CE>>
-    {
+    fn check_end_char(&mut self) -> Result<(), ParseError<DA, OB>> {
         {
             let chclass = &self.parser.classifier;
             debug_assert_eq!(self.src_strm.peek().map(|&SourceIterItem{ch, ..}|

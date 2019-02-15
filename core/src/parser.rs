@@ -100,5 +100,6 @@ pub trait OperatorBindings<DA>
     /// ways.  Else if we do not have a binding, return `None` to indicate that
     /// the form should not be handled according to the operator and that the
     /// operands should simply be recursively parsed.
-    fn lookup(&mut self, operator: &DA::DR) -> Option<Combiner<Self::OR, Self::AR>>;
+    fn lookup(&mut self, operator: &Datum<DA::TT, DA::ET, DA::DR>)
+              -> Option<Combiner<Self::OR, Self::AR>>;
 }

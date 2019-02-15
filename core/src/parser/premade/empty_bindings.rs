@@ -20,7 +20,8 @@ pub struct DummyCombiner<TT, ET, DR, Pos, CE>(TT, ET, DR, Pos, CE);
 impl<TT, ET, DR, Pos, CE> Deref for DummyCombiner<TT, ET, DR, Pos, CE>
     where DR: DerefTryMut<Target = Datum<TT, ET, DR>>,
 {
-    type Target = dyn FnMut(DR, DR) -> combiner::Result<TT, ET, DR, Pos, CE>;
+    type Target = dyn FnMut(Datum<TT, ET, DR>, Datum<TT, ET, DR>)
+                            -> combiner::Result<TT, ET, DR, Pos, CE>;
     fn deref(&self) -> &Self::Target { unreachable!() }
 }
 
@@ -40,7 +41,8 @@ impl<DA> OperatorBindings<DA> for EmptyOperatorBindings
     type CE = ();
 
     #[inline]
-    fn lookup(&mut self, _operator: &DA::DR) -> Option<Combiner<Self::OR, Self::AR>> {
+    fn lookup(&mut self, _operator: &Datum<DA::TT, DA::ET, DA::DR>)
+              -> Option<Combiner<Self::OR, Self::AR>> {
         None
     }
 }

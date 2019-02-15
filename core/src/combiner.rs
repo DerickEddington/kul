@@ -50,7 +50,8 @@ impl<TT, ET, DR, Pos, CE> ApplicativeTrait for ApFn<TT, ET, DR, Pos, CE>
 /// a `Datum::Text` containing the unparsed operands text.  See
 /// [`combiner::Result`](type.Result.html) for the description of the return
 /// value.
-pub type OpFn<TT, ET, DR, Pos, CE> = dyn FnMut(DR, DR) -> Result<TT, ET, DR, Pos, CE>;
+pub type OpFn<TT, ET, DR, Pos, CE> = dyn FnMut(Datum<TT, ET, DR>, Datum<TT, ET, DR>)
+                                               -> Result<TT, ET, DR, Pos, CE>;
 
 /// The type of "applicative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-forms
@@ -58,7 +59,8 @@ pub type OpFn<TT, ET, DR, Pos, CE> = dyn FnMut(DR, DR) -> Result<TT, ET, DR, Pos
 /// `Datum`s, or it is a `Datum::EmptyList` if the operands text was empty.  See
 /// [`combiner::Result`](type.Result.html) for the description of the return
 /// value.
-pub type ApFn<TT, ET, DR, Pos, CE> = dyn FnMut(DR, DR) -> Result<TT, ET, DR, Pos, CE>;
+pub type ApFn<TT, ET, DR, Pos, CE> = dyn FnMut(Datum<TT, ET, DR>, Datum<TT, ET, DR>)
+                                               -> Result<TT, ET, DR, Pos, CE>;
 
 /// The type returned by "operative" and "applicative" functions.  For a
 /// successful `Some` return, the returned `Datum` is substituted for the

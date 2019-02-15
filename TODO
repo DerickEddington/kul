@@ -25,15 +25,6 @@ Add statement to docs/desc that the array-allocation ability can be used to
 
 
 
-Maybe the parsing should not allocate Datums so eagerly, and instead the
-   combiners should be passed moved Datum values instead of datum-refs.  Seems
-   like combiners often don't need them to be allocated and just drop them, and
-   for apps that allocate from limited stack arrays, e.g. using DatumMutRef,
-   this is quite a waste since they typically aren't reclaimed as free.  Also
-   seems like it could be a cleaner API, not needing to deref the datum-refs.
-
-
-
 Does the issue with Cargo still linking `std` for a `#![no_std]` crate when the
    `dev-dependencies` of the crate include something that uses `std` apply to
    my project and cause this problem?  Or does it not apply because I have no
