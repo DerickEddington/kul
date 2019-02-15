@@ -1,13 +1,3 @@
-Review whether `DR: DerefTryMut` could and should instead be `DR: Deref` in some
-   places where mutability is not needed.  Why not...
-
-
-
-Should PartialOrd be implemented for Datum altogether?  Probably not Ord though,
-   since it doesn't really make sense to order some variants with others.
-
-
-
 Learn about and probably use `#![forbid(unsafe_code)]`
 
 Add statement to docs/desc that the crates "have no dependencies and do not use
