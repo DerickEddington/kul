@@ -222,6 +222,7 @@ mod tests {
         let c = List::<DummyText, (), DatumRef<_, ()>>{
             elem: DatumRef(&EmptyNest::<_, (), DatumRef<_, ()>>),
             next: DatumRef(&EmptyList::<_, (), DatumRef<_, ()>>)};
+        #[allow(clippy::clone_on_copy)]
         let d = c.clone();
         assert_eq!(c, d);
     }

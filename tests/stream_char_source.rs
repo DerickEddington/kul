@@ -49,6 +49,7 @@ impl<R> DatumAllocator for BoxDatumAllocator<R>
 }
 
 
+#[allow(clippy::needless_lifetimes)] // Note: Clippy is wrong: 'f is needed
 fn ciss_maker<'f, F, R>(converter: &'f F)
                         -> Option<impl Fn(&'static str)
                                           -> CharIterSourceStream<str::Chars<'static>,

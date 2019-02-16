@@ -19,15 +19,13 @@ pub fn get_arg_tree_size() -> usize {
     // This default size is usually enough to blow the stack, without our
     // recursion-avoiding Drop impl
     const DEFAULT: usize = 1 << 24;
-    let size = env::args().find_map(
+    env::args().find_map(
         |arg|
         match *arg.splitn(2, '=').collect::<Vec<_>>() {
             ["tree-size", size] => Some(size.parse().unwrap()),
             _ => None
         }
-    ).unwrap_or(DEFAULT);
-    // println!("\nTrees of size {}", size);
-    size
+    ).unwrap_or(DEFAULT)
 }
 
 /// Pure lists
@@ -277,8 +275,7 @@ pub struct ExtraWeakArc (Cell<Option<WeakArc<ArcDatum<TT, ExtraWeakArc>>>>);
 
 /// `Rc` lists with additional strong references to some of the "next" tails
 pub fn make_rc_multi_strong_list(len: usize, strong_step: usize)
-                                 -> (DatumRc<TT, usize>,
-                                     Vec<Rc<RcDatum<TT, usize>>>)
+                                 -> RcMultiStrongResult
 {
     let mut v = Vec::with_capacity(len / strong_step);
     let mut counter: usize = 0;
@@ -298,10 +295,11 @@ pub fn make_rc_multi_strong_list(len: usize, strong_step: usize)
     (l, v)
 }
 
+type RcMultiStrongResult = (DatumRc<TT, usize>, Vec<Rc<RcDatum<TT, usize>>>);
+
 /// `Arc` lists with additional strong references to some of the "next" tails
 pub fn make_arc_multi_strong_list(len: usize, strong_step: usize)
-                                  -> (DatumArc<TT, usize>,
-                                      Vec<Arc<ArcDatum<TT, usize>>>)
+                                  -> ArcMultiStrongResult
 {
     let mut v = Vec::with_capacity(len / strong_step);
     let mut counter: usize = 0;
@@ -320,6 +318,8 @@ pub fn make_arc_multi_strong_list(len: usize, strong_step: usize)
                             });
     (l, v)
 }
+
+type ArcMultiStrongResult = (DatumArc<TT, usize>, Vec<Arc<ArcDatum<TT, usize>>>);
 
 
 // This only tests the internal units of this module.  We need to make sure that
@@ -570,6 +570,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cyclomatic_complexity)]
     fn vee() {
         macro_rules! test {
             ($left_depth:expr, $right_depth:expr => $expected:expr)

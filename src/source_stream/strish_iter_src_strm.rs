@@ -65,7 +65,7 @@ impl<SI, TT> StrishIterSourceStream<SI, TT>
     fn next_posstrish_of(strish_iter: &mut SI, char_idx: usize)
                          -> Option<PosStrishIter<SI::Item>> {
         // Skip any empty strishes
-        while let Some(strish) = strish_iter.next() {
+        for strish in strish_iter {
             let ps = PosStrish::new(strish, CharPos(char_idx));
             let len = ps.val.as_ref().len();
             if len > 0 { return Some(ps.src_strm()) }
@@ -242,6 +242,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cyclomatic_complexity)]
     fn source_stream() {
         use std::marker::PhantomData;
         use crate::{Datum, datum::DatumBox, TextBase};

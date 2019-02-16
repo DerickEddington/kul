@@ -108,12 +108,15 @@ impl<'s> TextChunk for PosStr<'s> {
 /// source string that the `PosStr`'s slice is from.  (I.e. not relative to the
 /// slice.)
 pub struct PosStrIter<'s> {
-    pei_iter: Peekable<Map<Zip<Enumerate<CharIndices<'s>>,
-                               Repeat<StrPos<'s>>>,
-                           fn(((usize, (usize, char)), StrPos<'s>))
-                              -> SourceIterItem<StrPos<'s>>>>,
+    pei_iter: PeekableSourceIterItemIter<'s>,
     accum: Option<PosStr<'s>>,
 }
+
+type PeekableSourceIterItemIter<'s>
+    = Peekable<Map<Zip<Enumerate<CharIndices<'s>>,
+                       Repeat<StrPos<'s>>>,
+                   fn(((usize, (usize, char)), StrPos<'s>))
+                      -> SourceIterItem<StrPos<'s>>>>;
 
 impl<'s> PosStrIter<'s> {
     fn new(posstr: &PosStr<'s>) -> Self {

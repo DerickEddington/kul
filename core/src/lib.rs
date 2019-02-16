@@ -86,7 +86,9 @@
 
 
 #![no_std]
+
 #![forbid(unsafe_code)]
+#![warn(clippy::all)]
 
 
 use core::ops::DerefMut;
@@ -118,7 +120,7 @@ pub mod parser;
 mod premade {
     /// Useful when omitting the positional information is desired/required.
     impl super::SourcePosition for () {
-        #[inline] fn empty() -> Self { () }
+        #[inline] fn empty() -> Self { }
     }
 }
 
@@ -198,7 +200,7 @@ impl<CC, DA, OB> Parser<CC, DA, OB>
     /// The primary method.  Parse the given text source, according to the
     /// specific parameterization of our `Self`, and return an iterator that
     /// yields each top-level form as a `Datum` AST.
-    pub fn parse<'p, S>(&'p mut self, source: S) -> ParseIter<'p, Self, S>
+    pub fn parse<S>(&mut self, source: S) -> ParseIter<'_, Self, S>
         where S: SourceStream<DA::TT, DA>,
     {
         ParseIter::new(self, source)
@@ -364,47 +366,38 @@ impl<'p, CC, DA, OB, S>
 
         let mut nest_level: usize = 0;
 
-        loop {
-            match self.src_strm.peek() {
-                Some(&SourceIterItem{ch, ..}) => {
-                    // Reached end. Do not consume peeked end char
-                    if nest_level == 0 && is_end_char(ch, &self.parser.classifier, mode)
-                    {
-                        break;
-                    }
-                    // Accumulate escaped char whatever it might be, but not the
-                    // escape char
-                    else if self.parser.classifier.is_nest_escape(ch) {
-                        concat_accum!(); // Break chunk before escape char
-                        self.src_strm.next(); // Skip peeked escape char first
-                        self.src_strm.next_accum(&mut self.parser.allocator)?;
-                    }
-                    // Start of nest. Track nesting depth
-                    else if self.parser.classifier.is_nest_start(ch) {
-                        // Accumulate peeked
-                        self.src_strm.next_accum(&mut self.parser.allocator)?;
-                        nest_level += 1;
-                    }
-                    // End of nest. Check balanced nesting
-                    else if self.parser.classifier.is_nest_end(ch) {
-                        if nest_level > 0 {
-                            // Accumulate peeked
-                            self.src_strm.next_accum(&mut self.parser.allocator)?;
-                            nest_level -= 1;
-                        } else {
-                            self.check_end_char()?;
-                            break;
-                        }
-                    }
+        while let Some(&SourceIterItem{ch, ..}) = self.src_strm.peek() {
+            // Reached end. Do not consume peeked end char
+            if nest_level == 0 && is_end_char(ch, &self.parser.classifier, mode) {
+                break;
+            }
+            // Accumulate escaped char whatever it might be, but not the escape
+            // char
+            else if self.parser.classifier.is_nest_escape(ch) {
+                concat_accum!(); // Break chunk before escape char
+                self.src_strm.next(); // Skip peeked escape char first
+                self.src_strm.next_accum(&mut self.parser.allocator)?;
+            }
+            // Start of nest. Track nesting depth
+            else if self.parser.classifier.is_nest_start(ch) {
+                // Accumulate peeked
+                self.src_strm.next_accum(&mut self.parser.allocator)?;
+                nest_level += 1;
+            }
+            // End of nest. Check balanced nesting
+            else if self.parser.classifier.is_nest_end(ch) {
+                if nest_level > 0 {
                     // Accumulate peeked
-                    else {
-                        self.src_strm.next_accum(&mut self.parser.allocator)?;
-                    }
-                },
-                // End of source stream
-                None => {
+                    self.src_strm.next_accum(&mut self.parser.allocator)?;
+                    nest_level -= 1;
+                } else {
+                    self.check_end_char()?;
                     break;
                 }
+            }
+            // Accumulate peeked
+            else {
+                self.src_strm.next_accum(&mut self.parser.allocator)?;
             }
         }
         // Done. Return what we accumulated. Or error if unbalanced nesting.

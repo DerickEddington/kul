@@ -75,7 +75,7 @@ pub trait TextChunk: TextBase {
     // This will also enable chunk types backed by things like `String` which
     // need to return borrows related to the call lifetimes to be able to return
     // a `CharsSrcStrm`.
-    fn src_strm<'a>(&'a self) -> Self::CharsSrcStrm;
+    fn src_strm(&self) -> Self::CharsSrcStrm;
 }
 
 
@@ -140,7 +140,7 @@ pub trait Text: TextBase
     fn iter_chunks_state(&self) -> Option<&Self::IterChunksState>;
 
     #[inline]
-    fn iter_chunks<'a>(&'a self) -> iter::chunks::Iter<'a, Self> {
+    fn iter_chunks(&self) -> iter::chunks::Iter<'_, Self> {
         iter::chunks::Iter::new(self)
     }
 
@@ -161,7 +161,7 @@ pub trait Text: TextBase
     /// [`TextConcat`]: TODO
     /// [`text::Iter`]: TODO
     #[inline]
-    fn iter<'a>(&'a self) -> iter::Iter<'a, Self> {
+    fn iter(&self) -> iter::Iter<'_, Self> {
         iter::Iter::new(self)
     }
 }

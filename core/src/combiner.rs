@@ -12,12 +12,12 @@ use crate::{
 // TODO: Still needed?
 /// This module is needed so that the traits are public, as required by
 /// `Combiner`, but not exported.
-mod combiner {
+mod private {
     pub trait OperativeTrait { }
     pub trait ApplicativeTrait { }
 }
 
-use combiner::*;
+use private::*;
 
 /// A macro function, bound to an operator sub-form, which is called with the
 /// operands sub-form(s) to determine what should be substituted for the whole

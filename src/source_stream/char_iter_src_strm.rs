@@ -116,12 +116,15 @@ pub struct CharIterSourceStream<CI, F, R>
           F: Fn(String) -> R,
           R: RefCntStrish,
 {
-    pe_iter: Peekable<Map<Enumerate<CI>, fn((usize, char)) -> SourceIterItem<CharPos>>>,
+    pe_iter: PeekableSourceIterItemIter<CI>,
     accum: Option<(String, CharPos)>,
     // Zero-sized when our above converters (or any "function item type") are
     // used. http://doc.rust-lang.org/reference/types/function-item.html
     to_refcnt_strish: F,
 }
+
+type PeekableSourceIterItemIter<CI>
+    = Peekable<Map<Enumerate<CI>, fn((usize, char)) -> SourceIterItem<CharPos>>>;
 
 impl<CI, F, R> CharIterSourceStream<CI, F, R>
     where CI: Iterator<Item = char>,
@@ -256,16 +259,17 @@ mod tests {
                         SourceIterItem{ch: '3', pos: CharPos(4)}]);
 
         let ciss5 = CharIterSourceStream::new(
-            (0..4321).into_iter().map(|n| if n % 2 == 0 { 'λ' } else { '-' }),
+            (0..4321).map(|n| if n % 2 == 0 { 'λ' } else { '-' }),
             to_arc_str);
         assert_eq!(ciss5.collect::<Vec<_>>(),
-                   (0..4321).into_iter()
+                   (0..4321)
                    .map(|n| SourceIterItem{ch: if n % 2 == 0 { 'λ' } else { '-' },
                                            pos: CharPos(n)})
                    .collect::<Vec<_>>());
     }
 
     #[test]
+    #[allow(clippy::cyclomatic_complexity)]
     fn source_stream() {
         use std::marker::PhantomData;
         use crate::{text::TextVec, Datum, datum::DatumBox};

@@ -311,7 +311,6 @@ pub trait DropAlgo1DatumRef: DerefTryMut
     /// Returns the inner `Datum` and replaces it with the given value, if
     /// possible.  Otherwise, an error is returned containing the passed-in
     /// value.  Some implementations might always succeed.
-    #[inline]
     fn try_replace(this: &mut Self, val: Self::Target)
                    -> Result<Self::Target, Self::Target>;
 
@@ -319,7 +318,6 @@ pub trait DropAlgo1DatumRef: DerefTryMut
     /// It is only called after our `try_replace` function is called on the same
     /// `this` value and succeeded, which allows this `set` function to never
     /// fail.
-    #[inline]
     fn set(this: &mut Self, val: Self::Target);
 }
 
@@ -357,16 +355,13 @@ pub trait RcLike: DerefTryMut
     type RC: Deref;
 
     /// Return a mutable reference to `this`'s underlying `Rc`-like value.
-    #[inline]
     fn get_rc(this: &mut Self) -> &mut Self::RC;
 
     /// Allocate a new `Rc`-like value and set its underlying value to the given
     /// `val`.
-    #[inline]
     fn new_rc(val: <Self as Deref>::Target) -> Self::RC;
 
     /// Do `try_unwrap` on the underlying `Rc`-like value.
-    #[inline]
     fn try_unwrap(rc: Self::RC) -> Result<<Self as Deref>::Target, Self::RC>;
 
     /// Implementation of `DropAlgo1DatumRef::try_replace` for generic `Rc`-like
@@ -432,7 +427,6 @@ pub trait RcLikeAtomicCounts: RcLike
     /// strong reference and do not change the counts, then you can depend on
     /// being able to get mutable access (e.g. via `get_mut`) to the underlying
     /// value, guaranteed.
-    #[inline]
     fn counts(this: &Self) -> (usize, usize);
 
     /// Optimized implementation of `DropAlgo1DatumRef::try_replace` for generic
@@ -686,7 +680,7 @@ mod tests {
     // would be too inefficient in general.
 
     fn vee2r_depths(size: usize) -> (usize, usize) {
-        let right_size = 2 * 1 + 1; // list of length 1
+        let right_size = 2 + 1; // list of length 1
         let left_size = size - (1 + right_size); // extra 1 for top node
         vee_depths(left_size, right_size)
     }

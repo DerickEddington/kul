@@ -91,7 +91,7 @@ mod premade {
             type Chunk = C;
 
             fn next(&self) -> Option<(&Self::Chunk, Option<&Self>)> {
-                if self.len() > 0 {
+                if !self.is_empty() {
                     Some((&self[0],
                           if self.len() > 1 {
                               Some(&self[1..])

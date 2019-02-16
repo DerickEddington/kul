@@ -336,7 +336,7 @@ impl<S> text::chunk::SourceStream<PosStrish<S>> for PosStrishIter<S>
 
     fn next_accum(&mut self) -> Option<<Self as Iterator>::Item> {
         let next = self.do_next();
-        if let &Some(SourceIterItem{ch, ..}) = &next {
+        if let Some(SourceIterItem{ch, ..}) = next {
             if let Some(accum) = &mut self.accum {
                 // Already set, so extend
                 accum.0.end = self.byte_idx;
@@ -397,6 +397,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cyclomatic_complexity)]
     fn refcnt_slice() {
         let s1 = RefCntSlice{refcnt_strish: Rc::new(String::from("a")), range: 0..1};
         assert_eq!(s1.as_str(), "a");
@@ -566,6 +567,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cyclomatic_complexity)]
     fn pos_strish_srcstrm() {
         use text::chunk::SourceStream;
         use std::iter;

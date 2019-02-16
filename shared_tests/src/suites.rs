@@ -78,10 +78,11 @@ pub fn test_suite0<DA>(p: Parser<DefaultCharClassifier,
 /// In either case, the given `Parser`'s `Text` type is always exercised to the
 /// degree that parsing constructs values of it in the produced `Datum`s which
 /// are compared with the expected test-case outputs.
-pub fn test_suite0_with<'a, DA, F, S>(mut p: Parser<DefaultCharClassifier,
-                                                    DA,
-                                                    EmptyOperatorBindings>,
-                                      str_to_src_strm: Option<F>)
+#[allow(clippy::cyclomatic_complexity)]
+pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
+                                                DA,
+                                                EmptyOperatorBindings>,
+                                  str_to_src_strm: Option<F>)
     where DA: DatumAllocator,
           <DA::TT as Text>::Chunk: From<&'static str>,
           DA::TT: Debug,

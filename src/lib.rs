@@ -45,6 +45,7 @@
 
 
 #![forbid(unsafe_code)]
+#![warn(clippy::all)]
 
 
 // Re-export everything from the core crate. (Except items shadowed by ours,
