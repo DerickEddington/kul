@@ -1,8 +1,3 @@
-Learn about and probably use `#![forbid(unsafe_code)]`
-
-Add statement to docs/desc that the crates "have no dependencies and do not use
-   unsafe code"
-
 Add statement to docs/desc that the array-allocation ability can be used to
    prevent memory-consumption DoS attacks.
 

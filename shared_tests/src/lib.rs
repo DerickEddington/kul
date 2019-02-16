@@ -5,7 +5,6 @@
 //! directly compared against a variety of
 //! [`Datum`](../kruvi_core/enum.Datum.html) types.
 
-
 // TODO: Support checking of the generic character position
 // information. Probably with some new trait for converting a SourcePosition to
 // one concrete type this crate can deal with.
@@ -14,6 +13,10 @@
 
 // TODO: Probably should enhance to support predicate checking of "extra types"
 // so that functionality can be tested globally too.
+
+
+#![forbid(unsafe_code)]
+
 
 use std::ops::{Deref, DerefMut};
 

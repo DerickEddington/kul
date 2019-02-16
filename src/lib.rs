@@ -43,6 +43,10 @@
 // TODO: Parser impl that makes it easier by using Box and that provides API for
 // establishing combiner bindings.
 
+
+#![forbid(unsafe_code)]
+
+
 // Re-export everything from the core crate. (Except items shadowed by ours,
 // which are re-exported elsewhere.)
 #[doc(no_inline)]
