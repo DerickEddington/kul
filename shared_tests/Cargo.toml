@@ -3,6 +3,7 @@ name = "kruvi_shared_tests"
 version = "0.0.2"
 authors = ["Derick Eddington"]
 edition = "2018"
+description = "Test suites and utilities for testing both the core and the full crates."
 publish = false
 
 [dependencies]
