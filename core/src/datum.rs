@@ -3,6 +3,7 @@
 use core::ops::Deref;
 
 
+/// Implementations provided for ready use.
 pub mod premade {
     mod mutref;
     pub use mutref::{MutRefDatum, DatumMutRef};
@@ -21,13 +22,22 @@ pub enum Datum<TextType, ExtraType, DatumRef>
     /// logically, but escape characters break the representation into chunks.)
     Text(TextType),
     /// A nest form that is not empty and so has a non-empty "operator"/"head"
-    /// sub-form, as a `Datum`, and has a possibly-empty "operands" sub-form(s),
-    /// as a `List` (or `EmptyList`) or a `Text`.
-    Combination{operator: DatumRef, operands: DatumRef},
+    /// sub-form and has a possibly-empty "operands" sub-form(s).
+    Combination {
+        /// The operator form, as any `Datum` variant.
+        operator: DatumRef,
+        /// The operands form, as a `List` or `EmptyList` or a `Text` variant.
+        operands: DatumRef,
+    },
     /// An empty nest form
     EmptyNest,
     /// A list of other `Datum`s. Used to represent parsed operands.
-    List{elem: DatumRef, next: DatumRef},
+    List {
+        /// An element of the list, as any `Datum` variant.
+        elem: DatumRef,
+        /// The rest of the list, as a `List` or `EmptyList` variant.
+        next: DatumRef,
+    },
     /// An empty list
     EmptyList,
     /// Extensibility that custom macros/combiners may utilize to add additional
@@ -124,31 +134,31 @@ mod tests {
     fn equality_same() {
         use Datum::*;
 
-        assert_eq!(Text::<_, (), DatumMutRef<_, ()>>(DummyText),
-                   Text::<_, (), DatumMutRef<_, ()>>(DummyText));
+        assert_eq!(Text::<_, (), DatumMutRef<'_, _, ()>>(DummyText),
+                   Text::<_, (), DatumMutRef<'_, _, ()>>(DummyText));
 
-        assert_eq!(Combination::<DummyText, (), DatumMutRef<_, ()>>{
+        assert_eq!(Combination::<DummyText, (), DatumMutRef<'_, _, ()>>{
                        operator: DatumMutRef(&mut EmptyNest),
                        operands: DatumMutRef(&mut EmptyList)},
-                   Combination::<DummyText, (), DatumMutRef<_, ()>>{
+                   Combination::<DummyText, (), DatumMutRef<'_, _, ()>>{
                        operator: DatumMutRef(&mut EmptyNest),
                        operands: DatumMutRef(&mut EmptyList)});
 
-        assert_eq!(EmptyNest::<DummyText, (), DatumMutRef<_, ()>>,
-                   EmptyNest::<DummyText, (), DatumMutRef<_, ()>>);
+        assert_eq!(EmptyNest::<DummyText, (), DatumMutRef<'_, _, ()>>,
+                   EmptyNest::<DummyText, (), DatumMutRef<'_, _, ()>>);
 
-        assert_eq!(List::<DummyText, (), DatumMutRef<_, ()>>{
+        assert_eq!(List::<DummyText, (), DatumMutRef<'_, _, ()>>{
                        elem: DatumMutRef(&mut EmptyNest),
                        next: DatumMutRef(&mut EmptyList)},
-                   List::<DummyText, (), DatumMutRef<_, ()>>{
+                   List::<DummyText, (), DatumMutRef<'_, _, ()>>{
                        elem: DatumMutRef(&mut EmptyNest),
                        next: DatumMutRef(&mut EmptyList)});
 
-        assert_eq!(EmptyList::<DummyText, (), DatumMutRef<_, ()>>,
-                   EmptyList::<DummyText, (), DatumMutRef<_, ()>>);
+        assert_eq!(EmptyList::<DummyText, (), DatumMutRef<'_, _, ()>>,
+                   EmptyList::<DummyText, (), DatumMutRef<'_, _, ()>>);
 
-        assert_eq!(Extra::<DummyText, (), DatumMutRef<_, ()>>(()),
-                   Extra::<DummyText, (), DatumMutRef<_, ()>>(()));
+        assert_eq!(Extra::<DummyText, (), DatumMutRef<'_, _, ()>>(()),
+                   Extra::<DummyText, (), DatumMutRef<'_, _, ()>>(()));
 
         // TODO: More cases, including !=
     }
@@ -157,7 +167,8 @@ mod tests {
         use super::*;
 
         #[derive(Copy, Clone, Debug)]
-        pub struct DatumRef<'d, TT, ET>(pub &'d Datum<TT, ET, DatumRef<'d, TT, ET>>);
+        pub(super) struct DatumRef<'d, TT, ET>(
+            pub(super) &'d Datum<TT, ET, DatumRef<'d, TT, ET>>);
 
         impl<'d, TT, ET> Deref for DatumRef<'d, TT, ET>
         {
@@ -168,7 +179,7 @@ mod tests {
             }
         }
 
-        impl<'d, TT, ET> DerefTryMut for DatumRef<'d, TT, ET>
+        impl<TT, ET> DerefTryMut for DatumRef<'_, TT, ET>
         {
             fn get_mut(_this: &mut Self) -> Option<&mut Self::Target> {
                 None
@@ -181,31 +192,31 @@ mod tests {
         use Datum::*;
         use datumref::DatumRef;
 
-        assert_eq!(Text::<_, (), DatumMutRef<_, ()>>(DummyText),
-                   Text::<_, (), DatumRef<_, ()>>(DummyText));
+        assert_eq!(Text::<_, (), DatumMutRef<'_, _, ()>>(DummyText),
+                   Text::<_, (), DatumRef<'_, _, ()>>(DummyText));
 
-        assert_eq!(Combination::<DummyText, (), DatumMutRef<_, ()>>{
+        assert_eq!(Combination::<DummyText, (), DatumMutRef<'_, _, ()>>{
                        operator: DatumMutRef(&mut EmptyNest),
                        operands: DatumMutRef(&mut EmptyList)},
-                   Combination::<DummyText, (), DatumRef<_, ()>>{
+                   Combination::<DummyText, (), DatumRef<'_, _, ()>>{
                        operator: DatumRef(&EmptyNest),
                        operands: DatumRef(&EmptyList)});
 
-        assert_eq!(EmptyNest::<DummyText, (), DatumMutRef<_, ()>>,
-                   EmptyNest::<DummyText, (), DatumRef<_, ()>>);
+        assert_eq!(EmptyNest::<DummyText, (), DatumMutRef<'_, _, ()>>,
+                   EmptyNest::<DummyText, (), DatumRef<'_, _, ()>>);
 
-        assert_eq!(List::<DummyText, (), DatumMutRef<_, ()>>{
+        assert_eq!(List::<DummyText, (), DatumMutRef<'_, _, ()>>{
                        elem: DatumMutRef(&mut EmptyNest),
                        next: DatumMutRef(&mut EmptyList)},
-                   List::<DummyText, (), DatumRef<_, ()>>{
+                   List::<DummyText, (), DatumRef<'_, _, ()>>{
                        elem: DatumRef(&EmptyNest),
                        next: DatumRef(&EmptyList)});
 
-        assert_eq!(EmptyList::<DummyText, (), DatumMutRef<_, ()>>,
-                   EmptyList::<DummyText, (), DatumRef<_, ()>>);
+        assert_eq!(EmptyList::<DummyText, (), DatumMutRef<'_, _, ()>>,
+                   EmptyList::<DummyText, (), DatumRef<'_, _, ()>>);
 
-        assert!(Extra::<DummyText, (), DatumMutRef<_, ()>>(())
-                == Extra::<DummyText, (), DatumRef<_, ()>>(()));
+        assert!(Extra::<DummyText, (), DatumMutRef<'_, _, ()>>(())
+                == Extra::<DummyText, (), DatumRef<'_, _, ()>>(()));
     }
 
     #[test]
@@ -213,15 +224,15 @@ mod tests {
         use Datum::*;
         use datumref::DatumRef;
 
-        let a = List::<DummyText, (), DatumRef<_, ()>>{
-            elem: DatumRef(&EmptyNest::<_, (), DatumRef<_, ()>>),
-            next: DatumRef(&EmptyList::<_, (), DatumRef<_, ()>>)};
+        let a = List::<DummyText, (), DatumRef<'_, _, ()>>{
+            elem: DatumRef(&EmptyNest::<_, (), DatumRef<'_, _, ()>>),
+            next: DatumRef(&EmptyList::<_, (), DatumRef<'_, _, ()>>)};
         let b = a;
         assert_eq!(a, b);
 
-        let c = List::<DummyText, (), DatumRef<_, ()>>{
-            elem: DatumRef(&EmptyNest::<_, (), DatumRef<_, ()>>),
-            next: DatumRef(&EmptyList::<_, (), DatumRef<_, ()>>)};
+        let c = List::<DummyText, (), DatumRef<'_, _, ()>>{
+            elem: DatumRef(&EmptyNest::<_, (), DatumRef<'_, _, ()>>),
+            next: DatumRef(&EmptyList::<_, (), DatumRef<'_, _, ()>>)};
         #[allow(clippy::clone_on_copy)]
         let d = c.clone();
         assert_eq!(c, d);

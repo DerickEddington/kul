@@ -20,6 +20,7 @@ pub type BoxDatum<TT, ET> = Datum<TT, ET, DatumBox<TT, ET>>;
 pub struct DatumBox<TT, ET>(pub Box<BoxDatum<TT, ET>>);
 
 impl<TT, ET> DatumBox<TT, ET> {
+    /// Make a `Box`ed `Datum` with value from the given argument.
     pub fn new(val: BoxDatum<TT, ET>) -> Self {
         DatumBox(Box::new(val))
     }
@@ -58,6 +59,7 @@ pub type RcDatum<TT, ET> = Datum<TT, ET, DatumRc<TT, ET>>;
 pub struct DatumRc<TT, ET>(pub Rc<RcDatum<TT, ET>>);
 
 impl<TT, ET> DatumRc<TT, ET> {
+    /// Make an `Rc`ed `Datum` with value from the given argument.
     pub fn new(val: RcDatum<TT, ET>) -> Self {
         DatumRc(Rc::new(val))
     }
@@ -89,6 +91,7 @@ pub type ArcDatum<TT, ET> = Datum<TT, ET, DatumArc<TT, ET>>;
 pub struct DatumArc<TT, ET>(pub Arc<ArcDatum<TT, ET>>);
 
 impl<TT, ET> DatumArc<TT, ET> {
+    /// Make an `Arc`ed `Datum` with value from the given argument.
     pub fn new(val: ArcDatum<TT, ET>) -> Self {
         DatumArc(Arc::new(val))
     }

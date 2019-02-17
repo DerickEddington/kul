@@ -2,6 +2,8 @@
 //! Designed to allow the state to borrow from the `Text` instance so that the
 //! lifetime relates to that of `Text` method calls.
 
+use core::fmt;
+
 use crate::{Text, TextChunk, TextConcat, SourceIterItem, SourceStream};
 use crate::text::chunk::SourceStream as ChunkSourceStream;
 use crate::parser::{DatumAllocator, AllocError};
@@ -29,9 +31,19 @@ pub struct Iter<'l, TT>
     peeked: Option<SourceIterItem<TT::Pos>>,
 }
 
+/// Manually implemented because deriving it doesn't work.
+impl<TT> fmt::Debug for Iter<'_, TT>
+    where TT: Text,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}::Iter", module_path!())
+    }
+}
+
 impl<'l, TT> Iter<'l, TT>
     where TT: Text,
 {
+    /// Make a new one for a given `Text`.
     pub fn new(text: &'l TT) -> Self {
         let mut next_chunks_iter = text.iter_chunks();
         let cur_chunk_src_strm = next_chunks_iter.next().map(TextChunk::src_strm);

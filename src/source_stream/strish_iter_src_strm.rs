@@ -24,6 +24,7 @@ use crate::{
 /// ownership)
 ///
 /// [`SourceStream`]: ../../kruvi_core/trait.SourceStream.html
+#[derive(Debug)]
 pub struct StrishIterSourceStream<SI, TT>
     where SI: Iterator,
           SI::Item: RefCntStrish,

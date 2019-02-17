@@ -58,7 +58,9 @@ impl<T: AsStr + ?Sized> AsStr for Arc<T> {
 /// trait, and so nothing else can implement it, which enforces the restriction
 /// even though this trait is `pub`lic.
 pub trait RefCntStrish: Clone + AsStr + seal_refcnt_strish::Sealed {
+    /// Convert from a `&str`.
     fn from_str(s: &str) -> Self;
+    /// Make an empty one.
     #[inline] fn empty() -> Self { Self::from_str("") }
 }
 
@@ -256,6 +258,7 @@ impl<S> TextChunk for PosStrish<S>
 ///
 /// The positions of the characters remain correct relative to the original
 /// source that the `PosStrish` is from.  (I.e. not relative to its slice.)
+#[derive(Debug)]
 pub struct PosStrishIter<S> {
     chunk: PosStrish<S>,
     byte_idx: usize,
@@ -567,7 +570,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(unused_results, clippy::cyclomatic_complexity)]
     fn pos_strish_srcstrm() {
         use text::chunk::SourceStream;
         use std::iter;

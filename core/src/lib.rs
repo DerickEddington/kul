@@ -88,6 +88,38 @@
 #![no_std]
 
 #![forbid(unsafe_code)]
+
+// Warn about desired lints that would otherwise be allowed by default.
+#![warn(
+    // Groups
+    future_incompatible,
+    nonstandard_style,
+    rust_2018_compatibility, // unsure if needed with Cargo.toml having edition="2018"
+    rust_2018_idioms,
+    unused,
+    // Individual lints not included in above groups and desired.
+    macro_use_extern_crate,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    missing_docs,
+    // missing_doc_code_examples, // maybe someday
+    private_doc_tests,
+    // single_use_lifetimes, // annoying hits on invisible derived impls
+    trivial_casts,
+    trivial_numeric_casts,
+    unreachable_pub,
+    unused_import_braces,
+    unused_lifetimes,
+    unused_qualifications,
+    unused_results,
+    variant_size_differences,
+)]
+// Lints included by above groups but desired to be allowed.
+#![allow(
+    explicit_outlives_requirements, // annoying hits on invisible derived impls
+)]
+
+// Warn about all Clippy lints, including those otherwise allowed by default.
 #![warn(clippy::all)]
 
 
@@ -131,6 +163,7 @@ mod premade {
 pub trait SourcePosition
     where Self: Clone,
 {
+    /// Make an empty one.
     fn empty() -> Self;
 }
 
@@ -168,16 +201,33 @@ pub trait SourceStream<TT, DA>: Iterator<Item = SourceIterItem<TT::Pos>>
     where TT: TextConcat<DA>,
           DA: DatumAllocator<TT = TT> + ?Sized,
 {
-    /// TODO
+    /// Returns a reference to the next item's value without advancing the
+    /// iterator and without interfering with any pending accumulation.
     fn peek(&mut self) -> Option<&<Self as Iterator>::Item>;
 
-    /// TODO
+    /// Get the next item, if any, and add it to a pending, or start a new,
+    /// accumulation, and return the item.
+    ///
+    /// When there is `None` next item, any pending accumulation is preserved.
+    ///
+    /// The `DatumAllocator` argument may be used by some implementing types but
+    /// is often ignored.  If ignored, the result should always be `Ok`, else an
+    /// allocator error may be possible.
     fn next_accum(&mut self, dalloc: &mut DA)
                   -> Result<Option<<Self as Iterator>::Item>,
                             AllocError>;
 
-    /// TODO ... this is the primary constructor of the text types for the
-    /// parsing
+    /// Take any pending accumulation and return it as a new text, or return an
+    /// empty text if there was nothing pending.
+    ///
+    /// The accumulation state is reset to nothing.
+    ///
+    /// This is the primary constructor of the text values returned by the
+    /// `Parser`s.
+    ///
+    /// The `DatumAllocator` argument may be used by some implementing types but
+    /// is often ignored.  If ignored, the result should always be `Ok`, else an
+    /// allocator error may be possible.
     fn accum_done(&mut self, dalloc: &mut DA) -> Result<TT, AllocError>;
 }
 
@@ -187,8 +237,14 @@ pub trait SourceStream<TT, DA>: Iterator<Item = SourceIterItem<TT::Pos>>
 /// of bindings of macros.
 #[derive(Debug)]
 pub struct Parser<CC, DA, OB> {
+    /// The character classifier. Determines which `char`s are the format's
+    /// delimiters.
     pub classifier: CC,
+    /// The `Datum` allocator. Determines how and where returned AST nodes are
+    /// allocated.
     pub allocator: DA,
+    /// The operator bindings. Determines which, if any, operator forms are
+    /// bound to macros.
     pub bindings: OB,
 }
 
@@ -216,7 +272,7 @@ impl<CC, DA, OB> Parser<CC, DA, OB>
 /// [`Parser`](struct.Parser.html)'s parameterization.
 #[derive(Debug)]
 pub struct ParseIter<'p, Prsr, SrcStrm>
-    where Prsr: ?Sized + 'p,
+    where Prsr: ?Sized,
 {
     parser: &'p mut Prsr,
     src_strm: SrcStrm,
@@ -329,6 +385,7 @@ impl<'p, CC, DA, OB, S>
        }
      }
 
+    #[allow(unused_results)]
     fn parse_text(&mut self, mode: ParseTextMode) -> ParseResult<DA, OB>
     {
         #[inline]
@@ -409,6 +466,7 @@ impl<'p, CC, DA, OB, S>
         }
     }
 
+    #[allow(unused_results)]
     fn parse_nested(&mut self) -> ParseResultOption<DA, OB>
     {
         let end = |slf: &mut Self| {
@@ -505,6 +563,7 @@ impl<'p, CC, DA, OB, S>
     }
 
     #[inline]
+    #[allow(unused_results)]
     fn skip_whitespace(&mut self) {
         let chclass = &self.parser.classifier;
         while self.src_strm.peek()

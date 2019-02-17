@@ -45,6 +45,38 @@
 
 
 #![forbid(unsafe_code)]
+
+// Warn about desired lints that would otherwise be allowed by default.
+#![warn(
+    // Groups
+    future_incompatible,
+    nonstandard_style,
+    rust_2018_compatibility, // unsure if needed with Cargo.toml having edition="2018"
+    rust_2018_idioms,
+    unused,
+    // Individual lints not included in above groups and desired.
+    macro_use_extern_crate,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    missing_docs,
+    // missing_doc_code_examples, // maybe someday
+    private_doc_tests,
+    // single_use_lifetimes, // annoying hits on invisible derived impls
+    trivial_casts,
+    trivial_numeric_casts,
+    unreachable_pub,
+    unused_import_braces,
+    unused_lifetimes,
+    unused_qualifications,
+    unused_results,
+    variant_size_differences,
+)]
+// Lints included by above groups but desired to be allowed.
+#![allow(
+    explicit_outlives_requirements, // annoying hits on invisible derived impls
+)]
+
+// Warn about all Clippy lints, including those otherwise allowed by default.
 #![warn(clippy::all)]
 
 

@@ -111,6 +111,7 @@ pub fn to_arc_str(s: String) -> Arc<str> {
 ///
 /// [`SourceStream`]: ../../kruvi_core/trait.SourceStream.html
 /// [`StrishIterSourceStream`]: struct.StrishIterSourceStream.html
+#[derive(Debug)]
 pub struct CharIterSourceStream<CI, F, R>
     where CI: Iterator<Item = char>,
           F: Fn(String) -> R,
@@ -123,8 +124,9 @@ pub struct CharIterSourceStream<CI, F, R>
     to_refcnt_strish: F,
 }
 
-type PeekableSourceIterItemIter<CI>
-    = Peekable<Map<Enumerate<CI>, fn((usize, char)) -> SourceIterItem<CharPos>>>;
+type PeekableSourceIterItemIter<CI> = Peekable<Map<Enumerate<CI>, MapFn>>;
+
+type MapFn = fn((usize, char)) -> SourceIterItem<CharPos>;
 
 impl<CI, F, R> CharIterSourceStream<CI, F, R>
     where CI: Iterator<Item = char>,
@@ -143,11 +145,11 @@ impl<CI, F, R> CharIterSourceStream<CI, F, R>
     pub fn new<I>(iter: I, to_refcnt_strish: F) -> Self
         where I: IntoIterator<IntoIter = CI, Item = char>,
     {
+        let map_fn: MapFn = |(pos, ch)| SourceIterItem{ch, pos: CharPos(pos)};
         Self {
             pe_iter: iter.into_iter()
                          .enumerate()
-                         .map((|(pos, ch)| SourceIterItem{ch, pos: CharPos(pos)})
-                              as fn((usize, char)) -> SourceIterItem<CharPos>)
+                         .map(map_fn)
                          .peekable(),
             accum: None,
             to_refcnt_strish,

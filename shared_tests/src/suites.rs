@@ -317,9 +317,9 @@ pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
             };
 
             let comb_alloc = |_operator, _operands, dalloc: &mut DA| {
-                Ok(Some(Datum::Combination {
-                    operator: dalloc.new_datum(Datum::EmptyNest)?,
-                    operands: dalloc.new_datum(Datum::EmptyList)?,
+                Ok(Some(Combination {
+                    operator: dalloc.new_datum(EmptyNest)?,
+                    operands: dalloc.new_datum(EmptyList)?,
                 }))
             };
 

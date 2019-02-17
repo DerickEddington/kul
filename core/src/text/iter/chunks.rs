@@ -13,6 +13,7 @@ use crate::{Text, TextChunk};
 /// The implementing type must be able to transition to the next states by
 /// borrowing its type from itself.  E.g. slices and linked lists can do this.
 pub trait State {
+    /// The `Text::Chunk` type we are for.
     type Chunk: TextChunk;
 
     /// Return the next chunk and the next state, or return `None` when
@@ -23,6 +24,7 @@ pub trait State {
 
 /// Iterator that yields a reference to each chunk of a `Text`, by using the
 /// [`State`](trait.State.html) trait of the [`Text::IterChunksState`](TODO).
+#[derive(Debug)]
 pub struct Iter<'l, TT>
     where TT: Text,
 {
@@ -32,6 +34,7 @@ pub struct Iter<'l, TT>
 impl<'l, TT> Iter<'l, TT>
     where TT: Text,
 {
+    /// Make a new one for a given `Text`.
     #[inline]
     pub fn new(text: &'l TT) -> Self {
         Self {
@@ -45,11 +48,11 @@ impl<'l, TT> Iter<'l, TT>
 // because `derive` would place additional bounds on the `TT` type parameter
 // which must be avoided.
 
-impl<'l, TT> Copy for Iter<'l, TT>
+impl<TT> Copy for Iter<'_, TT>
     where TT: Text
 {}
 
-impl<'l, TT> Clone for Iter<'l, TT>
+impl<TT> Clone for Iter<'_, TT>
     where TT: Text
 {
     #[inline]

@@ -14,6 +14,7 @@ pub struct EmptyOperatorBindings;
 
 /// Trick `OperatorBindings` into accepting this for the implementation of
 /// it for `EmptyOperatorBindings`.
+#[derive(Debug)]
 pub struct DummyCombiner<DA, CE>(DA, CE);
 
 

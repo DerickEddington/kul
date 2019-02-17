@@ -24,7 +24,7 @@ pub struct StrPos<'s> {
     pub char_pos: usize,
 }
 
-impl<'s> SourcePosition for StrPos<'s> {
+impl SourcePosition for StrPos<'_> {
     #[inline]
     fn empty() -> Self {
         StrPos {
@@ -107,6 +107,7 @@ impl<'s> TextChunk for PosStr<'s> {
 /// The positions of the characters remain correct relative to the original
 /// source string that the `PosStr`'s slice is from.  (I.e. not relative to the
 /// slice.)
+#[derive(Debug)]
 pub struct PosStrIter<'s> {
     pei_iter: PeekableSourceIterItemIter<'s>,
     accum: Option<PosStr<'s>>,
@@ -115,24 +116,22 @@ pub struct PosStrIter<'s> {
 type PeekableSourceIterItemIter<'s>
     = Peekable<Map<Zip<Enumerate<CharIndices<'s>>,
                        Repeat<StrPos<'s>>>,
-                   fn(((usize, (usize, char)), StrPos<'s>))
-                      -> SourceIterItem<StrPos<'s>>>>;
+                   MapFn<'s>>>;
+
+type MapFn<'s> = fn(((usize, (usize, char)), StrPos<'s>)) -> SourceIterItem<StrPos<'s>>;
 
 impl<'s> PosStrIter<'s> {
     fn new(posstr: &PosStr<'s>) -> Self {
+        let map_fn: MapFn<'s> = |((char_pos, (byte_pos, ch)), mut pos)| {
+            pos.byte_pos += byte_pos;
+            pos.char_pos += char_pos;
+            SourceIterItem{ch, pos}
+        };
         Self {
             pei_iter: posstr.val.char_indices()
                                 .enumerate()
                                 .zip(iter::repeat(posstr.pos))
-                                .map((|((char_pos, (byte_pos, ch)), mut pos)| {
-                                    pos.byte_pos += byte_pos;
-                                    pos.char_pos += char_pos;
-                                    SourceIterItem {
-                                        ch,
-                                        pos,
-                                    }
-                                }) as fn(((usize, (usize, char)), StrPos<'s>))
-                                         -> SourceIterItem<StrPos<'s>>)
+                                .map(map_fn)
                                 .peekable(),
             accum: None,
         }

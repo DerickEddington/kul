@@ -25,11 +25,13 @@ pub mod premade {
 pub trait TextBase
     where Self: Sized,
 {
-    /// TODO
+    /// Positional information used with our chunks and `char`s.
     type Pos: SourcePosition;
 
+    /// Make an empty one.
     fn empty() -> Self;
 
+    /// Predicate for if an instance is an empty one.
     fn is_empty(&self) -> bool;
 }
 
@@ -52,10 +54,21 @@ pub mod chunk {
     pub trait SourceStream<C>: Iterator<Item = SourceIterItem<C::Pos>>
         where C: TextChunk,
     {
+        /// Returns a reference to the next item's value without advancing the
+        /// iterator and without interfering with any pending accumulation.
         fn peek(&mut self) -> Option<&<Self as Iterator>::Item>;
 
+        /// Get the next item, if any, and add it to a pending, or start a new,
+        /// accumulation, and return the item.
+        ///
+        /// When there is `None` next item, any pending accumulation is
+        /// preserved.
         fn next_accum(&mut self) -> Option<<Self as Iterator>::Item>;
 
+        /// Take any pending accumulation and return it as a new chunk, or
+        /// return an empty chunk if there was nothing pending.
+        ///
+        /// The accumulation state is reset to nothing.
         fn accum_done(&mut self) -> C;
     }
 }
@@ -63,10 +76,14 @@ pub mod chunk {
 /// A sequence of characters that serves as a single chunk in the underlying
 /// representation of some `Text` type.
 pub trait TextChunk: TextBase {
+    /// Our `chunk::SourceStream` type.
     // FUTURE: Use `generic_associated_types` so this can have a lifetime
     // parameter.
     type CharsSrcStrm: chunk::SourceStream<Self>;
 
+    /// Construct a new iterator, which is also a `chunk::SourceStream`, that
+    /// yields the character sequence, and their positions, of the given `self`
+    /// chunk.
     // FUTURE: Use `generic_associated_types` to enable having the same lifetime
     // in `CharsSrcStrm<'_>` as this method call's borrow of `self`.  This will
     // enable new possibilities of implementation such as multi-level chunking
@@ -111,6 +128,8 @@ pub trait Text: TextBase
     /// calls' borrows of `self`.
     type IterChunksState: iter::chunks::State<Chunk = Self::Chunk> + ?Sized;
 
+    /// Make an instance of our `Self` from anything that can convert into a
+    /// single chunk of our `Chunk` type.
     #[inline]
     fn from_chunkish<T>(v: T) -> Self
         where T: Into<Self::Chunk>
@@ -118,6 +137,8 @@ pub trait Text: TextBase
         Self::from(v.into())
     }
 
+    /// Make an instance of our `Self` from a `&str` slice, if our `Chunk` type
+    /// can convert from that.
     #[inline]
     fn from_str<'s>(s: &'s str) -> Self
         where Self::Chunk: From<&'s str>
@@ -125,20 +146,58 @@ pub trait Text: TextBase
         Self::from_chunkish(s)
     }
 
+    /// Equality comparison with any other type of `Text`.  Compares the logical
+    /// sequences of `char`s.
+    ///
+    /// Useful here because `PartialEq` cannot be blanket-implemented between
+    /// all generic `Text` types.  The default implementation uses our special
+    /// iterator type to enable comparing across arbitrary, often inconsistent,
+    /// chunk boundaries.
+    ///
+    /// This is actually a full equivalence relation.
     fn partial_eq<O: Text>(&self, other: &O) -> bool {
         self.iter().map(sii_ch).eq(other.iter().map(sii_ch))
     }
 
+    /// Ordering comparison with any other type of `Text`.  Compares the logical
+    /// sequences of `char`s lexicographically.
+    ///
+    /// Useful here because `PartialOrd` cannot be blanket-implemented between
+    /// all generic `Text` types.  The default implementation uses our special
+    /// iterator type to enable comparing across arbitrary, often inconsistent,
+    /// chunk boundaries.
+    ///
+    /// A `None` result must not be allowed because this is actually a total
+    /// ordering.
     fn partial_cmp<O: Text>(&self, other: &O) -> Option<Ordering> {
         self.iter().map(sii_ch).partial_cmp(other.iter().map(sii_ch))
     }
 
+    /// Ordering comparison with our same type of `Text`.  Compares the logical
+    /// sequences of `char`s lexicographically.
+    ///
+    /// Useful here because `Ord` cannot be blanket-implemented for all generic
+    /// `Text` types.  The default implementation uses our special iterator type
+    /// to enable comparing across arbitrary, often inconsistent, chunk
+    /// boundaries.
     fn cmp(&self, other: &Self) -> Ordering {
         self.iter().map(sii_ch).cmp(other.iter().map(sii_ch))
     }
 
+    /// Return a borrow of our `self`'s particular representation of chained
+    /// chunks to be used by our special iterator types.
+    ///
+    /// A `None` return means we have zero chunks (and so are logically empty),
+    /// but a `Some` return with one or more chunks may also represent logical
+    /// emptiness, and some types do canonically represent emptiness with at
+    /// least one chunk.
     fn iter_chunks_state(&self) -> Option<&Self::IterChunksState>;
 
+    /// Construct a new iterator that yields borrows of each of our underlying
+    /// chunks.
+    ///
+    /// Used by both the special `text::iter::Iter` and by some other things
+    /// that want to process each chunk.
     #[inline]
     fn iter_chunks(&self) -> iter::chunks::Iter<'_, Self> {
         iter::chunks::Iter::new(self)

@@ -74,6 +74,7 @@ fn each_char<S>(input: &'static str) -> Map<Split<'static, &'static str>,
     input.split("").map(S::from_str)
 }
 
+#[allow(unused_results)]
 fn grouped<S>(lens: Vec<usize>)
               -> impl Fn(&'static str) -> Map<vec::IntoIter<String>,
                                               fn(String) -> S>

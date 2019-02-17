@@ -1,5 +1,7 @@
 //! Utilities for constructing `Datum` trees of various shapes.
 
+#![allow(missing_docs)]
+
 use std::env;
 use std::rc::{Rc, Weak as WeakRc};
 use std::sync::{Arc, Weak as WeakArc};
@@ -249,6 +251,7 @@ pub fn make_rc_weak_list(len: usize) -> DatumRc<TT, ExtraWeakRc> {
 }
 
 /// Allows the needed recursive type definition
+#[allow(missing_debug_implementations)]
 pub struct ExtraWeakRc (Cell<Option<WeakRc<RcDatum<TT, ExtraWeakRc>>>>);
 
 /// `Arc` lists with elements as weak refs to their parents
@@ -271,6 +274,7 @@ pub fn make_arc_weak_list(len: usize) -> DatumArc<TT, ExtraWeakArc> {
 }
 
 /// Allows the needed recursive type definition
+#[allow(missing_debug_implementations)]
 pub struct ExtraWeakArc (Cell<Option<WeakArc<ArcDatum<TT, ExtraWeakArc>>>>);
 
 /// `Rc` lists with additional strong references to some of the "next" tails

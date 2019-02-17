@@ -16,6 +16,38 @@
 
 
 #![forbid(unsafe_code)]
+
+// Warn about desired lints that would otherwise be allowed by default.
+#![warn(
+    // Groups
+    future_incompatible,
+    nonstandard_style,
+    rust_2018_compatibility, // unsure if needed with Cargo.toml having edition="2018"
+    rust_2018_idioms,
+    unused,
+    // Individual lints not included in above groups and desired.
+    macro_use_extern_crate,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    missing_docs,
+    // missing_doc_code_examples, // maybe someday
+    private_doc_tests,
+    // single_use_lifetimes, // annoying hits on invisible derived impls
+    trivial_casts,
+    trivial_numeric_casts,
+    unreachable_pub,
+    unused_import_braces,
+    unused_lifetimes,
+    unused_qualifications,
+    unused_results,
+    variant_size_differences,
+)]
+// Lints included by above groups but desired to be allowed.
+#![allow(
+    explicit_outlives_requirements, // annoying hits on invisible derived impls
+)]
+
+// Warn about all Clippy lints, including those otherwise allowed by default.
 #![warn(clippy::all)]
 
 
@@ -29,11 +61,13 @@ use kruvi::text::TextVec;
 
 
 pub mod suites;
+/// Utilities for testing.
 pub mod utils {
     pub mod tree_shapes;
 }
 
 
+/// Useful for some tests that need some type of `Text`.
 pub type TestStrText = TextVec<PosStr<'static>>;
 
 
@@ -158,8 +192,8 @@ mod custom_delim {
     use super::*;
 
     /// `Parser` that converts another `Parser` to make it use custom delimiters
-    pub fn parser<CC, DA, OB>(parser: Parser<CC, DA, OB>, spec: Spec)
-                              -> Parser<CustomDelimCC, DA, OB> {
+    pub(crate) fn parser<CC, DA, OB>(parser: Parser<CC, DA, OB>, spec: Spec)
+                                     -> Parser<CustomDelimCC, DA, OB> {
         Parser {
             classifier: CustomDelimCC(spec),
             allocator: parser.allocator,
@@ -167,14 +201,14 @@ mod custom_delim {
         }
     }
 
-    pub struct Spec {
-        pub nest_start: Vec<char>,
-        pub nest_end: Vec<char>,
-        pub nest_escape: Vec<char>,
-        pub whitespace: Vec<char>,
+    pub(crate) struct Spec {
+        pub(crate) nest_start: Vec<char>,
+        pub(crate) nest_end: Vec<char>,
+        pub(crate) nest_escape: Vec<char>,
+        pub(crate) whitespace: Vec<char>,
     }
 
-    pub struct CustomDelimCC(Spec);
+    pub(crate) struct CustomDelimCC(Spec);
 
     impl CharClassifier for CustomDelimCC {
         fn is_nest_start(&self, c: char) -> bool {
@@ -229,31 +263,31 @@ mod tests {
         use kruvi_core::datum::premade::DatumMutRef;
 
         assert_eq!(Datum::Text::<_, EtIgnore, ExpectedDatumRef>(ExpectedText("a")),
-                   Datum::Text::<TestStrText, (), DatumMutRef<TestStrText, ()>>(
+                   Datum::Text::<TestStrText, (), DatumMutRef<'_, TestStrText, ()>>(
                        Text::from_str("a")));
 
         assert_eq!(Combination::<_, EtIgnore, ExpectedDatumRef>{
                        operator: dr(EmptyNest),
                        operands: dr(EmptyList)},
-                   Combination::<TestStrText, i32, DatumMutRef<TestStrText, i32>>{
+                   Combination::<TestStrText, i32, DatumMutRef<'_, TestStrText, i32>>{
                        operator: DatumMutRef(&mut EmptyNest),
                        operands: DatumMutRef(&mut EmptyList)});
 
         assert_eq!(EmptyNest::<_, EtIgnore, ExpectedDatumRef>,
-                   EmptyNest::<TestStrText, f64, DatumMutRef<TestStrText, f64>>);
+                   EmptyNest::<TestStrText, f64, DatumMutRef<'_, TestStrText, f64>>);
 
         assert_eq!(List::<_, EtIgnore, ExpectedDatumRef>{
                        elem: dr(EmptyNest),
                        next: dr(EmptyList)},
-                   List::<TestStrText, &str, DatumMutRef<TestStrText, &str>>{
+                   List::<TestStrText, &str, DatumMutRef<'_, TestStrText, &str>>{
                        elem: DatumMutRef(&mut EmptyNest),
                        next: DatumMutRef(&mut EmptyList)});
 
         assert_eq!(EmptyList::<_, EtIgnore, ExpectedDatumRef>,
-                   EmptyList::<TestStrText, bool, DatumMutRef<TestStrText, bool>>);
+                   EmptyList::<TestStrText, bool, DatumMutRef<'_, TestStrText, bool>>);
 
         assert_eq!(Extra::<_, EtIgnore, ExpectedDatumRef>(EtIgnore),
-                   Extra::<TestStrText, &str, DatumMutRef<TestStrText, &str>>("foo"));
+                   Extra::<TestStrText, &str, DatumMutRef<'_, TestStrText, &str>>("foo"));
     }
 
     #[test]

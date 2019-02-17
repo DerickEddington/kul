@@ -36,7 +36,9 @@ pub enum Combiner<OperativeRef, ApplicativeRef>
           ApplicativeRef: DerefMut,
           ApplicativeRef::Target: ApplicativeTrait,
 {
+    /// An "operative" combiner, which is given unparsed operands text.
     Operative(OperativeRef),
+    /// An "applicative" combiner, which is given parsed operands list.
     Applicative(ApplicativeRef),
 }
 

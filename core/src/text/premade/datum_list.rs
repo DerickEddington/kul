@@ -34,7 +34,7 @@ pub struct TextDatumList<'d, C, ET> {
 }
 
 
-impl<'d, C, ET> From<C> for TextDatumList<'d, C, ET>
+impl<C, ET> From<C> for TextDatumList<'_, C, ET>
     where C: TextChunk,
 {
     #[inline]
@@ -48,7 +48,7 @@ impl<'d, C, ET> From<C> for TextDatumList<'d, C, ET>
 }
 
 
-impl<'d, TT, C, ET> PartialEq<TT> for TextDatumList<'d, C, ET>
+impl<TT, C, ET> PartialEq<TT> for TextDatumList<'_, C, ET>
     where TT: Text,
           C: TextChunk,
 {
@@ -58,11 +58,11 @@ impl<'d, TT, C, ET> PartialEq<TT> for TextDatumList<'d, C, ET>
     }
 }
 
-impl<'d, C, ET> Eq for TextDatumList<'d, C, ET>
+impl<C, ET> Eq for TextDatumList<'_, C, ET>
     where C: TextChunk,
 {}
 
-impl<'d, TT, C, ET> PartialOrd<TT> for TextDatumList<'d, C, ET>
+impl<TT, C, ET> PartialOrd<TT> for TextDatumList<'_, C, ET>
     where TT: Text,
           C: TextChunk,
 {
@@ -72,7 +72,7 @@ impl<'d, TT, C, ET> PartialOrd<TT> for TextDatumList<'d, C, ET>
     }
 }
 
-impl<'d, C, ET> Ord for TextDatumList<'d, C, ET>
+impl<C, ET> Ord for TextDatumList<'_, C, ET>
     where C: TextChunk,
 {
     #[inline]
@@ -87,7 +87,7 @@ impl<'d, C, ET> Ord for TextDatumList<'d, C, ET>
 ///
 /// This type is its own `iter::chunks::State` because the links are contained
 /// in it.
-impl<'d, C, ET> text::iter::chunks::State for TextDatumList<'d, C, ET>
+impl<C, ET> text::iter::chunks::State for TextDatumList<'_, C, ET>
     where C: TextChunk,
 {
     type Chunk = C;
@@ -107,7 +107,7 @@ impl<'d, C, ET> text::iter::chunks::State for TextDatumList<'d, C, ET>
 }
 
 
-impl<'d, C, ET> TextBase for TextDatumList<'d, C, ET>
+impl<C, ET> TextBase for TextDatumList<'_, C, ET>
     where C: TextChunk,
 {
     type Pos = C::Pos;
@@ -123,7 +123,7 @@ impl<'d, C, ET> TextBase for TextDatumList<'d, C, ET>
     }
 }
 
-impl<'d, C, ET> Text for TextDatumList<'d, C, ET>
+impl<C, ET> Text for TextDatumList<'_, C, ET>
     where C: TextChunk,
 {
     type Chunk = C;

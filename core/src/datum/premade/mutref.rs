@@ -28,7 +28,7 @@ impl<'d, TT, ET> Deref for DatumMutRef<'d, TT, ET> {
 }
 
 /// Not strictly required but useful.
-impl<'d, TT, ET> DerefMut for DatumMutRef<'d, TT, ET> {
+impl<TT, ET> DerefMut for DatumMutRef<'_, TT, ET> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
@@ -36,7 +36,7 @@ impl<'d, TT, ET> DerefMut for DatumMutRef<'d, TT, ET> {
 
 /// This allows basic direct mutable borrow references to be used as the `Datum`
 /// reference type.
-impl<'d, TT, ET> DerefTryMut for DatumMutRef<'d, TT, ET> {
+impl<TT, ET> DerefTryMut for DatumMutRef<'_, TT, ET> {
     fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
         Some(DerefMut::deref_mut(this))
     }
