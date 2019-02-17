@@ -34,7 +34,7 @@ impl<TT, C> PartialEq<TT> for TextVec<C>
 {
     #[inline]
     fn eq(&self, other: &TT) -> bool {
-        Text::partial_eq(self, other)
+        Text::eq(self, other)
     }
 }
 
@@ -48,7 +48,7 @@ impl<TT, C> PartialOrd<TT> for TextVec<C>
 {
     #[inline]
     fn partial_cmp(&self, other: &TT) -> Option<Ordering> {
-        Text::partial_cmp(self, other)
+        Some(Text::cmp(self, other))
     }
 }
 

@@ -54,7 +54,7 @@ impl<TT, C, ET> PartialEq<TT> for TextDatumList<'_, C, ET>
 {
     #[inline]
     fn eq(&self, other: &TT) -> bool {
-        Text::partial_eq(self, other)
+        Text::eq(self, other)
     }
 }
 
@@ -68,7 +68,7 @@ impl<TT, C, ET> PartialOrd<TT> for TextDatumList<'_, C, ET>
 {
     #[inline]
     fn partial_cmp(&self, other: &TT) -> Option<Ordering> {
-        Text::partial_cmp(self, other)
+        Some(Text::cmp(self, other))
     }
 }
 

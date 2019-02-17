@@ -149,38 +149,26 @@ pub trait Text: TextBase
     /// Equality comparison with any other type of `Text`.  Compares the logical
     /// sequences of `char`s.
     ///
-    /// Useful here because `PartialEq` cannot be blanket-implemented between
-    /// all generic `Text` types.  The default implementation uses our special
-    /// iterator type to enable comparing across arbitrary, often inconsistent,
-    /// chunk boundaries.
+    /// Useful here because `PartialEq` and `Eq` cannot be blanket-implemented
+    /// between all generic `Text` types.  The default implementation uses our
+    /// special iterator type to enable comparing across arbitrary, often
+    /// inconsistent, chunk boundaries.
     ///
-    /// This is actually a full equivalence relation.
-    fn partial_eq<O: Text>(&self, other: &O) -> bool {
+    /// This is a full equivalence relation.
+    fn eq<O: Text>(&self, other: &O) -> bool {
         self.iter().map(sii_ch).eq(other.iter().map(sii_ch))
     }
 
     /// Ordering comparison with any other type of `Text`.  Compares the logical
     /// sequences of `char`s lexicographically.
     ///
-    /// Useful here because `PartialOrd` cannot be blanket-implemented between
-    /// all generic `Text` types.  The default implementation uses our special
-    /// iterator type to enable comparing across arbitrary, often inconsistent,
-    /// chunk boundaries.
+    /// Useful here because `PartialOrd` and `Ord` cannot be blanket-implemented
+    /// between all generic `Text` types.  The default implementation uses our
+    /// special iterator type to enable comparing across arbitrary, often
+    /// inconsistent, chunk boundaries.
     ///
-    /// A `None` result must not be allowed because this is actually a total
-    /// ordering.
-    fn partial_cmp<O: Text>(&self, other: &O) -> Option<Ordering> {
-        self.iter().map(sii_ch).partial_cmp(other.iter().map(sii_ch))
-    }
-
-    /// Ordering comparison with our same type of `Text`.  Compares the logical
-    /// sequences of `char`s lexicographically.
-    ///
-    /// Useful here because `Ord` cannot be blanket-implemented for all generic
-    /// `Text` types.  The default implementation uses our special iterator type
-    /// to enable comparing across arbitrary, often inconsistent, chunk
-    /// boundaries.
-    fn cmp(&self, other: &Self) -> Ordering {
+    /// This is a total ordering relation.
+    fn cmp<O: Text>(&self, other: &O) -> Ordering {
         self.iter().map(sii_ch).cmp(other.iter().map(sii_ch))
     }
 

@@ -328,15 +328,15 @@ pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
             };
 
             if let Datum::Text(text) = operator {
-                if text.partial_eq(&DA::TT::from_str(self.o)) {
+                if text.eq(&DA::TT::from_str(self.o)) {
                     return Some(Combiner::Operative(Box::new(just_operands)))
-                } else if text.partial_eq(&DA::TT::from_str(self.a)) {
+                } else if text.eq(&DA::TT::from_str(self.a)) {
                     return Some(Combiner::Applicative(Box::new(just_operands)))
-                } else if text.partial_eq(&DA::TT::from_str(self.r)) {
+                } else if text.eq(&DA::TT::from_str(self.r)) {
                     return Some(Combiner::Applicative(Box::new(remove)))
-                } else if text.partial_eq(&DA::TT::from_str(self.c)) {
+                } else if text.eq(&DA::TT::from_str(self.c)) {
                     return Some(Combiner::Operative(Box::new(comb_alloc)))
-                } else if text.partial_eq(&DA::TT::from_str(self.f)) {
+                } else if text.eq(&DA::TT::from_str(self.f)) {
                     return Some(Combiner::Operative(Box::new(fail_alloc)))
                 }
             }
