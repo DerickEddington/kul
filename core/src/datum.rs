@@ -51,6 +51,7 @@ pub enum Datum<TextType, ExtraType, DatumRef>
 /// types](enum.Datum.html#variant.Extra) can be.  This also avoids stack
 /// overflows for long lists and deep nests (but can still overflow on other
 /// deep tree shapes, but those are rare).
+#[allow(clippy::match_same_arms)]
 impl<TT1, TT2, ET1, ET2, DR1, DR2>
     PartialEq<Datum<TT2, ET2, DR2>>
     for Datum<TT1, ET1, DR1>
@@ -62,23 +63,23 @@ impl<TT1, TT2, ET1, ET2, DR1, DR2>
     fn eq(&self, other: &Datum<TT2, ET2, DR2>) -> bool {
         use Datum::*;
 
-        let (mut slf, mut oth) = (self, other);
+        let (mut left, mut right) = (self, other);
         loop {
-            match (slf, oth) {
+            match (left, right) {
                 (Text(txt1), Text(txt2))
                     => break *txt1 == *txt2,
                 (Combination{operator: rtr1, operands: rnds1},
                  Combination{operator: rtr2, operands: rnds2})
                     => if **rnds1 == **rnds2 {
-                        slf = &**rtr1;
-                        oth = &**rtr2;
+                        left = &**rtr1;
+                        right = &**rtr2;
                     } else { break false },
                 (EmptyNest, EmptyNest)
                     => break true,
                 (List{elem: e1, next: n1}, List{elem: e2, next: n2})
                     => if **e1 == **e2 {
-                        slf = &**n1;
-                        oth = &**n2;
+                        left = &**n1;
+                        right = &**n2;
                     } else { break false },
                 (EmptyList, EmptyList)
                     => break true,

@@ -25,6 +25,8 @@
     rust_2018_compatibility, // unsure if needed with Cargo.toml having edition="2018"
     rust_2018_idioms,
     unused,
+    clippy::all,
+    clippy::pedantic,
     // Individual lints not included in above groups and desired.
     macro_use_extern_crate,
     missing_copy_implementations,
@@ -42,13 +44,11 @@
     unused_results,
     variant_size_differences,
 )]
-// Lints included by above groups but desired to be allowed.
+// Exclude (re-allow) undesired lints included in above groups.
 #![allow(
     explicit_outlives_requirements, // annoying hits on invisible derived impls
+    clippy::non_ascii_literal,
 )]
-
-// Warn about all Clippy lints, including those otherwise allowed by default.
-#![warn(clippy::all)]
 
 
 use std::ops::{Deref, DerefMut};

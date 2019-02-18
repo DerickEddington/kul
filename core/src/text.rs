@@ -1,5 +1,7 @@
 //! Traits that are our abstraction of "text".
 
+#![allow(clippy::stutter)]
+
 use core::cmp::Ordering;
 
 use crate::{SourceIterItem, SourcePosition};

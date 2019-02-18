@@ -78,7 +78,7 @@ pub fn test_suite0<DA>(p: Parser<DefaultCharClassifier,
 /// In either case, the given `Parser`'s `Text` type is always exercised to the
 /// degree that parsing constructs values of it in the produced `Datum`s which
 /// are compared with the expected test-case outputs.
-#[allow(clippy::cyclomatic_complexity)]
+#[allow(clippy::cyclomatic_complexity, clippy::needless_pass_by_value)]
 pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
                                                 DA,
                                                 EmptyOperatorBindings>,
@@ -126,7 +126,7 @@ pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
 
         ($input:expr => ($ass:ident $parser:expr) [$($expected:expr),*])
             =>
-        {//dbg!($input);
+        { {
          let parser = &mut $parser;
          let input = $input;
          $ass!(expect(vec![$($expected),*]),
@@ -135,7 +135,7 @@ pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
                } else {
                    parse_all(parser, DA::TT::from_str(input).iter())
                });
-        };
+        } };
     }
 
     // Basics
@@ -288,6 +288,7 @@ pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
     // Parsing modes for Operatives and Applicatives. (This doesn't really
     // exercise combiners/macros, just does the bare minimum with them to test
     // the core parser's fixed modes for them.)
+    { // Use new block to limit the scope of the below items.
 
     struct BasicCombiners {
         o: &'static str, // operative
@@ -434,6 +435,7 @@ pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
     test!("{oo {ff}}" =>(c) [Ok(text("{ff}"))]);
     test!("{aa x{ff}y}" =>(c) [Err(FailedAlloc(AllocError::AllocExhausted)),
                                Err(UnbalancedEndChar(PosIgnore))]);
+    } // End of block for combiner tests.
 }
 
 // TODO: Suite for Parsers that provide character position.

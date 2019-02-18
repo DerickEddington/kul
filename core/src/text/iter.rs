@@ -104,7 +104,7 @@ impl<'l, TT, DA> SourceStream<TT, DA> for Iter<'l, TT>
         // change for a peek.
         let mut cur_chunk_src_strm;
         let mut cur_chunk_src_strm_ref = &mut self.cur_chunk_src_strm;
-        let mut next_chunks_iter = self.next_chunks_iter; // copy
+        let mut next_chunks_iter = self.next_chunks_iter.clone();
         loop {
             if let Some(ccss) = cur_chunk_src_strm_ref {
                 if let Some(it) = ccss.peek() {

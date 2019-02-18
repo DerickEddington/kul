@@ -76,22 +76,22 @@ mod seal_refcnt_strish {
 }
 
 impl RefCntStrish for Rc<String> {
-    #[inline] fn from_str(s: &str) -> Self { Rc::new(String::from(s)) }
+    #[inline] fn from_str(s: &str) -> Self { Self::new(String::from(s)) }
 }
 impl RefCntStrish for Rc<Box<str>> {
-    #[inline] fn from_str(s: &str) -> Self { Rc::new(Box::from(s)) }
+    #[inline] fn from_str(s: &str) -> Self { Self::new(Box::from(s)) }
 }
 impl RefCntStrish for Rc<str> {
-    #[inline] fn from_str(s: &str) -> Self { Rc::from(s) }
+    #[inline] fn from_str(s: &str) -> Self { Self::from(s) }
 }
 impl RefCntStrish for Arc<String> {
-    #[inline] fn from_str(s: &str) -> Self { Arc::new(String::from(s)) }
+    #[inline] fn from_str(s: &str) -> Self { Self::new(String::from(s)) }
 }
 impl RefCntStrish for Arc<Box<str>> {
-    #[inline] fn from_str(s: &str) -> Self { Arc::new(Box::from(s)) }
+    #[inline] fn from_str(s: &str) -> Self { Self::new(Box::from(s)) }
 }
 impl RefCntStrish for Arc<str> {
-    #[inline] fn from_str(s: &str) -> Self { Arc::from(s) }
+    #[inline] fn from_str(s: &str) -> Self { Self::from(s) }
 }
 
 
@@ -259,6 +259,7 @@ impl<S> TextChunk for PosStrish<S>
 /// The positions of the characters remain correct relative to the original
 /// source that the `PosStrish` is from.  (I.e. not relative to its slice.)
 #[derive(Debug)]
+#[allow(clippy::stutter)]
 pub struct PosStrishIter<S> {
     chunk: PosStrish<S>,
     byte_idx: usize,
@@ -353,12 +354,12 @@ impl<S> text::chunk::SourceStream<PosStrish<S>> for PosStrishIter<S>
     }
 
     fn accum_done(&mut self) -> PosStrish<S> {
-        self.accum.take().map(|(range, pos)|
-                              PosStrish {
-                                  val: self.chunk.val.slice(range),
-                                  pos,
-                              })
-                         .unwrap_or_else(PosStrish::empty)
+        self.accum.take().map_or_else(PosStrish::empty,
+                                      |(range, pos)|
+                                      PosStrish {
+                                          val: self.chunk.val.slice(range),
+                                          pos,
+                                      })
     }
 }
 

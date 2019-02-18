@@ -97,6 +97,8 @@
     rust_2018_compatibility, // unsure if needed with Cargo.toml having edition="2018"
     rust_2018_idioms,
     unused,
+    clippy::all,
+    clippy::pedantic,
     // Individual lints not included in above groups and desired.
     macro_use_extern_crate,
     missing_copy_implementations,
@@ -114,13 +116,11 @@
     unused_results,
     variant_size_differences,
 )]
-// Lints included by above groups but desired to be allowed.
+// Exclude (re-allow) undesired lints included in above groups.
 #![allow(
     explicit_outlives_requirements, // annoying hits on invisible derived impls
+    clippy::non_ascii_literal,
 )]
-
-// Warn about all Clippy lints, including those otherwise allowed by default.
-#![warn(clippy::all)]
 
 
 use core::ops::DerefMut;
@@ -493,47 +493,43 @@ impl<'p, CC, DA, OB, S>
             if self.parser.classifier.is_whitespace(ch) { self.src_strm.next(); }
         }
         // Determine the result.
-        let result = match operator {
+        Ok(if let Some(operator) = operator {
             // Parse the operands according to the operator.
-            Some(operator) => match self.parser.bindings.lookup(&operator) {
+            if let Some(combiner) = self.parser.bindings.lookup(&operator) {
                 // Operator is bound to a combiner macro which will process the
                 // operands and determine the return value.
-                Some(combiner) => match combiner {
-                    // Operatives are given the operands text unparsed to do
-                    // whatever they want with it.
+                match combiner {
                     Combiner::Operative(mut opr) => {
+                        // Operatives are given the operands text unparsed to do
+                        // whatever they want with it.
                         let operands = self.parse_text(ParseTextMode::Operands)?;
                         end(self)?;
                         opr.deref_mut()(operator, operands, &mut self.parser.allocator)?
                     },
-                    // Applicatives are given the recursive parse of the
-                    // operands text as a list of "arguments".
                     Combiner::Applicative(mut apl) => {
+                        // Applicatives are given the recursive parse of the
+                        // operands text as a list of "arguments".
                         let arguments = self.parse_all(ParseTextMode::Base)?;
                         end(self)?;
                         apl.deref_mut()(operator, arguments, &mut self.parser.allocator)?
                     }
-                },
+                }
+            } else {
                 // Not bound, so simply recursively parse operands and return a
                 // value representing the "combination" of operator and operands
                 // forms.
-                None => {
-                    let operands = self.parse_all(ParseTextMode::Base)?;
-                    end(self)?;
-                    Some(Datum::Combination {
-                        operator: self.parser.allocator.new_datum(operator)?,
-                        operands: self.parser.allocator.new_datum(operands)?,
-                    })
-                },
-            }
-            // No operator nor operands. Empty nest form.
-            None => {
+                let operands = self.parse_all(ParseTextMode::Base)?;
                 end(self)?;
-                Some(Datum::EmptyNest)
+                Some(Datum::Combination {
+                    operator: self.parser.allocator.new_datum(operator)?,
+                    operands: self.parser.allocator.new_datum(operands)?,
+                })
             }
-        };
-        // Return result
-        Ok(result)
+        } else {
+            // No operator nor operands. Empty nest form.
+            end(self)?;
+            Some(Datum::EmptyNest)
+        })
     }
 
     fn parse_all(&mut self, mode: ParseTextMode) -> ParseResult<DA, OB> {
@@ -567,8 +563,8 @@ impl<'p, CC, DA, OB, S>
     fn skip_whitespace(&mut self) {
         let chclass = &self.parser.classifier;
         while self.src_strm.peek()
-                           .map(|&SourceIterItem{ch, ..}| chclass.is_whitespace(ch))
-                           .unwrap_or(false)
+                           .map_or(false,
+                                   |&SourceIterItem{ch, ..}| chclass.is_whitespace(ch))
         {
             self.src_strm.next(); // Skip peeked whitespace char
         }

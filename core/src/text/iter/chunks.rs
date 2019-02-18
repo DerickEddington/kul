@@ -44,19 +44,15 @@ impl<'l, TT> Iter<'l, TT>
 }
 
 
-// Note: Must implement `Copy` and `Clone` manually instead of using `derive`
+// Note: Must implement `Clone` manually instead of using `derive`
 // because `derive` would place additional bounds on the `TT` type parameter
 // which must be avoided.
-
-impl<TT> Copy for Iter<'_, TT>
-    where TT: Text
-{}
 
 impl<TT> Clone for Iter<'_, TT>
     where TT: Text
 {
     #[inline]
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self { Self {.. *self} }
 }
 
 
@@ -94,15 +90,15 @@ mod premade {
             type Chunk = C;
 
             fn next(&self) -> Option<(&Self::Chunk, Option<&Self>)> {
-                if !self.is_empty() {
+                if self.is_empty() {
+                    None
+                } else {
                     Some((&self[0],
                           if self.len() > 1 {
                               Some(&self[1..])
                           } else {
                               None
                           }))
-                } else {
-                    None
                 }
             }
         }

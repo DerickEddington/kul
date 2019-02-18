@@ -28,6 +28,7 @@ pub enum Error<SourcePosition, CombinerError> {
 /// compared with each other for equality if their [source position
 /// types](enum.Error.html#variant.UnbalancedEndChar) and [combiner error
 /// types](enum.Error.html#variant.FailedCombiner) can be.
+#[allow(clippy::match_same_arms)]
 impl<P1, P2, CE1, CE2> PartialEq<Error<P2, CE2>> for Error<P1, CE1>
     where P1: PartialEq<P2>,
           CE1: PartialEq<CE2>,

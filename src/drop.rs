@@ -85,9 +85,15 @@ use Datum::EmptyList as TempLeaf;
 /// (At least, this all is what we think this approach does.  We haven't
 /// formally proven it all.  There could be bugs, or this approach might be
 /// inadequate, and maybe some other approach should be used instead.)
-pub fn drop_datum_algo1<TT, ET, DR>(top_dr: &mut DR)
-    where DR: DropAlgo1DatumRef<Target = Datum<TT, ET, DR>>,
+pub fn algo1<TT, ET, DR>(top_dr: &mut DR)
+    where DR: Algo1DatumRef<Target = Datum<TT, ET, DR>>,
 {
+    #[derive(PartialEq, Eq, Copy, Clone)]
+    enum Class { Branch, Leaf }
+
+    #[derive(Copy, Clone)]
+    enum Side { Left, Right }
+
     // Note: We're assumimg that these closures can be optimized and inlined.
     // If not, they should be made into functions that can be.  Closures allow a
     // more convenient definition (the type annotations in them are needed,
@@ -95,19 +101,16 @@ pub fn drop_datum_algo1<TT, ET, DR>(top_dr: &mut DR)
     // parameters and bounds.)
 
     let trytake = |node: &mut DR| -> Option<Datum<TT, ET, DR>> {
-        DropAlgo1DatumRef::try_replace(node, TempLeaf).ok()
+        Algo1DatumRef::try_replace(node, TempLeaf).ok()
     };
 
     let set = |node: &mut DR, val: Datum<TT, ET, DR>| {
-        DropAlgo1DatumRef::set(node, val);
+        Algo1DatumRef::set(node, val);
     };
 
     let temp_branch = |left_dr: DR, right_dr: DR| -> Datum<TT, ET, DR> {
         List{elem: left_dr, next: right_dr}
     };
-
-    #[derive(PartialEq, Eq, Copy, Clone)]
-    enum Class { Branch, Leaf }
 
     let class = |node: &DR| {
         match Deref::deref(node) {
@@ -115,9 +118,6 @@ pub fn drop_datum_algo1<TT, ET, DR>(top_dr: &mut DR)
             _ => Class::Leaf
         }
     };
-
-    #[derive(Copy, Clone)]
-    enum Side { Left, Right }
 
     // Mode for locking the tree-node path pattern chosen for restructuring the
     // tree, during each phase of iteration.  Needed to avoid possible infinite
@@ -159,7 +159,7 @@ pub fn drop_datum_algo1<TT, ET, DR>(top_dr: &mut DR)
     //     }
     //     depth
     // };
-    // println!("drop_datum_algo1(left:{}, right:{})",
+    // println!("algo1(left:{}, right:{})",
     //          depth(Side::Left, &*top_dr), depth(Side::Right, &*top_dr));
 
     if let Class::Leaf = class(top_dr) {
@@ -305,7 +305,7 @@ pub fn drop_datum_algo1<TT, ET, DR>(top_dr: &mut DR)
 
 /// Exists so that `Datum`s can be moved-out of the reference types that refer
 /// to them, even when there are other weak references.
-pub trait DropAlgo1DatumRef: DerefTryMut
+pub trait Algo1DatumRef: DerefTryMut
     where <Self as Deref>::Target: Sized,
 {
     /// Returns the inner `Datum` and replaces it with the given value, if
@@ -322,7 +322,7 @@ pub trait DropAlgo1DatumRef: DerefTryMut
 }
 
 /// This allows using the custom drop algorithm
-impl<TT, ET> DropAlgo1DatumRef for DatumBox<TT, ET>
+impl<TT, ET> Algo1DatumRef for DatumBox<TT, ET>
 {
     #[inline]
     fn try_replace(this: &mut Self, val: Self::Target)
@@ -336,12 +336,12 @@ impl<TT, ET> DropAlgo1DatumRef for DatumBox<TT, ET>
     }
 }
 
-/// Use [algorithm #1](drop/fn.drop_datum_algo1.html) for dropping, to avoid
+/// Use [algorithm #1](drop/fn.algo1.html) for dropping, to avoid
 /// extensive drop recursion.
 impl<TT, ET> Drop for DatumBox<TT, ET> {
     #[inline]
     fn drop(&mut self) {
-        drop_datum_algo1(self);
+        algo1(self);
     }
 }
 
@@ -364,7 +364,7 @@ pub trait RcLike: DerefTryMut
     /// Do `try_unwrap` on the underlying `Rc`-like value.
     fn try_unwrap(rc: Self::RC) -> Result<<Self as Deref>::Target, Self::RC>;
 
-    /// Implementation of `DropAlgo1DatumRef::try_replace` for generic `Rc`-like
+    /// Implementation of `Algo1DatumRef::try_replace` for generic `Rc`-like
     /// types.  The default implementation uses `try_unwrap` and heap allocation
     /// which is inefficient.
     fn try_replace(this: &mut Self, val: <Self as Deref>::Target)
@@ -378,8 +378,7 @@ pub trait RcLike: DerefTryMut
         // replacement, but at least it is often reused by our drop algorithm,
         // and it is freed fairly soon (immediately if the `try_unwrap` here
         // fails).
-        let new_rc = Self::new_rc(val);
-        let old_rc = replace(Self::get_rc(this), new_rc);
+        let old_rc = replace(Self::get_rc(this), Self::new_rc(val));
         match Self::try_unwrap(old_rc) {
             Ok(datum)
                 => Ok(datum),
@@ -397,9 +396,9 @@ pub trait RcLike: DerefTryMut
         }
     }
 
-    /// Implementation of `DropAlgo1DatumRef::set` for generic `Rc`-like types.
+    /// Implementation of `Algo1DatumRef::set` for generic `Rc`-like types.
     /// The default implementation uses `DerefTryMut` and is safe to call after
-    /// a success-return from `DropAlgo1DatumRef::try_replace`.
+    /// a success-return from `Algo1DatumRef::try_replace`.
     #[inline]
     fn set(this: &mut Self, val: <Self as Deref>::Target) {
         // This `unwrap` won't fail because this function is only called after
@@ -429,7 +428,7 @@ pub trait RcLikeAtomicCounts: RcLike
     /// value, guaranteed.
     fn counts(this: &Self) -> (usize, usize);
 
-    /// Optimized implementation of `DropAlgo1DatumRef::try_replace` for generic
+    /// Optimized implementation of `Algo1DatumRef::try_replace` for generic
     /// `Rc`-like types that can supply both strong and weak reference counts
     /// atomically.  The default implementation uses `DerefTryMut` when possible
     /// to avoid the heap allocation and unwrapping that the basic default
@@ -498,7 +497,7 @@ impl<TT, ET> RcLikeAtomicCounts for DatumRc<TT, ET> {
 /// This allows using the custom drop algorithm, and it allows the algorithm to
 /// restructure tree nodes that have other weak references to them (which isn't
 /// possible with `DerefTryMut::get_mut` alone).
-impl<TT, ET> DropAlgo1DatumRef for DatumRc<TT, ET>
+impl<TT, ET> Algo1DatumRef for DatumRc<TT, ET>
 {
     #[inline]
     fn try_replace(this: &mut Self, val: Self::Target)
@@ -512,12 +511,12 @@ impl<TT, ET> DropAlgo1DatumRef for DatumRc<TT, ET>
     }
 }
 
-/// Use [algorithm #1](drop/fn.drop_datum_algo1.html) for dropping, to avoid
+/// Use [algorithm #1](drop/fn.algo1.html) for dropping, to avoid
 /// extensive drop recursion.
 impl<TT, ET> Drop for DatumRc<TT, ET> {
     #[inline]
     fn drop(&mut self) {
-        drop_datum_algo1(self);
+        algo1(self);
     }
 }
 
@@ -544,7 +543,7 @@ impl<TT, ET> RcLike for DatumArc<TT, ET>
 /// This allows using the custom drop algorithm, and it allows the algorithm to
 /// restructure tree nodes that have other weak references to them (which isn't
 /// possible with `DerefTryMut::get_mut` alone).
-impl<TT, ET> DropAlgo1DatumRef for DatumArc<TT, ET>
+impl<TT, ET> Algo1DatumRef for DatumArc<TT, ET>
 {
     // This is not optimized like `DatumRc`'s `try_replace` because `Arc` lacks
     // the ability to atomically get the strong and weak counts.  If `Arc` is
@@ -562,12 +561,12 @@ impl<TT, ET> DropAlgo1DatumRef for DatumArc<TT, ET>
     }
 }
 
-/// Use [algorithm #1](drop/fn.drop_datum_algo1.html) for dropping, to avoid
+/// Use [algorithm #1](drop/fn.algo1.html) for dropping, to avoid
 /// extensive drop recursion.
 impl<TT, ET> Drop for DatumArc<TT, ET> {
     #[inline]
     fn drop(&mut self) {
-        drop_datum_algo1(self);
+        algo1(self);
     }
 }
 

@@ -1,6 +1,8 @@
 //! `Datum` reference types for heap-allocating `Datum`s.  Also re-exports the
 //! core crate's module and premades.
 
+#![allow(clippy::stutter)]
+
 use std::boxed::Box;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -116,6 +118,7 @@ impl<TT, ET> DerefTryMut for DatumArc<TT, ET> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::enum_glob_use)]
     use super::*;
     use kruvi_shared_tests::utils::tree_shapes::*;
     use Datum::*;
