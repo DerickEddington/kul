@@ -35,7 +35,14 @@ impl<Pos, CE> From<AllocError> for Error<Pos, CE> {
 }
 
 
-/// TODO
+/// Classifier of `char`s that determines which are a `Parser`'s special
+/// delimiters.
+///
+/// Enables different applications to use different sets of delimiters.
+/// E.g. URI-friendly characters might be used instead.
+///
+/// Do not make more than one of the predicate methods return `true` for the
+/// same `char`.
 pub trait CharClassifier {
     /// Predicate that determines the character(s) used to delimit the start of
     /// our nesting form.
@@ -56,7 +63,11 @@ pub trait CharClassifier {
 }
 
 
-/// TODO
+/// Allocator of space for `Datum` values that a `Parser` constructs.
+///
+/// Enables the parsing logic to be generic over this aspect so that various
+/// approaches may be chosen depending on the application.  E.g. heap vs. stack
+/// allocation.
 pub trait DatumAllocator {
     /// The `Text` type for our `Datum` type.  It should also implement
     /// `TextConcat<Self>` so it supports concatenation which the parsing
@@ -83,7 +94,10 @@ pub trait DatumAllocator {
 }
 
 
-/// TODO
+/// Environment of bindings of operator sub-forms to macro functions that
+/// substitute forms in a `Parser`'s returned AST.
+///
+/// Enables different applications to use different sets or none at all.
 pub trait OperatorBindings<DA>
     where DA: DatumAllocator,
 {
