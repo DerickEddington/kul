@@ -4,7 +4,7 @@
 use std::cmp::Ordering;
 
 use crate::{Text, TextChunk, TextBase, TextConcat};
-use crate::parser::{DatumAllocator, AllocError};
+use crate::parser::AllocError;
 
 
 /// A representation of texts that uses a `Vec` of chunks, that can work with
@@ -100,7 +100,6 @@ impl<C> Text for TextVec<C>
 /// type.
 impl<C, DA> TextConcat<DA> for TextVec<C>
     where C: TextChunk,
-          DA: DatumAllocator<TT = Self> + ?Sized,
 {
     fn concat(mut self, mut other: Self, _: &mut DA) -> Result<Self, AllocError> {
         self.chunks.append(&mut other.chunks);

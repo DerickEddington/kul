@@ -54,7 +54,7 @@
 use std::ops::{Deref, DerefMut};
 
 use kruvi_core::{SourceStream, SourceIterItem, Parser, ParseIterItem,
-                 Datum, DerefTryMut, Text, Error};
+                 Datum, DerefTryMut, Text, TextConcat, Error};
 use kruvi_core::parser::{CharClassifier, DatumAllocator, OperatorBindings};
 use kruvi_core::text::chunk::premade::PosStr;
 use kruvi::text::TextVec;
@@ -81,8 +81,9 @@ fn parse_all<CC, DA, OB, S>(
     -> Vec<ParseIterItem<DA, OB>>
     where CC: CharClassifier,
           DA: DatumAllocator,
+          DA::TT: TextConcat<DA>,
           OB: OperatorBindings<DA>,
-          S: SourceStream<DA::TT, DA>,
+          S: SourceStream<DA>,
           // DA::DR: Debug,
           // DA::TT: Debug,
           // <DA::TT as TextBase>::Pos: Debug,

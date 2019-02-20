@@ -101,10 +101,20 @@ pub mod source_stream {
 
 pub mod datum;
 
-/// Re-exports the core crate's module and premades.
+/// Types for `Parser`s that use the `std` library, including heap allocation.
+/// Also re-exports the core crate's module and premades.
 pub mod parser {
     #[doc(no_inline)]
     pub use kruvi_core::parser::{*, premade::*};
+
+    mod box_alloc;
+    pub use box_alloc::BoxDatumAllocator;
+
+    mod rc_alloc;
+    pub use rc_alloc::RcDatumAllocator;
+
+    mod arc_alloc;
+    pub use arc_alloc::ArcDatumAllocator;
 }
 
 /// `Text` types that use the `std` library, including heap allocation.  Also

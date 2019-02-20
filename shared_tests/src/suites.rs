@@ -2,7 +2,7 @@
 
 use std::fmt::Debug;
 
-use kruvi_core::{Parser, SourceStream, Text, TextBase, Datum, Combiner,
+use kruvi_core::{Parser, SourceStream, Text, TextBase, TextConcat, Datum, Combiner,
                  Error};
 use kruvi_core::parser::{DatumAllocator, OperatorBindings, AllocError,
                          premade::{DefaultCharClassifier, EmptyOperatorBindings}};
@@ -18,6 +18,7 @@ pub fn test_suite0<DA>(p: Parser<DefaultCharClassifier,
                                  DA,
                                  EmptyOperatorBindings>)
     where DA: DatumAllocator,
+          DA::TT: TextConcat<DA>,
           <DA::TT as Text>::Chunk: From<&'static str>,
           DA::TT: Debug,
           DA::ET: Debug,
@@ -35,7 +36,7 @@ pub fn test_suite0<DA>(p: Parser<DefaultCharClassifier,
         fn next(&mut self) -> Option<Self::Item> { unreachable!() }
     }
 
-    impl<DA> SourceStream<DA::TT, DA> for DummySourceStream<DA>
+    impl<DA> SourceStream<DA> for DummySourceStream<DA>
         where DA: DatumAllocator,
     {
         fn peek(&mut self) -> Option<&<Self as Iterator>::Item> { unreachable!() }
@@ -84,13 +85,14 @@ pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
                                                 EmptyOperatorBindings>,
                                   str_to_src_strm: Option<F>)
     where DA: DatumAllocator,
+          DA::TT: TextConcat<DA>,
           <DA::TT as Text>::Chunk: From<&'static str>,
           DA::TT: Debug,
           DA::ET: Debug,
           DA::DR: Debug,
           <DA::TT as TextBase>::Pos: Debug,
           F: Fn(&'static str) -> S,
-          S: SourceStream<DA::TT, DA>,
+          S: SourceStream<DA>,
 {
     use Datum::{Combination, EmptyNest, List, EmptyList};
     use Error::*;

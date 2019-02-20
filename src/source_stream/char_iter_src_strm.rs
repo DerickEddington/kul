@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::{
-    SourceStream, SourceIterItem, TextConcat, TextBase,
+    SourceStream, SourceIterItem, Text, TextBase,
     text::chunk::{CharPos, PosStrish, RefCntStrish},
     parser::{DatumAllocator, AllocError},
 };
@@ -180,11 +180,11 @@ impl<CI, F, R> Iterator for CharIterSourceStream<CI, F, R>
 
 /// Enables `CharIterSourceStream` to be used as the input source for parsing
 /// with compatible `Parser` types.
-impl<CI, F, R, TT, DA> SourceStream<TT, DA> for CharIterSourceStream<CI, F, R>
+impl<CI, F, R, TT, DA> SourceStream<DA> for CharIterSourceStream<CI, F, R>
     where CI: Iterator<Item = char>,
           F: Fn(String) -> R,
           R: RefCntStrish,
-          TT: TextConcat<DA, Pos = CharPos>,
+          TT: Text<Pos = CharPos>,
           TT::Chunk: From<PosStrish<R>>,
           DA: DatumAllocator<TT = TT> + ?Sized,  // Ignored
 {
@@ -302,65 +302,65 @@ mod tests {
         let dda_arc_string: &mut DummyDA<Arc<String>> = &mut DummyDA(PhantomData);
 
         let mut ciss0 = CharIterSourceStream::new("".chars(), to_rc_string);
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss0), None);
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss0), None);
         assert_eq!(ciss0.next_accum(dda_rc_string), Ok(None));
         assert_eq!(ciss0.accum_done(dda_rc_string).map(|t| t.is_empty()), Ok(true));
 
         let mut ciss1 = CharIterSourceStream::new("Z".chars(), to_arc_box_str);
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss1),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss1),
                    Some(&SourceIterItem{ch: 'Z', pos: CharPos(0)}));
         assert_eq!(ciss1.next_accum(dda_arc_box_str),
                    Ok(Some(SourceIterItem{ch: 'Z', pos: CharPos(0)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss1), None);
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss1), None);
         assert_eq!(ciss1.next_accum(dda_arc_box_str), Ok(None));
         assert_eq!(ciss1.accum_done(dda_arc_box_str).as_ref().map(txt_to_chunks),
                    Ok(vec![("Z", 0)]));
 
         let mut ciss2 = CharIterSourceStream::new(r"y\\x {\}}".chars(), to_rc_str);
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss2),
                    Some(&SourceIterItem{ch: 'y', pos: CharPos(0)}));
         assert_eq!(ciss2.next_accum(dda_rc_str),
                    Ok(Some(SourceIterItem{ch: 'y', pos: CharPos(0)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss2),
                    Some(&SourceIterItem{ch: '\\', pos: CharPos(1)}));
         assert_eq!(ciss2.accum_done(dda_rc_str).as_ref().map(txt_to_chunks),
                    Ok(vec![("y", 0)]));
         assert_eq!(ciss2.next(), Some(SourceIterItem{ch: '\\', pos: CharPos(1)}));
         assert_eq!(ciss2.next_accum(dda_rc_str),
                    Ok(Some(SourceIterItem{ch: '\\', pos: CharPos(2)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss2),
                    Some(&SourceIterItem{ch: 'x', pos: CharPos(3)}));
         assert_eq!(ciss2.next_accum(dda_rc_str),
                    Ok(Some(SourceIterItem{ch: 'x', pos: CharPos(3)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss2),
                    Some(&SourceIterItem{ch: ' ', pos: CharPos(4)}));
         assert_eq!(ciss2.next_accum(dda_rc_str),
                    Ok(Some(SourceIterItem{ch: ' ', pos: CharPos(4)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss2),
                    Some(&SourceIterItem{ch: '{', pos: CharPos(5)}));
         assert_eq!(ciss2.accum_done(dda_rc_str).as_ref().map(txt_to_chunks),
                    Ok(vec![(r"\x ", 2)]));
         assert_eq!(ciss2.next(), Some(SourceIterItem{ch: '{', pos: CharPos(5)}));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss2),
                    Some(&SourceIterItem{ch: '\\', pos: CharPos(6)}));
         assert_eq!(ciss2.accum_done(dda_rc_str).as_ref().map(txt_to_chunks),
                    Ok(vec![("", 0)]));
         assert_eq!(ciss2.next(), Some(SourceIterItem{ch: '\\', pos: CharPos(6)}));
         assert_eq!(ciss2.next_accum(dda_rc_str),
                    Ok(Some(SourceIterItem{ch: '}', pos: CharPos(7)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss2),
                    Some(&SourceIterItem{ch: '}', pos: CharPos(8)}));
         assert_eq!(ciss2.accum_done(dda_rc_str).as_ref().map(txt_to_chunks),
                    Ok(vec![("}", 7)]));
         assert_eq!(ciss2.next(), Some(SourceIterItem{ch: '}', pos: CharPos(8)}));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss2), None);
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss2), None);
         assert_eq!(ciss2.accum_done(dda_rc_str).as_ref().map(txt_to_chunks),
                    Ok(vec![("", 0)]));
         assert_eq!(ciss2.next_accum(dda_rc_str), Ok(None));
         assert_eq!(ciss2.accum_done(dda_rc_str).as_ref().map(txt_to_chunks),
                    Ok(vec![("", 0)]));
         assert_eq!(ciss2.next(), None);
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss2), None);
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss2), None);
 
         let mut ciss3 = CharIterSourceStream::new("wVu".chars(), to_arc_string);
         assert_eq!(ciss3.next_accum(dda_arc_string),
@@ -371,7 +371,7 @@ mod tests {
         assert_eq!(ciss3.next(), Some(SourceIterItem{ch: 'u', pos: CharPos(2)}));
         assert_eq!(ciss3.accum_done(dda_arc_string).as_ref().map(txt_to_chunks),
                    Ok(vec![("", 0)]));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut ciss3), None);
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut ciss3), None);
         assert_eq!(ciss3.next_accum(dda_arc_string), Ok(None));
     }
 }

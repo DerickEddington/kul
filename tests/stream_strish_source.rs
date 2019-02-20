@@ -6,51 +6,29 @@ use std::{
     str::Split,
     iter::{Map, once, Once},
     vec,
-    marker::PhantomData,
     fmt::Debug,
 };
 
 use kruvi::{
     Parser, Datum,
     source_stream::StrishIterSourceStream,
-    parser::{DatumAllocator, AllocError, DefaultCharClassifier, EmptyOperatorBindings},
-    datum::{DatumBox, DatumMutRef, MutRefDatum},
+    parser::{BoxDatumAllocator, SliceDatumAllocator,
+             DefaultCharClassifier, EmptyOperatorBindings},
+    datum::MutRefDatum,
     text::{TextVec, chunk::{PosStrish, RefCntStrish}, TextDatumList},
 };
 
 use kruvi_shared_tests::suites::test_suite0_with;
 
 
-fn parser<DA, I>(init: I) -> Parser<DefaultCharClassifier,
-                                    DA,
-                                    EmptyOperatorBindings>
-    where DA: From<I>,
+fn parser<DA>(allocator: DA) -> Parser<DefaultCharClassifier,
+                                       DA,
+                                       EmptyOperatorBindings>
 {
     Parser {
         classifier: DefaultCharClassifier,
-        allocator: DA::from(init),
+        allocator,
         bindings: EmptyOperatorBindings,
-    }
-}
-
-#[derive(Debug)]
-struct BoxDatumAllocator<R>(PhantomData<R>);
-
-impl<R> From<()> for BoxDatumAllocator<R> {
-    fn from(_: ()) -> Self { BoxDatumAllocator(PhantomData) }
-}
-
-impl<R> DatumAllocator for BoxDatumAllocator<R>
-    where R: RefCntStrish
-{
-    type TT = TextVec<PosStrish<R>>;
-    type ET = ();
-    type DR = DatumBox<Self::TT, Self::ET>;
-
-    fn new_datum(&mut self, from: Datum<Self::TT, Self::ET, Self::DR>)
-                 -> Result<Self::DR, AllocError>
-    {
-        Ok(DatumBox::new(from))
     }
 }
 
@@ -113,7 +91,8 @@ fn suite0_textvec<SI, F>(str_to_strish_iter: F)
           SI::Item: RefCntStrish + Debug,
           F: Fn(&'static str) -> SI,
 {
-    test_suite0_with(parser::<BoxDatumAllocator<SI::Item>, _>(()),
+    test_suite0_with(parser(BoxDatumAllocator::<TextVec<PosStrish<SI::Item>>, ()>
+                            ::default()),
                      siss_maker(str_to_strish_iter));
 }
 
@@ -152,39 +131,6 @@ fn suite0_single_arc_box_str() {
 // arguments of the `SourceStream` methods.
 
 type Array<'a, R> = [MutRefDatum<'a, TextDatumList<'a, PosStrish<R>, ()>, ()>];
-type ArrayRef<'a, R> = &'a mut Array<'a, R>;
-
-struct ArrayDatumAllocator<'a, R> {
-    free: Option<ArrayRef<'a, R>>,
-}
-
-impl<'a, R> From<ArrayRef<'a, R>> for ArrayDatumAllocator<'a, R> {
-    fn from(v: ArrayRef<'a, R>) -> Self {
-        ArrayDatumAllocator{free: Some(v)}
-    }
-}
-
-impl<'a, R> DatumAllocator for ArrayDatumAllocator<'a, R>
-    where R: RefCntStrish
-{
-    type TT = TextDatumList<'a, PosStrish<R>, Self::ET>;
-    type ET = ();
-    type DR = DatumMutRef<'a, Self::TT, Self::ET>;
-
-    fn new_datum(&mut self, from: Datum<Self::TT, Self::ET, Self::DR>)
-                 -> Result<Self::DR, AllocError>
-    {
-        match self.free.take().and_then(|a| a.split_first_mut()) {
-            Some((dr, rest)) => {
-                *dr = from;
-                self.free = Some(rest);
-                Ok(DatumMutRef(dr))
-            }
-            None => Err(AllocError::AllocExhausted)
-        }
-    }
-}
-
 
 fn suite0_text_datum_list<SI, F>(str_to_strish_iter: F, array_size: usize)
     where SI: Iterator,
@@ -199,7 +145,7 @@ fn suite0_text_datum_list<SI, F>(str_to_strish_iter: F, array_size: usize)
         .into_boxed_slice();
 
     test_suite0_with(
-        parser::<ArrayDatumAllocator<'_, SI::Item>, _>(&mut datum_array[..]),
+        parser(SliceDatumAllocator::new(&mut datum_array[..])),
         siss_maker(str_to_strish_iter));
 }
 

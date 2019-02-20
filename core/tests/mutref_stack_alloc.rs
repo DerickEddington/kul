@@ -3,10 +3,9 @@
 use kruvi_core::{
     Parser, Datum,
     parser::{
-        DatumAllocator, AllocError,
-        premade::{DefaultCharClassifier, EmptyOperatorBindings},
+        premade::{SliceDatumAllocator, DefaultCharClassifier, EmptyOperatorBindings},
     },
-    datum::premade::{MutRefDatum, DatumMutRef},
+    datum::premade::MutRefDatum,
     text::{premade::TextDatumList, chunk::premade::PosStr},
 };
 
@@ -17,36 +16,13 @@ type TxtTy<'a> = TextDatumList<'a, PosStr<'static>, ()>;
 
 fn parser<'a>(arr: &'a mut [MutRefDatum<'a, TxtTy<'a>, ()>])
               -> Parser<DefaultCharClassifier,
-                        ArrayDatumAllocator<'a>,
+                        SliceDatumAllocator<'a, TxtTy<'a>, ()>,
                         EmptyOperatorBindings>
 {
     Parser {
         classifier: DefaultCharClassifier,
-        allocator: ArrayDatumAllocator{free: Some(arr)},
+        allocator: SliceDatumAllocator::new(arr),
         bindings: EmptyOperatorBindings,
-    }
-}
-
-struct ArrayDatumAllocator<'a> {
-    free: Option<&'a mut [MutRefDatum<'a, TxtTy<'a>, ()>]>,
-}
-
-impl<'a> DatumAllocator for ArrayDatumAllocator<'a> {
-    type TT = TxtTy<'a>;
-    type ET = ();
-    type DR = DatumMutRef<'a, Self::TT, Self::ET>;
-
-    fn new_datum(&mut self, from: Datum<Self::TT, Self::ET, Self::DR>)
-                 -> Result<Self::DR, AllocError>
-    {
-        match self.free.take().and_then(|a| a.split_first_mut()) {
-            Some((dr, rest)) => {
-                *dr = from;
-                self.free = Some(rest);
-                Ok(DatumMutRef(dr))
-            }
-            None => Err(AllocError::AllocExhausted)
-        }
     }
 }
 

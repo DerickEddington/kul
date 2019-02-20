@@ -89,7 +89,7 @@ impl<'l, TT> Iterator for Iter<'l, TT>
 
 
 /// `SourceStream` is only implemented where a `Text` type is a `TextConcat`.
-impl<'l, TT, DA> SourceStream<TT, DA> for Iter<'l, TT>
+impl<'l, TT, DA> SourceStream<DA> for Iter<'l, TT>
     where TT: TextConcat<DA>,
           TT::Chunk: 'l,
           DA: DatumAllocator<TT = TT> + ?Sized,

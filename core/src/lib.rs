@@ -197,9 +197,8 @@ pub struct SourceIterItem<SourcePosition> {
 /// `next` method should not be called before the `accum_done` method is called,
 /// to avoid interfering with a pending accumulation.  If `next` is called in
 /// this case, the pending accumulation will be silently dropped.
-pub trait SourceStream<TT, DA>: Iterator<Item = SourceIterItem<TT::Pos>>
-    where TT: TextConcat<DA>,
-          DA: DatumAllocator<TT = TT> + ?Sized,
+pub trait SourceStream<DA>: Iterator<Item = SourceIterItem<<DA::TT as TextBase>::Pos>>
+    where DA: DatumAllocator + ?Sized,
 {
     /// Returns a reference to the next item's value without advancing the
     /// iterator and without interfering with any pending accumulation.
@@ -228,7 +227,7 @@ pub trait SourceStream<TT, DA>: Iterator<Item = SourceIterItem<TT::Pos>>
     /// The `DatumAllocator` argument may be used by some implementing types but
     /// is often ignored.  If ignored, the result should always be `Ok`, else an
     /// allocator error may be possible.
-    fn accum_done(&mut self, dalloc: &mut DA) -> Result<TT, AllocError>;
+    fn accum_done(&mut self, dalloc: &mut DA) -> Result<DA::TT, AllocError>;
 }
 
 
@@ -251,13 +250,14 @@ pub struct Parser<CC, DA, OB> {
 impl<CC, DA, OB> Parser<CC, DA, OB>
     where CC: CharClassifier,
           DA: DatumAllocator,
+          DA::TT: TextConcat<DA>,
           OB: OperatorBindings<DA>,
 {
     /// The primary method.  Parse the given text source, according to the
     /// specific parameterization of our `Self`, and return an iterator that
     /// yields each top-level form as a `Datum` AST.
     pub fn parse<S>(&mut self, source: S) -> ParseIter<'_, Self, S>
-        where S: SourceStream<DA::TT, DA>,
+        where S: SourceStream<DA>,
     {
         ParseIter::new(self, source)
     }
@@ -284,9 +284,10 @@ impl<'p, CC, DA, OB, S>
     for ParseIter<'p, Parser<CC, DA, OB>, S>
     where CC: CharClassifier,
           DA: DatumAllocator,
+          DA::TT: TextConcat<DA>,
           OB: OperatorBindings<DA>,
           Parser<CC, DA, OB>: 'p,
-          S: SourceStream<DA::TT, DA>,
+          S: SourceStream<DA>,
 {
     type Item = ParseIterItem<DA, OB>;
 
@@ -324,9 +325,10 @@ impl<'p, CC, DA, OB, S>
     ParseIter<'p, Parser<CC, DA, OB>, S>
     where CC: CharClassifier,
           DA: DatumAllocator,
+          DA::TT: TextConcat<DA>,
           OB: OperatorBindings<DA>,
           Parser<CC, DA, OB>: 'p,
-          S: SourceStream<DA::TT, DA>,
+          S: SourceStream<DA>,
 {
     #[inline]
     fn new(parser: &'p mut Parser<CC, DA, OB>, src_strm: S) -> Self {

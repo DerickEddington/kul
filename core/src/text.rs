@@ -5,7 +5,7 @@
 use core::cmp::Ordering;
 
 use crate::{SourceIterItem, SourcePosition};
-use crate::parser::{DatumAllocator, AllocError};
+use crate::parser::AllocError;
 
 
 pub mod iter;
@@ -230,7 +230,7 @@ pub trait Text: TextBase
 /// `DatumAllocator`, the `DA` type should be a generic type parameter that
 /// covers all (ignored) possibilities.
 pub trait TextConcat<DA>: Text
-    where DA: DatumAllocator<TT = Self> + ?Sized,
+    where DA: ?Sized,
 {
     /// Concatenate two `Text`s (of the same type) to form a single `Text` that
     /// logically represents this.  The `datum_alloc` argument may be ignored by

@@ -121,7 +121,7 @@ impl<SI, TT> Iterator for StrishIterSourceStream<SI, TT>
 
 /// Enables `StrishIterSourceStream` to be used as the input source for parsing
 /// with compatible `Parser` types.
-impl<SI, TT, DA> SourceStream<TT, DA> for StrishIterSourceStream<SI, TT>
+impl<SI, TT, DA> SourceStream<DA> for StrishIterSourceStream<SI, TT>
     where SI: Iterator,
           SI::Item: RefCntStrish,
           TT: TextConcat<DA, Pos = CharPos>,
@@ -276,28 +276,28 @@ mod tests {
         let dda_arc_str: &mut DummyDA<Arc<str>> = &mut DummyDA(PhantomData);
 
         let mut siss00 = SISS::<_>::new(empty::<Rc<str>>());
-        assert!(SourceStream::<_, DummyDA<_>>::peek(&mut siss00).is_none());
+        assert!(SourceStream::<DummyDA<_>>::peek(&mut siss00).is_none());
         assert_eq!(siss00.next_accum(dda_rc_str), Ok(None));
         assert_eq!(siss00.accum_done(dda_rc_str).map(|t| t.is_empty()), Ok(true));
         let mut siss01 = SISS::<_>::new(once(strish::<Arc<String>>("")));
-        assert!(SourceStream::<_, DummyDA<_>>::peek(&mut siss01).is_none());
+        assert!(SourceStream::<DummyDA<_>>::peek(&mut siss01).is_none());
         assert_eq!(siss01.next_accum(dda_arc_string), Ok(None));
         assert_eq!(siss01.accum_done(dda_arc_string).map(|t| t.is_empty()), Ok(true));
         let mut siss02 = SISS::<_>::new(repeat(strish::<Rc<Box<str>>>("")).take(2));
-        assert!(SourceStream::<_, DummyDA<_>>::peek(&mut siss02).is_none());
+        assert!(SourceStream::<DummyDA<_>>::peek(&mut siss02).is_none());
         assert_eq!(siss02.next_accum(dda_rc_box_str), Ok(None));
         assert_eq!(siss02.accum_done(dda_rc_box_str).map(|t| t.is_empty()), Ok(true));
         let mut siss03 = SISS::<_>::new(repeat(strish::<Arc<str>>("")).take(321));
-        assert!(SourceStream::<_, DummyDA<_>>::peek(&mut siss03).is_none());
+        assert!(SourceStream::<DummyDA<_>>::peek(&mut siss03).is_none());
         assert_eq!(siss03.next_accum(dda_arc_str), Ok(None));
         assert_eq!(siss03.accum_done(dda_arc_str).map(|t| t.is_empty()), Ok(true));
 
         let mut siss11 = SISS::<_>::new(once(strish::<Rc<String>>("a")));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss11),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss11),
                    Some(&SourceIterItem{ch: 'a', pos: CharPos(0)}));
         assert_eq!(siss11.next_accum(dda_rc_string),
                    Ok(Some(SourceIterItem{ch: 'a', pos: CharPos(0)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss11), None);
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss11), None);
         assert_eq!(siss11.next_accum(dda_rc_string), Ok(None));
         assert_eq!(siss11.accum_done(dda_rc_string).as_ref().map(txt_to_chunks),
                    Ok(vec![("a", 0)]));
@@ -305,11 +305,11 @@ mod tests {
         let mut siss12 = SISS::<_>::new(once(strish(""))
                                         .chain(once(strish::<Arc<Box<str>>>("𝝰"))
                                                .chain(once(strish("")))));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss12),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss12),
                    Some(&SourceIterItem{ch: '𝝰', pos: CharPos(0)}));
         assert_eq!(siss12.next_accum(dda_arc_box_str),
                    Ok(Some(SourceIterItem{ch: '𝝰', pos: CharPos(0)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss12), None);
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss12), None);
         assert_eq!(siss12.next_accum(dda_arc_box_str), Ok(None));
         assert_eq!(siss12.accum_done(dda_arc_box_str).as_ref().map(txt_to_chunks),
                    Ok(vec![("𝝰", 0)]));
@@ -321,51 +321,51 @@ mod tests {
                    .chain(repeat(strish("")).take(4)
                           .chain(once(strish(r"𝞫 {\}}"))
                                  .chain(repeat(strish("")).take(2))))));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss2),
                    Some(&SourceIterItem{ch: 'y', pos: CharPos(0)}));
         assert_eq!(siss2.next_accum(dda_arc_string),
                    Ok(Some(SourceIterItem{ch: 'y', pos: CharPos(0)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss2),
                    Some(&SourceIterItem{ch: '\\', pos: CharPos(1)}));
         assert_eq!(siss2.accum_done(dda_arc_string).as_ref().map(txt_to_chunks),
                    Ok(vec![("y", 0)]));
         assert_eq!(siss2.next(), Some(SourceIterItem{ch: '\\', pos: CharPos(1)}));
         assert_eq!(siss2.next_accum(dda_arc_string),
                    Ok(Some(SourceIterItem{ch: '\\', pos: CharPos(2)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss2),
                    Some(&SourceIterItem{ch: '𝞫', pos: CharPos(3)}));
         assert_eq!(siss2.next_accum(dda_arc_string),
                    Ok(Some(SourceIterItem{ch: '𝞫', pos: CharPos(3)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss2),
                    Some(&SourceIterItem{ch: ' ', pos: CharPos(4)}));
         assert_eq!(siss2.next_accum(dda_arc_string),
                    Ok(Some(SourceIterItem{ch: ' ', pos: CharPos(4)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss2),
                    Some(&SourceIterItem{ch: '{', pos: CharPos(5)}));
         // Accum across strish boundary
         assert_eq!(siss2.accum_done(dda_arc_string).as_ref().map(txt_to_chunks),
                    Ok(vec![(r"\", 2), ("𝞫 ", 3)]));
         assert_eq!(siss2.next(), Some(SourceIterItem{ch: '{', pos: CharPos(5)}));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss2),
                    Some(&SourceIterItem{ch: '\\', pos: CharPos(6)}));
         assert_eq!(siss2.accum_done(dda_arc_string).as_ref().map(txt_to_chunks),
                    Ok(vec![("", 0)]));
         assert_eq!(siss2.next(), Some(SourceIterItem{ch: '\\', pos: CharPos(6)}));
         assert_eq!(siss2.next_accum(dda_arc_string),
                    Ok(Some(SourceIterItem{ch: '}', pos: CharPos(7)})));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss2),
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss2),
                    Some(&SourceIterItem{ch: '}', pos: CharPos(8)}));
         assert_eq!(siss2.accum_done(dda_arc_string).as_ref().map(txt_to_chunks),
                    Ok(vec![("}", 7)]));
         assert_eq!(siss2.next(), Some(SourceIterItem{ch: '}', pos: CharPos(8)}));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss2), None);
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss2), None);
         assert_eq!(siss2.accum_done(dda_arc_string).as_ref().map(txt_to_chunks),
                    Ok(vec![("", 0)]));
         assert_eq!(siss2.next_accum(dda_arc_string), Ok(None));
         assert_eq!(siss2.accum_done(dda_arc_string).as_ref().map(txt_to_chunks),
                    Ok(vec![("", 0)]));
         assert_eq!(siss2.next(), None);
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss2), None);
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss2), None);
 
         let mut siss3 = SISS::<_>::new(
             vec!["w", "V", "u"].into_iter().map(strish::<Rc<str>>));
@@ -376,7 +376,7 @@ mod tests {
         // next() after next_accum() loses the accumulation
         assert_eq!(siss3.next(), Some(SourceIterItem{ch: 'u', pos: CharPos(2)}));
         assert_eq!(siss3.accum_done(dda_rc_str).map(|t| t.is_empty()), Ok(true));
-        assert_eq!(SourceStream::<_, DummyDA<_>>::peek(&mut siss3), None);
+        assert_eq!(SourceStream::<DummyDA<_>>::peek(&mut siss3), None);
         assert_eq!(siss3.next_accum(dda_rc_str), Ok(None));
     }
 }

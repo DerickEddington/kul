@@ -1,7 +1,6 @@
 use kruvi::{
-    Parser, Datum,
-    parser::{DatumAllocator, AllocError, DefaultCharClassifier, EmptyOperatorBindings},
-    datum::DatumRc,
+    Parser,
+    parser::{RcDatumAllocator, DefaultCharClassifier, EmptyOperatorBindings},
     text::{TextVec, chunk::PosStr},
 };
 
@@ -9,28 +8,13 @@ use kruvi_shared_tests::suites::test_suite0;
 
 
 fn parser() -> Parser<DefaultCharClassifier,
-                      RcDatumAllocator,
+                      RcDatumAllocator<TextVec<PosStr<'static>>, ()>,
                       EmptyOperatorBindings>
 {
     Parser {
         classifier: DefaultCharClassifier,
-        allocator: RcDatumAllocator,
+        allocator: RcDatumAllocator::default(),
         bindings: EmptyOperatorBindings,
-    }
-}
-
-#[derive(Debug)]
-struct RcDatumAllocator;
-
-impl DatumAllocator for RcDatumAllocator {
-    type TT = TextVec<PosStr<'static>>;
-    type ET = ();
-    type DR = DatumRc<Self::TT, Self::ET>;
-
-    fn new_datum(&mut self, from: Datum<Self::TT, Self::ET, Self::DR>)
-                 -> Result<Self::DR, AllocError>
-    {
-        Ok(DatumRc::new(from))
     }
 }
 

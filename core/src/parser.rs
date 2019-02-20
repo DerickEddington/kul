@@ -3,7 +3,7 @@
 
 use core::ops::DerefMut;
 
-use crate::{Datum, DerefTryMut, Combiner, TextConcat, Error};
+use crate::{Datum, DerefTryMut, Combiner, Text, Error};
 use crate::combiner::{OpFn, ApFn};
 
 
@@ -12,6 +12,9 @@ pub mod premade
 {
     mod default_classifier;
     pub use default_classifier::DefaultCharClassifier;
+
+    mod slice_alloc;
+    pub use slice_alloc::SliceDatumAllocator;
 
     mod empty_bindings;
     pub use empty_bindings::EmptyOperatorBindings;
@@ -55,10 +58,16 @@ pub trait CharClassifier {
 
 /// TODO
 pub trait DatumAllocator {
-    /// The [`Text` type](enum.Datum.html#variant.Text) for our `Datum` type. It
-    /// must be a [`TextConcat`] for our `Self` so it supports concatenation
-    /// which the parsing requires.
-    type TT: TextConcat<Self>;
+    /// The `Text` type for our `Datum` type.  It should also implement
+    /// `TextConcat<Self>` so it supports concatenation which the parsing
+    /// requires.
+    ///
+    /// Such a bound is not required here, to avoid difficulties that otherwise
+    /// would happen with needing to have the bound where not really needed and
+    /// where unresolvable mutually-recursive bounds would result.  The bound is
+    /// instead placed on the methods of `ParseIter` and `SourceStream`
+    /// implementations where it's really needed.
+    type TT: Text;
     /// The ["extra" type](enum.Datum.html#variant.Extra) for our `Datum` type.
     type ET;
     /// The type of references to [`Datum`s](enum.Datum.html) yielded by our
