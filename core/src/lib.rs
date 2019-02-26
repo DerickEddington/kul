@@ -75,8 +75,6 @@
 // TODO: Impl `Text` (and so a SourceStream too) for:
 // - &[char] (which will also work for Vec<char> outside this crate with `std`)
 
-// TODO: Exercise combiners in some test suite
-
 // FUTURE: When/if the `generic_associated_types` feature of Rust becomes
 // stable, use it so all the text chunk and char iterators can be generic and
 // defined by the implementors and have the needed access to the lifetimes of
@@ -122,8 +120,6 @@
     clippy::non_ascii_literal,
 )]
 
-
-use core::ops::DerefMut;
 
 use parser::{CharClassifier, DatumAllocator, AllocError, OperatorBindings};
 
@@ -341,20 +337,34 @@ impl<'p, CC, DA, OB, S>
 
     #[inline]
     fn do_next(&mut self) -> ParseResultOption<DA, OB> {
-        self.parse_next(ParseTextMode::Base)
+        Self::parse_next(ParseTextMode::Base,
+                         &mut self.src_strm,
+                         &mut self.nest_depth,
+                         &mut self.parser.allocator,
+                         &self.parser.classifier,
+                         &self.parser.bindings)
     }
 
-    fn parse_next(&mut self, mode: ParseTextMode) -> ParseResultOption<DA, OB> {
+    fn parse_next(
+        mode: ParseTextMode,
+        srcstrm: &mut S,
+        ndepth: &mut usize,
+        dalloc: &mut DA,
+        chcls: &CC,
+        bindings: &OB,
+    )
+        -> ParseResultOption<DA, OB>
+    {
         loop {
             if mode == ParseTextMode::Operator {
                 // Skip any leading whitespace before head form.
-                self.skip_whitespace();
+                Self::skip_whitespace(srcstrm, chcls);
             }
             // Peek some next char for below, or abort appropriately if none.
-            let ch = match self.src_strm.peek() {
+            let ch = match srcstrm.peek() {
                 Some(&SourceIterItem{ch, ..}) => ch,
                 None =>
-                    return if self.nest_depth == 0 {
+                    return if *ndepth == 0 {
                         Ok(None)
                     } else {
                         Err(Error::MissingEndChar)
@@ -362,10 +372,11 @@ impl<'p, CC, DA, OB, S>
             };
             // Start of a nest, either a combination or an empty nest. Parse it
             // to its end and return it if its combiner didn't remove it.
-            if self.parser.classifier.is_nest_start(ch) {
-                self.incr_nest_depth();
-                let result = self.parse_nested();
-                self.decr_nest_depth();
+            if chcls.is_nest_start(ch) {
+                *ndepth += 1;
+                let result = Self::parse_nested(srcstrm, ndepth,
+                                                dalloc, chcls, bindings);
+                *ndepth -= 1;
                 // If a combiner indicated to remove the nest form, continue our
                 // loop to parse the next form, effectively removing the current
                 // nest form.  Else, return the result whatever it is.
@@ -377,18 +388,26 @@ impl<'p, CC, DA, OB, S>
             }
             // End of a nest, or error. Don't parse nor return an item, only
             // check validity.
-            else if self.parser.classifier.is_nest_end(ch) {
-                return self.check_end_char().map(|_| None)
+            else if chcls.is_nest_end(ch) {
+                return Self::check_end_char(srcstrm, *ndepth, chcls).map(|_| None)
             }
             // Start of a text. Parse it to its end and return it.
             else {
-                return self.parse_text(mode).map(Some)
+                return Self::parse_text(mode, srcstrm, ndepth, dalloc, chcls)
+                           .map(Some)
             }
-       }
-     }
+        }
+    }
 
     #[allow(unused_results)]
-    fn parse_text(&mut self, mode: ParseTextMode) -> ParseResult<DA, OB>
+    fn parse_text(
+        mode: ParseTextMode,
+        srcstrm: &mut S,
+        ndepth: &mut usize,
+        dalloc: &mut DA,
+        chcls: &CC,
+    )
+        -> ParseResult<DA, OB>
     {
         #[inline]
         fn is_end_char<CC>(ch: char, chclass: &CC, mode: ParseTextMode) -> bool
@@ -418,45 +437,45 @@ impl<'p, CC, DA, OB, S>
         let mut text = DA::TT::empty();
         macro_rules! concat_accum {
             () => {
-                let accum = self.src_strm.accum_done(&mut self.parser.allocator)?;
-                text = text.concat(accum, &mut self.parser.allocator)?;
+                let accum = srcstrm.accum_done(dalloc)?;
+                text = text.concat(accum, dalloc)?;
             }
         }
 
         let mut nest_level: usize = 0;
 
-        while let Some(&SourceIterItem{ch, ..}) = self.src_strm.peek() {
+        while let Some(&SourceIterItem{ch, ..}) = srcstrm.peek() {
             // Reached end. Do not consume peeked end char
-            if nest_level == 0 && is_end_char(ch, &self.parser.classifier, mode) {
+            if nest_level == 0 && is_end_char(ch, chcls, mode) {
                 break;
             }
             // Accumulate escaped char whatever it might be, but not the escape
             // char
-            else if self.parser.classifier.is_nest_escape(ch) {
+            else if chcls.is_nest_escape(ch) {
                 concat_accum!(); // Break chunk before escape char
-                self.src_strm.next(); // Skip peeked escape char first
-                self.src_strm.next_accum(&mut self.parser.allocator)?;
+                srcstrm.next(); // Skip peeked escape char first
+                srcstrm.next_accum(dalloc)?;
             }
             // Start of nest. Track nesting depth
-            else if self.parser.classifier.is_nest_start(ch) {
+            else if chcls.is_nest_start(ch) {
                 // Accumulate peeked
-                self.src_strm.next_accum(&mut self.parser.allocator)?;
+                srcstrm.next_accum(dalloc)?;
                 nest_level += 1;
             }
             // End of nest. Check balanced nesting
-            else if self.parser.classifier.is_nest_end(ch) {
+            else if chcls.is_nest_end(ch) {
                 if nest_level > 0 {
                     // Accumulate peeked
-                    self.src_strm.next_accum(&mut self.parser.allocator)?;
+                    srcstrm.next_accum(dalloc)?;
                     nest_level -= 1;
                 } else {
-                    self.check_end_char()?;
+                    Self::check_end_char(srcstrm, *ndepth, chcls)?;
                     break;
                 }
             }
             // Accumulate peeked
             else {
-                self.src_strm.next_accum(&mut self.parser.allocator)?;
+                srcstrm.next_accum(dalloc)?;
             }
         }
         // Done. Return what we accumulated. Or error if unbalanced nesting.
@@ -469,13 +488,20 @@ impl<'p, CC, DA, OB, S>
     }
 
     #[allow(unused_results)]
-    fn parse_nested(&mut self) -> ParseResultOption<DA, OB>
+    fn parse_nested(
+        srcstrm: &mut S,
+        ndepth: &mut usize,
+        dalloc: &mut DA,
+        chcls: &CC,
+        bindings: &OB,
+    )
+        -> ParseResultOption<DA, OB>
     {
-        let end = |slf: &mut Self| {
+        let end = |ss: &mut S| {
             // Consume our nest's end char. A missing end char is possible, but
             // an erroneous non-end char shouldn't be.
-            if let Some(SourceIterItem{ch, ..}) = slf.src_strm.next() {
-                debug_assert!(slf.parser.classifier.is_nest_end(ch));
+            if let Some(SourceIterItem{ch, ..}) = ss.next() {
+                debug_assert!(chcls.is_nest_end(ch));
                 Ok(())
             } else {
                 Err(Error::MissingEndChar)
@@ -483,66 +509,79 @@ impl<'p, CC, DA, OB, S>
         };
 
         // Advance past nest start char.
-        let start = self.src_strm.next();
-        debug_assert_eq!(start.map(|SourceIterItem{ch, ..}|
-                                   self.parser.classifier.is_nest_start(ch)),
+        let start = srcstrm.next();
+        debug_assert_eq!(start.map(|SourceIterItem{ch, ..}| chcls.is_nest_start(ch)),
                          Some(true));
         // Parse form in operator position, or empty.
-        let operator = self.parse_next(ParseTextMode::Operator)?;
+        let operator = Self::parse_next(ParseTextMode::Operator, srcstrm, ndepth,
+                                        dalloc, chcls, bindings)?;
         // If operator delimited by following whitespace, advance past first
         // whitespace char.
-        if let Some(&SourceIterItem{ch, ..}) = self.src_strm.peek() {
-            if self.parser.classifier.is_whitespace(ch) { self.src_strm.next(); }
+        if let Some(&SourceIterItem{ch, ..}) = srcstrm.peek() {
+            if chcls.is_whitespace(ch) { srcstrm.next(); }
         }
         // Determine the result.
         Ok(if let Some(operator) = operator {
             // Parse the operands according to the operator.
-            if let Some(combiner) = self.parser.bindings.lookup(&operator) {
+            if let Some(combiner) = bindings.lookup(&operator) {
                 // Operator is bound to a combiner macro which will process the
                 // operands and determine the return value.
                 match combiner {
-                    Combiner::Operative(mut opr) => {
+                    Combiner::Operative(opr) => {
                         // Operatives are given the operands text unparsed to do
                         // whatever they want with it.
-                        let operands = self.parse_text(ParseTextMode::Operands)?;
-                        end(self)?;
-                        opr.deref_mut()(operator, operands, &mut self.parser.allocator)?
+                        let operands = Self::parse_text(ParseTextMode::Operands,
+                                                        srcstrm, ndepth, dalloc, chcls)?;
+                        end(srcstrm)?;
+                        opr(operator, operands, dalloc)?
                     },
-                    Combiner::Applicative(mut apl) => {
+                    Combiner::Applicative(apl) => {
                         // Applicatives are given the recursive parse of the
                         // operands text as a list of "arguments".
-                        let arguments = self.parse_all(ParseTextMode::Base)?;
-                        end(self)?;
-                        apl.deref_mut()(operator, arguments, &mut self.parser.allocator)?
+                        let arguments = Self::parse_all(ParseTextMode::Base,
+                                                        srcstrm, ndepth,
+                                                        dalloc, chcls, bindings)?;
+                        end(srcstrm)?;
+                        apl(operator, arguments, dalloc)?
                     }
                 }
             } else {
                 // Not bound, so simply recursively parse operands and return a
                 // value representing the "combination" of operator and operands
                 // forms.
-                let operands = self.parse_all(ParseTextMode::Base)?;
-                end(self)?;
+                let operands = Self::parse_all(ParseTextMode::Base, srcstrm, ndepth,
+                                               dalloc, chcls, bindings)?;
+                end(srcstrm)?;
                 Some(Datum::Combination {
-                    operator: self.parser.allocator.new_datum(operator)?,
-                    operands: self.parser.allocator.new_datum(operands)?,
+                    operator: dalloc.new_datum(operator)?,
+                    operands: dalloc.new_datum(operands)?,
                 })
             }
         } else {
             // No operator nor operands. Empty nest form.
-            end(self)?;
+            end(srcstrm)?;
             Some(Datum::EmptyNest)
         })
     }
 
-    fn parse_all(&mut self, mode: ParseTextMode) -> ParseResult<DA, OB> {
+    fn parse_all(
+        mode: ParseTextMode,
+        srcstrm: &mut S,
+        ndepth: &mut usize,
+        dalloc: &mut DA,
+        chcls: &CC,
+        bindings: &OB,
+    )
+        -> ParseResult<DA, OB>
+    {
         let mut head = Datum::EmptyList;
         let mut tail = &mut head;
         loop {
-            let it = self.parse_next(mode)?;
+            let it = Self::parse_next(mode, srcstrm, ndepth, dalloc, chcls, bindings)?;
             if let Some(next_it) = it {
                 *tail = Datum::List {
-                    elem: self.parser.allocator.new_datum(next_it)?,
-                    next: self.parser.allocator.new_datum(Datum::EmptyList)?,
+                    elem: dalloc.new_datum(next_it)?,
+                    next: dalloc.new_datum(Datum::EmptyList)?,
                 };
                 if let Datum::List{ref mut next, ..} = tail {
                     if let Some(next) = DerefTryMut::get_mut(next) {
@@ -562,25 +601,25 @@ impl<'p, CC, DA, OB, S>
 
     #[inline]
     #[allow(unused_results)]
-    fn skip_whitespace(&mut self) {
-        let chclass = &self.parser.classifier;
-        while self.src_strm.peek()
-                           .map_or(false,
-                                   |&SourceIterItem{ch, ..}| chclass.is_whitespace(ch))
+    fn skip_whitespace(srcstrm: &mut S, chcls: &CC) {
+        while srcstrm.peek()
+                     .map_or(false,
+                             |&SourceIterItem{ch, ..}| chcls.is_whitespace(ch))
         {
-            self.src_strm.next(); // Skip peeked whitespace char
+            srcstrm.next(); // Skip peeked whitespace char
         }
     }
 
     #[inline]
-    fn check_end_char(&mut self) -> Result<(), ParseError<DA, OB>> {
+    fn check_end_char(srcstrm: &mut S, ndepth: usize, chcls: &CC)
+                      -> Result<(), ParseError<DA, OB>>
+    {
         {
-            let chclass = &self.parser.classifier;
-            debug_assert_eq!(self.src_strm.peek().map(|&SourceIterItem{ch, ..}|
-                                                      chclass.is_nest_end(ch)),
+            debug_assert_eq!(srcstrm.peek().map(|&SourceIterItem{ch, ..}|
+                                                chcls.is_nest_end(ch)),
                              Some(true));
         }
-        if self.nest_depth > 0 {
+        if ndepth > 0 {
             // Valid end of nest. Do not consume peeked char.
             Ok(())
         } else {
@@ -588,18 +627,8 @@ impl<'p, CC, DA, OB, S>
             // allow the possibility that this iterator could be resumed
             // again. Also, use its `pos` in the error. This `unwrap` will never
             // fail because we already did `peek` and know there is a next.
-            let n = self.src_strm.next().unwrap();
+            let n = srcstrm.next().unwrap();
             Err(Error::UnbalancedEndChar(n.pos))
         }
-    }
-
-    #[inline]
-    fn incr_nest_depth(&mut self) {
-        self.nest_depth += 1;
-    }
-
-    #[inline]
-    fn decr_nest_depth(&mut self) {
-        self.nest_depth -= 1;
     }
 }

@@ -115,6 +115,9 @@ pub mod parser {
 
     mod arc_alloc;
     pub use arc_alloc::ArcDatumAllocator;
+
+    mod hashmap_bindings;
+    pub use hashmap_bindings::HashMapOperatorBindings;
 }
 
 /// `Text` types that use the `std` library, including heap allocation.  Also

@@ -1,4 +1,4 @@
-use core::ops::{Deref, DerefMut};
+use core::ops::Deref;
 
 use crate::parser::{OperatorBindings, DatumAllocator};
 use crate::combiner::{Combiner, OpFn};
@@ -26,13 +26,6 @@ impl<DA, CE> Deref for DummyCombiner<DA, CE>
 }
 
 
-impl<DA, CE> DerefMut for DummyCombiner<DA, CE>
-    where DA: DatumAllocator,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target { unreachable!() }
-}
-
-
 impl<DA> OperatorBindings<DA> for EmptyOperatorBindings
     where DA: DatumAllocator,
 {
@@ -41,8 +34,8 @@ impl<DA> OperatorBindings<DA> for EmptyOperatorBindings
     type CE = ();
 
     #[inline]
-    fn lookup(&mut self, _operator: &Datum<DA::TT, DA::ET, DA::DR>)
-              -> Option<Combiner<Self::OR, Self::AR>> {
+    fn lookup(&self, _operator: &Datum<DA::TT, DA::ET, DA::DR>)
+              -> Option<&Combiner<Self::OR, Self::AR>> {
         None
     }
 }

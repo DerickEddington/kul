@@ -4,19 +4,17 @@ use std::fmt::Debug;
 
 use kruvi_core::{Parser, SourceStream, Text, TextBase, TextConcat, Datum, Combiner,
                  Error};
-use kruvi_core::parser::{DatumAllocator, OperatorBindings, AllocError,
+use kruvi_core::parser::{DatumAllocator, AllocError,
                          premade::{DefaultCharClassifier, EmptyOperatorBindings}};
-use kruvi_core::combiner::{OpFn, ApFn};
 
-use crate::{parse_all, expect, dr, ExpectedText, PosIgnore, custom_delim};
+use crate::{parse_all, expect, dr, ExpectedText, PosIgnore, custom_delim,
+            bindings::{TestOperatorBindings, BindingsSpec}};
 
 
 /// Basic interface to test suite #0 that only requires giving a `Parser`.  This
 /// will exercise the given `Parser`'s `Text` type as a `SourceStream` as well
 /// as in produced `Datum`s.
-pub fn test_suite0<DA>(p: Parser<DefaultCharClassifier,
-                                 DA,
-                                 EmptyOperatorBindings>)
+pub fn test_suite0<DA, OB>(p: Parser<DefaultCharClassifier, DA, OB>)
     where DA: DatumAllocator,
           DA::TT: TextConcat<DA>,
           <DA::TT as Text>::Chunk: From<&'static str>,
@@ -24,6 +22,8 @@ pub fn test_suite0<DA>(p: Parser<DefaultCharClassifier,
           DA::ET: Debug,
           DA::DR: Debug,
           <DA::TT as TextBase>::Pos: Debug,
+          OB: TestOperatorBindings<DA>,
+          OB::CE: Debug,
 {
     use kruvi_core::SourceIterItem;
 
@@ -59,10 +59,11 @@ pub fn test_suite0<DA>(p: Parser<DefaultCharClassifier,
 /// generic parsing logic, and does not exercise macros/combiners nor extra
 /// types.
 ///
-/// The given `Parser` is required to use the default character classifier and
-/// the empty operator bindings so we know what we're starting with.  We will
-/// later mutate the parser to test non-default character classifiers and to
-/// test the parsing logic for non-empty operator bindings.
+/// The given `Parser` is required to use the default character classifier so
+/// that the syntax of our test cases matches it.  We will later mutate the
+/// parser to test non-default character classifiers and to test the parsing
+/// logic for non-empty operator bindings using the given `Parser`'s bindings
+/// type.
 ///
 /// If the `str_to_src_strm` argument is `None`, the test-case inputs will be
 /// converted to the given `Parser`'s `Text` type's iterator to be used as the
@@ -80,10 +81,8 @@ pub fn test_suite0<DA>(p: Parser<DefaultCharClassifier,
 /// degree that parsing constructs values of it in the produced `Datum`s which
 /// are compared with the expected test-case outputs.
 #[allow(clippy::cyclomatic_complexity, clippy::needless_pass_by_value)]
-pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
-                                                DA,
-                                                EmptyOperatorBindings>,
-                                  str_to_src_strm: Option<F>)
+pub fn test_suite0_with<DA, OB, F, S>(p: Parser<DefaultCharClassifier, DA, OB>,
+                                      str_to_src_strm: Option<F>)
     where DA: DatumAllocator,
           DA::TT: TextConcat<DA>,
           <DA::TT as Text>::Chunk: From<&'static str>,
@@ -91,11 +90,23 @@ pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
           DA::ET: Debug,
           DA::DR: Debug,
           <DA::TT as TextBase>::Pos: Debug,
+          OB: TestOperatorBindings<DA>,
+          OB::CE: Debug,
           F: Fn(&'static str) -> S,
           S: SourceStream<DA>,
 {
     use Datum::{Combination, EmptyNest, List, EmptyList};
     use Error::*;
+
+    // Save the given bindings for later
+    let mut given_bindings = p.bindings;
+    // Use empty bindings for the first sets of test cases
+    let mut p = Parser {
+        classifier: p.classifier,
+        allocator: p.allocator,
+        bindings: EmptyOperatorBindings,
+
+    };
 
     let text = |val| Datum::Text(ExpectedText(val));
 
@@ -287,70 +298,54 @@ pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
                        Err(MissingEndChar)]);
     test!(r"\⟧" =>(c) [Err(UnbalancedEndChar(PosIgnore))]);
 
-    // Parsing modes for Operatives and Applicatives. (This doesn't really
-    // exercise combiners/macros, just does the bare minimum with them to test
-    // the core parser's fixed modes for them.)
-    { // Use new block to limit the scope of the below items.
+    // Parsing modes for Operatives and Applicatives. (This doesn't fully
+    // exercise combiners/macros, just does the minimum with them to test the
+    // core parser's fixed modes for them.)
 
-    struct BasicCombiners {
-        o: &'static str, // operative
-        a: &'static str, // applicative
-        r: &'static str, // remove form
-        c: &'static str, // allocate combination form
-        f: &'static str, // failing allocate
+    let just_operands = |_operator, operands, _dalloc: &mut DA| {
+        Ok(Some(operands))
     };
 
-    impl<DA> OperatorBindings<DA> for BasicCombiners
-        where DA: DatumAllocator,
-              <DA::TT as Text>::Chunk: From<&'static str>,
-    {
-        type OR = Box<OpFn<DA, Self::CE>>;
-        type AR = Box<ApFn<DA, Self::CE>>;
-        type CE = ();
+    let remove = |_operator, _operands, _dalloc: &mut DA| {
+        Ok(None)
+    };
 
-        fn lookup(&mut self, operator: &Datum<DA::TT, DA::ET, DA::DR>)
-                  -> Option<Combiner<Self::OR, Self::AR>>
-        {
-            let just_operands = |_operator, operands, _dalloc: &mut DA| {
-                Ok(Some(operands))
-            };
+    let comb_alloc = |_operator, _operands, dalloc: &mut DA| {
+        Ok(Some(Combination {
+            operator: dalloc.new_datum(EmptyNest)?,
+            operands: dalloc.new_datum(EmptyList)?,
+        }))
+    };
 
-            let remove = |_operator, _operands, _dalloc: &mut DA| {
-                Ok(None)
-            };
+    let fail_alloc = |_operator, _operands, _dalloc: &mut DA| {
+        Err(FailedAlloc(AllocError::AllocExhausted))
+    };
 
-            let comb_alloc = |_operator, _operands, dalloc: &mut DA| {
-                Ok(Some(Combination {
-                    operator: dalloc.new_datum(EmptyNest)?,
-                    operands: dalloc.new_datum(EmptyList)?,
-                }))
-            };
-
-            let fail_alloc = |_operator, _operands, _dalloc: &mut DA| {
-                Err(FailedAlloc(AllocError::AllocExhausted))
-            };
-
-            if let Datum::Text(text) = operator {
-                if text.eq(&DA::TT::from_str(self.o)) {
-                    return Some(Combiner::Operative(Box::new(just_operands)))
-                } else if text.eq(&DA::TT::from_str(self.a)) {
-                    return Some(Combiner::Applicative(Box::new(just_operands)))
-                } else if text.eq(&DA::TT::from_str(self.r)) {
-                    return Some(Combiner::Applicative(Box::new(remove)))
-                } else if text.eq(&DA::TT::from_str(self.c)) {
-                    return Some(Combiner::Operative(Box::new(comb_alloc)))
-                } else if text.eq(&DA::TT::from_str(self.f)) {
-                    return Some(Combiner::Operative(Box::new(fail_alloc)))
-                }
-            }
-            None
-        }
-    }
+    let basic_combiners: BindingsSpec<DA, OB::CE> = vec![
+        // operative
+        (Datum::Text(Text::from_str("oo")),
+         Combiner::Operative(Box::new(just_operands))),
+        // applicative
+        (Datum::Text(Text::from_str("aa")),
+         Combiner::Applicative(Box::new(just_operands))),
+        // remove form
+        (Datum::Text(Text::from_str("#")),
+         Combiner::Applicative(Box::new(remove))),
+        // allocate combination form
+        (Datum::Text(Text::from_str("cc")),
+         Combiner::Operative(Box::new(comb_alloc))),
+        // failing allocate
+        (Datum::Text(Text::from_str("ff")),
+         Combiner::Operative(Box::new(fail_alloc))),
+    ];
+    // Establish our test bindings in the OperatorBindings value that was
+    // initially given.
+    given_bindings.set_bindings(basic_combiners);
 
     let mut c = Parser {
         classifier: DefaultCharClassifier,
         allocator: c.allocator,
-        bindings: BasicCombiners{o: "oo", a: "aa", r: "#", c: "cc", f: "ff"},
+        bindings: given_bindings,
     };
     // Operatives get all the text to the end of the nest form unbroken
     // regardless if any of it looks like other nest forms.
@@ -437,7 +432,6 @@ pub fn test_suite0_with<DA, F, S>(mut p: Parser<DefaultCharClassifier,
     test!("{oo {ff}}" =>(c) [Ok(text("{ff}"))]);
     test!("{aa x{ff}y}" =>(c) [Err(FailedAlloc(AllocError::AllocExhausted)),
                                Err(UnbalancedEndChar(PosIgnore))]);
-    } // End of block for combiner tests.
 }
 
 // TODO: Suite for Parsers that provide character position.

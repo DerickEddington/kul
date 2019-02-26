@@ -18,7 +18,7 @@ pub type BoxDatum<TT, ET> = Datum<TT, ET, DatumBox<TT, ET>>;
 
 /// This wrapper allows the needed recursive type definition for `Box` to be
 /// used as the `Datum` reference type.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct DatumBox<TT, ET>(pub Box<BoxDatum<TT, ET>>);
 
 impl<TT, ET> DatumBox<TT, ET> {
@@ -57,7 +57,7 @@ pub type RcDatum<TT, ET> = Datum<TT, ET, DatumRc<TT, ET>>;
 
 /// This wrapper allows the needed recursive type definition for `Rc` to be used
 /// as the `Datum` reference type.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct DatumRc<TT, ET>(pub Rc<RcDatum<TT, ET>>);
 
 impl<TT, ET> DatumRc<TT, ET> {
@@ -89,7 +89,7 @@ pub type ArcDatum<TT, ET> = Datum<TT, ET, DatumArc<TT, ET>>;
 
 /// This wrapper allows the needed recursive type definition for `Arc` to be
 /// used as the `Datum` reference type.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct DatumArc<TT, ET>(pub Arc<ArcDatum<TT, ET>>);
 
 impl<TT, ET> DatumArc<TT, ET> {

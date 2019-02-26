@@ -1,23 +1,11 @@
 //! Parts for "combiners".  Combiners are custom user-defined macros for our
 //! notation/format/language.
 
-use core::ops::DerefMut;
-
 use crate::{
     Datum, Error, TextBase,
     parser::DatumAllocator,
 };
 
-
-// TODO: Still needed?
-/// This module is needed so that the traits are public, as required by
-/// `Combiner`, but not exported.
-mod private {
-    pub trait OperativeTrait { }
-    pub trait ApplicativeTrait { }
-}
-
-use private::*;
 
 /// A macro function, bound to an operator sub-form, which is called with the
 /// operands sub-form(s) to determine what should be substituted for the whole
@@ -30,25 +18,12 @@ use private::*;
 /// consistent ones can be used with it, which is the only intended use of this
 /// type.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum Combiner<OperativeRef, ApplicativeRef>
-    where OperativeRef: DerefMut,
-          OperativeRef::Target: OperativeTrait,
-          ApplicativeRef: DerefMut,
-          ApplicativeRef::Target: ApplicativeTrait,
-{
+pub enum Combiner<OperativeRef, ApplicativeRef> {
     /// An "operative" combiner, which is given unparsed operands text.
     Operative(OperativeRef),
     /// An "applicative" combiner, which is given parsed operands list.
     Applicative(ApplicativeRef),
 }
-
-impl<DA, CE> OperativeTrait for OpFn<DA, CE>
-    where DA: DatumAllocator,
-{ }
-
-impl<DA, CE> ApplicativeTrait for ApFn<DA, CE>
-    where DA: DatumAllocator,
-{ }
 
 /// The type of "operative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-form as
@@ -56,7 +31,7 @@ impl<DA, CE> ApplicativeTrait for ApFn<DA, CE>
 /// argument is the `Parser`'s `DatumAllocator`.  See
 /// [`combiner::Result`](type.Result.html) for the description of the return
 /// value.
-pub type OpFn<DA, CE> = dyn FnMut(DADatum<DA>, DADatum<DA>, &mut DA) -> Result<DA, CE>;
+pub type OpFn<DA, CE> = dyn Fn(DADatum<DA>, DADatum<DA>, &mut DA) -> Result<DA, CE>;
 
 /// The type of "applicative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-forms
@@ -65,7 +40,7 @@ pub type OpFn<DA, CE> = dyn FnMut(DADatum<DA>, DADatum<DA>, &mut DA) -> Result<D
 /// the third argument is the `Parser`'s `DatumAllocator`.  See
 /// [`combiner::Result`](type.Result.html) for the description of the return
 /// value.
-pub type ApFn<DA, CE> = dyn FnMut(DADatum<DA>, DADatum<DA>, &mut DA) -> Result<DA, CE>;
+pub type ApFn<DA, CE> = dyn Fn(DADatum<DA>, DADatum<DA>, &mut DA) -> Result<DA, CE>;
 
 /// The type returned by "operative" and "applicative" functions.  For a
 /// successful `Some` return, the returned `Datum` is substituted for the

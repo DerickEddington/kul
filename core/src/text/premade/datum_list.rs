@@ -5,6 +5,7 @@
 
 use core::ops::Deref;
 use core::cmp::Ordering;
+use core::hash::{Hash, Hasher};
 
 use crate::text;
 use crate::{Text, TextBase, TextChunk, TextConcat, Datum, DerefTryMut};
@@ -78,6 +79,15 @@ impl<C, ET> Ord for TextDatumList<'_, C, ET>
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         Text::cmp(self, other)
+    }
+}
+
+impl<C, ET> Hash for TextDatumList<'_, C, ET>
+    where C: TextChunk,
+{
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Text::hash(self, state)
     }
 }
 

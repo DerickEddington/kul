@@ -61,6 +61,7 @@ use kruvi::text::TextVec;
 
 
 pub mod suites;
+pub mod bindings;
 /// Utilities for testing.
 pub mod utils {
     pub mod tree_shapes;

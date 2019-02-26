@@ -3,26 +3,31 @@
 use kruvi_core::{
     Parser, Datum,
     parser::{
-        premade::{SliceDatumAllocator, DefaultCharClassifier, EmptyOperatorBindings},
+        premade::{SliceDatumAllocator, DefaultCharClassifier},
     },
     datum::premade::MutRefDatum,
     text::{premade::TextDatumList, chunk::premade::PosStr},
 };
 
-use kruvi_shared_tests::suites::test_suite0;
+use kruvi_shared_tests::{
+    suites::test_suite0,
+    bindings::BasicTestOperatorBindings,
+};
 
 
 type TxtTy<'a> = TextDatumList<'a, PosStr<'static>, ()>;
 
+type DA<'a> = SliceDatumAllocator<'a, TxtTy<'a>, ()>;
+
 fn parser<'a>(arr: &'a mut [MutRefDatum<'a, TxtTy<'a>, ()>])
               -> Parser<DefaultCharClassifier,
-                        SliceDatumAllocator<'a, TxtTy<'a>, ()>,
-                        EmptyOperatorBindings>
+                        DA<'a>,
+                        BasicTestOperatorBindings<DA<'a>>>
 {
     Parser {
         classifier: DefaultCharClassifier,
         allocator: SliceDatumAllocator::new(arr),
-        bindings: EmptyOperatorBindings,
+        bindings: BasicTestOperatorBindings::default(),
     }
 }
 

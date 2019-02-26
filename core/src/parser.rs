@@ -1,7 +1,7 @@
 //! Traits and types that provide the different aspects of `Parser`s'
 //! functionality.
 
-use core::ops::DerefMut;
+use core::ops::Deref;
 
 use crate::{Datum, DerefTryMut, Combiner, Text, Error};
 use crate::combiner::{OpFn, ApFn};
@@ -18,6 +18,9 @@ pub mod premade
 
     mod empty_bindings;
     pub use empty_bindings::EmptyOperatorBindings;
+
+    mod pair_bindings;
+    pub use pair_bindings::PairOperatorBindings;
 }
 
 
@@ -103,10 +106,10 @@ pub trait OperatorBindings<DA>
 {
     /// The type of references to
     /// [`Operative`](enum.Combiner.html#variant.Operative) macro functions.
-    type OR: DerefMut<Target = OpFn<DA, Self::CE>>;
+    type OR: Deref<Target = OpFn<DA, Self::CE>>;
     /// The type of references to
     /// [`Applicative`](enum.Combiner.html#variant.Applicative) macro functions.
-    type AR: DerefMut<Target = ApFn<DA, Self::CE>>;
+    type AR: Deref<Target = ApFn<DA, Self::CE>>;
     /// The [combiner error extension](enum.Error.html#variant.FailedCombiner)
     /// type.
     type CE;
@@ -119,6 +122,6 @@ pub trait OperatorBindings<DA>
     /// ways.  Else if we do not have a binding, return `None` to indicate that
     /// the form should not be handled according to the operator and that the
     /// operands should simply be recursively parsed.
-    fn lookup(&mut self, operator: &Datum<DA::TT, DA::ET, DA::DR>)
-              -> Option<Combiner<Self::OR, Self::AR>>;
+    fn lookup(&self, operator: &Datum<DA::TT, DA::ET, DA::DR>)
+              -> Option<&Combiner<Self::OR, Self::AR>>;
 }

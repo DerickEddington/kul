@@ -8,22 +8,26 @@ use kruvi::{
     source_stream::{CharIterSourceStream, to_rc_string, to_rc_box_str, to_rc_str,
                     to_arc_string, to_arc_box_str, to_arc_str},
     parser::{BoxDatumAllocator, SliceDatumAllocator,
-             DefaultCharClassifier, EmptyOperatorBindings},
+             DefaultCharClassifier, DatumAllocator},
     datum::MutRefDatum,
     text::{TextVec, chunk::{PosStrish, RefCntStrish}, TextDatumList},
 };
 
-use kruvi_shared_tests::suites::test_suite0_with;
+use kruvi_shared_tests::{
+    suites::test_suite0_with,
+    bindings::BasicTestOperatorBindings,
+};
 
 
 fn parser<DA>(allocator: DA) -> Parser<DefaultCharClassifier,
                                        DA,
-                                       EmptyOperatorBindings>
+                                       BasicTestOperatorBindings<DA>>
+    where DA: DatumAllocator,
 {
     Parser {
         classifier: DefaultCharClassifier,
         allocator,
-        bindings: EmptyOperatorBindings,
+        bindings: BasicTestOperatorBindings::default(),
     }
 }
 

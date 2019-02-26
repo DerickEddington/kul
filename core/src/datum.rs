@@ -14,7 +14,7 @@ pub mod premade {
 /// by the `ExtraType` parameter, and it is parameterized over the `DatumRef`
 /// type used to refer to the other `Datum`s in an AST.  It can also be used for
 /// DAGs.
-#[derive(Copy, Clone, Eq, Debug)]
+#[derive(Copy, Clone, Eq, Hash, Debug)]
 pub enum Datum<TextType, ExtraType, DatumRef>
     where DatumRef: DerefTryMut<Target = Datum<TextType, ExtraType, DatumRef>>,
 {

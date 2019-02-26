@@ -1,7 +1,7 @@
 //! A generic `Text` implementation for chaining underlying chunks by using a
 //! `Vec`.
 
-use std::cmp::Ordering;
+use std::{cmp::Ordering, hash::{Hash, Hasher}};
 
 use crate::{Text, TextChunk, TextBase, TextConcat};
 use crate::parser::AllocError;
@@ -59,6 +59,15 @@ impl<C> Ord for TextVec<C>
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         Text::cmp(self, other)
+    }
+}
+
+impl<C> Hash for TextVec<C>
+    where C: TextChunk,
+{
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Text::hash(self, state)
     }
 }
 

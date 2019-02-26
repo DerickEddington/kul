@@ -15,7 +15,7 @@ pub type MutRefDatum<'d, TT, ET> = Datum<TT, ET, DatumMutRef<'d, TT, ET>>;
 ///
 /// This must not implement `Drop`.  This wrapper allows the needed recursive
 /// type definition.
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 pub struct DatumMutRef<'d, TT, ET>(pub &'d mut MutRefDatum<'d, TT, ET>);
 
 /// Required by `DerefTryMut`.

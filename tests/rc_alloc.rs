@@ -1,20 +1,25 @@
 use kruvi::{
     Parser,
-    parser::{RcDatumAllocator, DefaultCharClassifier, EmptyOperatorBindings},
+    parser::{RcDatumAllocator, DefaultCharClassifier},
     text::{TextVec, chunk::PosStr},
 };
 
-use kruvi_shared_tests::suites::test_suite0;
+use kruvi_shared_tests::{
+    suites::test_suite0,
+    bindings::BasicTestOperatorBindings,
+};
 
+
+type DA = RcDatumAllocator<TextVec<PosStr<'static>>, ()>;
 
 fn parser() -> Parser<DefaultCharClassifier,
-                      RcDatumAllocator<TextVec<PosStr<'static>>, ()>,
-                      EmptyOperatorBindings>
+                      DA,
+                      BasicTestOperatorBindings<DA>>
 {
     Parser {
         classifier: DefaultCharClassifier,
         allocator: RcDatumAllocator::default(),
-        bindings: EmptyOperatorBindings,
+        bindings: BasicTestOperatorBindings::default(),
     }
 }
 

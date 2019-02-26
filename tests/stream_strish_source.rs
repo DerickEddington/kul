@@ -13,22 +13,26 @@ use kruvi::{
     Parser, Datum,
     source_stream::StrishIterSourceStream,
     parser::{BoxDatumAllocator, SliceDatumAllocator,
-             DefaultCharClassifier, EmptyOperatorBindings},
+             DefaultCharClassifier, DatumAllocator},
     datum::MutRefDatum,
     text::{TextVec, chunk::{PosStrish, RefCntStrish}, TextDatumList},
 };
 
-use kruvi_shared_tests::suites::test_suite0_with;
+use kruvi_shared_tests::{
+    suites::test_suite0_with,
+    bindings::BasicTestOperatorBindings,
+};
 
 
 fn parser<DA>(allocator: DA) -> Parser<DefaultCharClassifier,
                                        DA,
-                                       EmptyOperatorBindings>
+                                       BasicTestOperatorBindings<DA>>
+    where DA: DatumAllocator,
 {
     Parser {
         classifier: DefaultCharClassifier,
         allocator,
-        bindings: EmptyOperatorBindings,
+        bindings: BasicTestOperatorBindings::default(),
     }
 }
 

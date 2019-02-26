@@ -2,7 +2,7 @@
 
 #![allow(clippy::stutter)]
 
-use core::cmp::Ordering;
+use core::{cmp::Ordering, hash::{Hash, Hasher}};
 
 use crate::{SourceIterItem, SourcePosition};
 use crate::parser::AllocError;
@@ -172,6 +172,16 @@ pub trait Text: TextBase
     /// This is a total ordering relation.
     fn cmp<O: Text>(&self, other: &O) -> Ordering {
         self.iter().map(sii_ch).cmp(other.iter().map(sii_ch))
+    }
+
+    /// Hash the logical sequence of `char`s.
+    ///
+    /// The default implementation uses our special iterator type to enable
+    /// hashing across arbitrary, often inconsistent, chunk boundaries.
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for ch in self.iter().map(sii_ch) {
+            ch.hash(state);
+        }
     }
 
     /// Return a borrow of our `self`'s particular representation of chained
