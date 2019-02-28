@@ -8,7 +8,7 @@
 
 #![allow(clippy::stutter)]
 
-use std::hash::Hash;
+use std::hash::{Hash, BuildHasher};
 
 use kruvi_core::{
     Datum,
@@ -51,15 +51,17 @@ pub type BasicTestOperatorBindings<DA>
                            ()>;
 
 
-impl<DA, CE>
+impl<DA, CE, S>
     TestOperatorBindings<DA>
-    for HashMapOperatorBindings<DA, Box<OpFn<DA, CE>>, Box<ApFn<DA, CE>>, CE>
+    for HashMapOperatorBindings<DA, Box<OpFn<DA, CE>>, Box<ApFn<DA, CE>>, CE, S>
     where DA: DatumAllocator,
           DA::TT: Hash + Eq,
           DA::ET: Hash + Eq,
           DA::DR: Hash + Eq,
+          S: BuildHasher,
 {
     fn set_bindings(&mut self, bindings: BindingsSpec<DA, Self::CE>) {
+        self.hashmap.clear();
         self.hashmap.extend(bindings.into_iter());
     }
 }
