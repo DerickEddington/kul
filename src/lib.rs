@@ -3,6 +3,10 @@
 //!
 //! This crate:
 //!
+//! * Provides [`Parser`]s, for [ready-made](common/index.html) use for common
+//! basic parsing applications, that set pre-chosen types for most of the
+//! generic parameters.
+//!
 //! * Re-exports all of [`kruvi_core`].
 //!
 //! * Provides [`Datum`] reference types that wrap the standard [`Box`], [`Rc`],
@@ -21,9 +25,6 @@
 //! trees (e.g. long lists), by using a custom [`Drop`] implementation for them.
 //! (Otherwise the compiler's default drop recursion could overflow.)
 //!
-//! * TODO: Provides an implementation of [`Parser`] that uses [`Box`] and has a
-//! facility for establishing macro bindings.
-//!
 //! Unlike [`kruvi_core`], this crate's purpose mostly is to provide premade
 //! implementations intended for ready use.  So, instead of placing such items
 //! in sub-modules named `premade`, they are placed at the top of their
@@ -31,6 +32,7 @@
 //! `kruvi_core`.
 //!
 //! [`kruvi_core`]: ../kruvi_core/index.html
+//! [`Parser`]: ../kruvi_core/struct.Parser.html
 //! [`Datum`]: ../kruvi_core/enum.Datum.html
 //! [`Box`]: http://doc.rust-lang.org/std/boxed/struct.Box.html
 //! [`Rc`]: http://doc.rust-lang.org/std/rc/struct.Rc.html
@@ -38,10 +40,6 @@
 //! [`Text`]: ../kruvi_core/trait.Text.html
 //! [`SourceStream`]: ../kruvi_core/trait.SourceStream.html
 //! [`Drop`]: http://doc.rust-lang.org/std/ops/trait.Drop.html
-//! [`Parser`]: ../kruvi_core/struct.Parser.html
-
-// TODO: Parser impl that makes it easier by using Box and that provides API for
-// establishing combiner bindings.
 
 
 #![forbid(unsafe_code)]
@@ -86,6 +84,15 @@
 pub use kruvi_core::*;
 
 pub mod drop;
+
+/// `Parser`s and related types and functions, provided for convenience, that
+/// use recommended types for instantiating many of the generic parameters of
+/// this crate, for common basic parsing applications.
+pub mod common {
+    mod helper;
+    pub mod inmem;
+    pub mod stream;
+}
 
 /// `SourceStream` types that use the `std` library, including heap allocation.
 pub mod source_stream {

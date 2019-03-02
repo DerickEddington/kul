@@ -252,6 +252,7 @@ impl<CC, DA, OB> Parser<CC, DA, OB>
     /// The primary method.  Parse the given text source, according to the
     /// specific parameterization of our `Self`, and return an iterator that
     /// yields each top-level form as a `Datum` AST.
+    #[inline]
     pub fn parse<S>(&mut self, source: S) -> ParseIter<'_, Self, S>
         where S: SourceStream<DA>,
     {
