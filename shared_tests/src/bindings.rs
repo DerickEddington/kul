@@ -6,7 +6,7 @@
 //! type parameters, so only a limited subset it covered, but it's enough to
 //! cover testing their logic.
 
-#![allow(clippy::stutter)]
+#![allow(clippy::module_name_repetitions)]
 
 use std::hash::{Hash, BuildHasher};
 

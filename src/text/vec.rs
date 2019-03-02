@@ -11,7 +11,7 @@ use crate::parser::AllocError;
 /// any [`TextChunk`] type, and that is a [`TextConcat`] that can be used with
 /// [`Parser`s].
 #[derive(Clone, Debug)]
-#[allow(clippy::stutter)]
+#[allow(clippy::module_name_repetitions)]
 pub struct TextVec<C> {
     chunks: Vec<C>,
 }

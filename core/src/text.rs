@@ -1,6 +1,6 @@
 //! Traits that are our abstraction of "text".
 
-#![allow(clippy::stutter)]
+#![allow(clippy::module_name_repetitions)]
 
 use core::{cmp::Ordering, hash::{Hash, Hasher}};
 

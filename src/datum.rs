@@ -1,7 +1,7 @@
 //! `Datum` reference types for heap-allocating `Datum`s.  Also re-exports the
 //! core crate's module and premades.
 
-#![allow(clippy::stutter)]
+#![allow(clippy::module_name_repetitions)]
 
 use std::boxed::Box;
 use std::rc::Rc;
@@ -24,7 +24,7 @@ pub struct DatumBox<TT, ET>(pub Box<BoxDatum<TT, ET>>);
 impl<TT, ET> DatumBox<TT, ET> {
     /// Make a `Box`ed `Datum` with value from the given argument.
     pub fn new(val: BoxDatum<TT, ET>) -> Self {
-        DatumBox(Box::new(val))
+        Self(Box::new(val))
     }
 }
 
@@ -63,7 +63,7 @@ pub struct DatumRc<TT, ET>(pub Rc<RcDatum<TT, ET>>);
 impl<TT, ET> DatumRc<TT, ET> {
     /// Make an `Rc`ed `Datum` with value from the given argument.
     pub fn new(val: RcDatum<TT, ET>) -> Self {
-        DatumRc(Rc::new(val))
+        Self(Rc::new(val))
     }
 }
 
@@ -95,7 +95,7 @@ pub struct DatumArc<TT, ET>(pub Arc<ArcDatum<TT, ET>>);
 impl<TT, ET> DatumArc<TT, ET> {
     /// Make an `Arc`ed `Datum` with value from the given argument.
     pub fn new(val: ArcDatum<TT, ET>) -> Self {
-        DatumArc(Arc::new(val))
+        Self(Arc::new(val))
     }
 }
 

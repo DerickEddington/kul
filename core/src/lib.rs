@@ -289,11 +289,7 @@ impl<'p, CC, DA, OB, S>
     type Item = ParseIterItem<DA, OB>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.do_next() {
-            Ok(Some(d)) => Some(Ok(d)),
-            Ok(None) => None,
-            Err(e) => Some(Err(e))
-        }
+        self.do_next().transpose()
     }
 }
 

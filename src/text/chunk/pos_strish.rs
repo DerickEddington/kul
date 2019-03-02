@@ -259,7 +259,7 @@ impl<S> TextChunk for PosStrish<S>
 /// The positions of the characters remain correct relative to the original
 /// source that the `PosStrish` is from.  (I.e. not relative to its slice.)
 #[derive(Debug)]
-#[allow(clippy::stutter)]
+#[allow(clippy::module_name_repetitions)]
 pub struct PosStrishIter<S> {
     chunk: PosStrish<S>,
     byte_idx: usize,
