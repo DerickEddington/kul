@@ -1,19 +1,28 @@
 //! A generic `Text` implementation for chaining underlying chunks by using a
 //! `Vec`.
 
-use std::{cmp::Ordering, hash::{Hash, Hasher}};
+use std::{slice, cmp::Ordering, hash::{Hash, Hasher}};
 
 use crate::{Text, TextChunk, TextBase, TextConcat};
 use crate::parser::AllocError;
+
+use Repr::{Single, Multi};
 
 
 /// A representation of texts that uses a `Vec` of chunks, that can work with
 /// any [`TextChunk`] type, and that is a [`TextConcat`] that can be used with
 /// [`Parser`s].
+///
+/// When it contains only a single chunk, the chunk is directly contained
+/// instead of using a `Vec`.
 #[derive(Clone, Debug)]
 #[allow(clippy::module_name_repetitions)]
-pub struct TextVec<C> {
-    chunks: Vec<C>,
+pub struct TextVec<C>(Repr<C>);
+
+#[derive(Clone, Debug)]
+enum Repr<C> {
+    Single(C),
+    Multi(Vec<C>),
 }
 
 
@@ -22,9 +31,7 @@ impl<C> From<C> for TextVec<C>
 {
     #[inline]
     fn from(chunk: C) -> Self {
-        Self {
-            chunks: vec![chunk],
-        }
+        Self(Single(chunk))
     }
 }
 
@@ -79,14 +86,12 @@ impl<C> TextBase for TextVec<C>
 
     #[inline]
     fn empty() -> Self {
-        Self {
-            chunks: vec![],
-        }
+        Self(Multi(vec![])) // Empty Vec doesn't allocate
     }
 
     #[inline]
     fn is_empty(&self) -> bool {
-        self.chunks.iter().all(TextBase::is_empty)
+        self.iter_chunks().all(TextBase::is_empty)
     }
 }
 
@@ -99,7 +104,10 @@ impl<C> Text for TextVec<C>
 
     #[inline]
     fn iter_chunks_state(&self) -> Option<&Self::IterChunksState> {
-        Some(&self.chunks[..])
+        Some(match &self.0 {
+            Single(chunk) => slice::from_ref(chunk),
+            Multi(chunks) => chunks,
+        })
     }
 
 }
@@ -111,7 +119,31 @@ impl<C, DA> TextConcat<DA> for TextVec<C>
     where C: TextChunk,
 {
     fn concat(mut self, mut other: Self, _: &mut DA) -> Result<Self, AllocError> {
-        self.chunks.append(&mut other.chunks);
+        // If either is empty, optimize.
+        if self.is_empty() {
+            return Ok(other);
+        } else if other.is_empty() {
+            return Ok(self)
+        }
+
+        match self.0 {
+            Single(chunk) =>
+                self = match other.0 {
+                    Single(other_chunk) =>
+                        Self(Multi(vec![chunk, other_chunk])),
+                    Multi(ref mut other_chunks) => {
+                        other_chunks.insert(0, chunk);
+                        other
+                    },
+                },
+            Multi(ref mut chunks) =>
+                match other.0 {
+                    Single(other_chunk) =>
+                        chunks.push(other_chunk),
+                    Multi(mut other_chunks) =>
+                        chunks.append(&mut other_chunks),
+                },
+        }
         Ok(self)
     }
 }
@@ -119,5 +151,47 @@ impl<C, DA> TextConcat<DA> for TextVec<C>
 
 #[cfg(test)]
 mod tests {
-    // TODO
+    use super::*;
+    use crate::text::chunk::PosStr;
+
+    type TV = TextVec<PosStr<'static>>;
+
+    fn concat(head: TV, tail: TV) -> TV {
+        head.concat(tail, &mut ()).unwrap()
+    }
+
+    #[test]
+    fn basic() {
+        assert!(TV::empty().is_empty());
+        assert!(concat(TV::empty(), TV::empty()).is_empty());
+        assert!(TV::from_str("").is_empty());
+        assert!(concat(TV::from_str(""), TV::from_str("")).is_empty());
+        assert!(concat(TV::from_str(""), TV::empty()).is_empty());
+        assert!(concat(TV::empty(), TV::from_str("")).is_empty());
+        assert!(concat(TV::from_str(""), concat(TV::from_str(""), TV::from_str("")))
+                .is_empty());
+        assert_eq!(TV::empty(), TV::empty());
+        assert_eq!(TV::from_str(""), TV::from_str(""));
+        assert_eq!(TV::empty(), TV::from_str(""));
+        assert_eq!(TV::from_str("a"), TV::from_str("a"));
+        assert_ne!(TV::empty(), TV::from_str("a"));
+        assert_ne!(TV::from_str("a"), TV::from_str("b"));
+        assert_ne!(TV::from_str("aa"), TV::from_str("aaa"));
+        assert_eq!(concat(TV::from_str("cc"), TV::from_str("d")),
+                   TV::from_str("ccd"));
+        assert_eq!(concat(concat(TV::from_str("e"), TV::from_str("  ")),
+                          TV::from_str("fff")),
+                   TV::from_str("e  fff"));
+        assert_eq!(concat(TV::from_str("gg"),
+                          concat(concat(TV::empty(), TV::from_str("")),
+                                 TV::from_str("hh"))),
+                   TV::from_str("gghh"));
+        assert_eq!(concat(concat(TV::from_str(""), TV::from_str("i")), TV::from_str("")),
+                   TV::from_str("i"));
+        assert_ne!(concat(TV::from_str("j"), TV::from_str("kk")),
+                   TV::from_str("lm"));
+        assert_ne!(concat(TV::from_str("n"), concat(TV::from_str("o o"),
+                                                    TV::from_str("p"))),
+                   TV::from_str("qrs"));
+    }
 }
