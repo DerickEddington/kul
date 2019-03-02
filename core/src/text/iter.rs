@@ -94,7 +94,6 @@ impl<'l, TT, DA> SourceStream<DA> for Iter<'l, TT>
           TT::Chunk: 'l,
           DA: DatumAllocator<TT = TT> + ?Sized,
 {
-    /// TODO
     fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
         if let Some(ref it) = self.peeked {
             return Some(it)
@@ -121,7 +120,6 @@ impl<'l, TT, DA> SourceStream<DA> for Iter<'l, TT>
         }
     }
 
-    /// TODO
     fn next_accum(&mut self, dalloc: &mut DA)
                   -> Result<Option<<Self as Iterator>::Item>,
                             AllocError>
@@ -144,7 +142,6 @@ impl<'l, TT, DA> SourceStream<DA> for Iter<'l, TT>
         })
     }
 
-    /// TODO
     fn accum_done(&mut self, dalloc: &mut DA) -> Result<TT, AllocError> {
         let mut accum = self.accum.take().unwrap_or_else(TT::empty);
         if let Some(ccss) = &mut self.cur_chunk_src_strm {

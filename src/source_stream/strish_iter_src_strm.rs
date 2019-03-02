@@ -128,7 +128,6 @@ impl<SI, TT, DA> SourceStream<DA> for StrishIterSourceStream<SI, TT>
           TT::Chunk: From<PosStrish<SI::Item>>,
           DA: DatumAllocator<TT = TT> + ?Sized,
 {
-    /// TODO
     fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
         if let Some(ref mut cpss) = self.cur_posstrish_src_strm {
             if let it @ Some(_) = cpss.peek() {
@@ -148,7 +147,6 @@ impl<SI, TT, DA> SourceStream<DA> for StrishIterSourceStream<SI, TT>
         None
     }
 
-    /// TODO
     fn next_accum(&mut self, dalloc: &mut DA)
                   -> Result<Option<<Self as Iterator>::Item>,
                             AllocError>
@@ -170,7 +168,6 @@ impl<SI, TT, DA> SourceStream<DA> for StrishIterSourceStream<SI, TT>
         })
     }
 
-    /// TODO
     fn accum_done(&mut self, dalloc: &mut DA) -> Result<TT, AllocError> {
         let mut accum = self.accum.take().unwrap_or_else(TT::empty);
         if let Some(cpss) = &mut self.cur_posstrish_src_strm {
