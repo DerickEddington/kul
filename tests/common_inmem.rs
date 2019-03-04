@@ -1,6 +1,6 @@
-use kruvi::common::inmem;
+use kul::common::inmem;
 
-use kruvi_shared_tests::suites::test_suite0;
+use kul_shared_tests::suites::test_suite0;
 
 
 #[test]

@@ -10,13 +10,13 @@
 
 use std::hash::{Hash, BuildHasher};
 
-use kruvi_core::{
+use kul_core::{
     Datum,
     parser::{OperatorBindings, DatumAllocator, premade::PairOperatorBindings},
     combiner::{Combiner, OpFn, ApFn},
 };
 
-use kruvi::parser::HashMapOperatorBindings;
+use kul::parser::HashMapOperatorBindings;
 
 
 type DADatum<DA> = Datum<<DA as DatumAllocator>::TT,

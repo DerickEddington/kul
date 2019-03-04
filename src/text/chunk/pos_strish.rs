@@ -322,7 +322,7 @@ impl<S> Iterator for PosStrishIter<S>
 
 /// Enables `PosStrish` to be used as the `Chunk` type of `Text` types that
 /// implement `TextConcat` so they can be iterated with
-/// `kruvi_core::SourceStream`.  A `chunk::SourceStream` can accumulate what it
+/// `kul_core::SourceStream`.  A `chunk::SourceStream` can accumulate what it
 /// iterates within a single chunk.  This records and grows a slice range and
 /// creates a new chunk representing that, which shares ownership of the
 /// original string, for each accumulation, which is zero-copy.

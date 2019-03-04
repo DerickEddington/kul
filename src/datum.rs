@@ -10,7 +10,7 @@ use std::ops::{Deref, DerefMut};
 
 // Re-export everything from the core mod.
 #[doc(no_inline)]
-pub use kruvi_core::datum::{*, premade::*};
+pub use kul_core::datum::{*, premade::*};
 
 
 /// This assists in `Box` being used as the `Datum` reference type.
@@ -120,7 +120,7 @@ impl<TT, ET> DerefTryMut for DatumArc<TT, ET> {
 mod tests {
     #![allow(clippy::enum_glob_use)]
     use super::*;
-    use kruvi_shared_tests::utils::tree_shapes::*;
+    use kul_shared_tests::utils::tree_shapes::*;
     use Datum::*;
 
     /// Used as a "text" type in tests where it does not need to be a real
@@ -259,7 +259,7 @@ mod tests {
     #[ignore]
     fn deep_unusual_zigzag_equality_overflow()
     {
-        use kruvi_shared_tests::TestStrText;
+        use kul_shared_tests::TestStrText;
 
         fn make_unusual_zigzag(depth: usize) -> DatumBox<TestStrText, usize> {
             make_zigzag(depth, &DatumBox::new,

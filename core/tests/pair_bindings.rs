@@ -2,7 +2,7 @@
 
 use std::{borrow::Borrow, iter::{repeat_with, FromIterator}};
 
-use kruvi_core::{
+use kul_core::{
     Parser, Datum,
     parser::{DatumAllocator, premade::{PairOperatorBindings, SliceDatumAllocator,
                                        DefaultCharClassifier}},
@@ -11,7 +11,7 @@ use kruvi_core::{
     datum::premade::MutRefDatum,
 };
 
-use kruvi_shared_tests::{suites::test_suite0, bindings::BindingsSpec};
+use kul_shared_tests::{suites::test_suite0, bindings::BindingsSpec};
 
 
 fn parser<DA, B, CE>(

@@ -12,7 +12,7 @@ use crate::parser::{DatumAllocator, AllocError};
 pub mod chunks;
 
 
-/// A [`kruvi_core::SourceStream`] (which is also an `Iterator`) of the logical
+/// A [`kul_core::SourceStream`] (which is also an `Iterator`) of the logical
 /// sequence of characters (with positions) of any [`Text`], yielded as
 /// [`SourceIterItem`] items.  This is designed to handle generic chunk-chain
 /// representations.

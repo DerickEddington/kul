@@ -6,7 +6,7 @@ use std::{
     rc::Rc, sync::Arc,
 };
 
-use kruvi::{
+use kul::{
     Parser, Datum,
     parser::{HashMapOperatorBindings, DefaultCharClassifier,
              DatumAllocator, SliceDatumAllocator,
@@ -16,7 +16,7 @@ use kruvi::{
     datum::MutRefDatum,
 };
 
-use kruvi_shared_tests::suites::test_suite0;
+use kul_shared_tests::suites::test_suite0;
 
 
 fn parser<DA, CE>(

@@ -1,5 +1,5 @@
 //! Additional, more convenient, functionality, which leverages the Rust
-//! standard library, layered on top of [`kruvi_core`].
+//! standard library, layered on top of [`kul_core`].
 //!
 //! This crate:
 //!
@@ -7,7 +7,7 @@
 //! basic parsing applications, that set pre-chosen types for most of the
 //! generic parameters.
 //!
-//! * Re-exports all of [`kruvi_core`].
+//! * Re-exports all of [`kul_core`].
 //!
 //! * Provides [`Datum`] reference types that wrap the standard [`Box`], [`Rc`],
 //! and [`Arc`] types, for heap-allocating `Datum`s.
@@ -25,20 +25,20 @@
 //! trees (e.g. long lists), by using a custom [`Drop`] implementation for them.
 //! (Otherwise the compiler's default drop recursion could overflow.)
 //!
-//! Unlike [`kruvi_core`], this crate's purpose mostly is to provide premade
+//! Unlike [`kul_core`], this crate's purpose mostly is to provide premade
 //! implementations intended for ready use.  So, instead of placing such items
 //! in sub-modules named `premade`, they are placed at the top of their
 //! respective modules, including for the premade items re-exported from
-//! `kruvi_core`.
+//! `kul_core`.
 //!
-//! [`kruvi_core`]: ../kruvi_core/index.html
-//! [`Parser`]: ../kruvi_core/struct.Parser.html
-//! [`Datum`]: ../kruvi_core/enum.Datum.html
+//! [`kul_core`]: ../kul_core/index.html
+//! [`Parser`]: ../kul_core/struct.Parser.html
+//! [`Datum`]: ../kul_core/enum.Datum.html
 //! [`Box`]: http://doc.rust-lang.org/std/boxed/struct.Box.html
 //! [`Rc`]: http://doc.rust-lang.org/std/rc/struct.Rc.html
 //! [`Arc`]: http://doc.rust-lang.org/std/sync/struct.Arc.html
-//! [`Text`]: ../kruvi_core/trait.Text.html
-//! [`SourceStream`]: ../kruvi_core/trait.SourceStream.html
+//! [`Text`]: ../kul_core/trait.Text.html
+//! [`SourceStream`]: ../kul_core/trait.SourceStream.html
 //! [`Drop`]: http://doc.rust-lang.org/std/ops/trait.Drop.html
 
 
@@ -81,7 +81,7 @@
 // Re-export everything from the core crate. (Except items shadowed by ours,
 // which are re-exported elsewhere.)
 #[doc(no_inline)]
-pub use kruvi_core::*;
+pub use kul_core::*;
 
 pub mod drop;
 
@@ -103,7 +103,7 @@ pub mod source_stream {
     pub use strish_iter_src_strm::*;
 }
 
-// The below modules shadow those of `kruvi_core` but re-export everything from
+// The below modules shadow those of `kul_core` but re-export everything from
 // those in addition to providing some of their own items.
 
 pub mod datum;
@@ -112,7 +112,7 @@ pub mod datum;
 /// Also re-exports the core crate's module and premades.
 pub mod parser {
     #[doc(no_inline)]
-    pub use kruvi_core::parser::{*, premade::*};
+    pub use kul_core::parser::{*, premade::*};
 
     mod box_alloc;
     pub use box_alloc::BoxDatumAllocator;
@@ -131,13 +131,13 @@ pub mod parser {
 /// re-exports the core crate's module and premades.
 pub mod text {
     #[doc(no_inline)]
-    pub use kruvi_core::text::{*, premade::*};
+    pub use kul_core::text::{*, premade::*};
 
     /// `TextChunk` types that use the `std` library, including heap allocation.
     /// Also re-exports the core crate's module and premades.
     pub mod chunk {
         #[doc(no_inline)]
-        pub use kruvi_core::text::chunk::{*, premade::*};
+        pub use kul_core::text::chunk::{*, premade::*};
 
         mod pos_strish;
         pub use pos_strish::*;

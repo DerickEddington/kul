@@ -49,10 +49,10 @@ pub mod chunk {
         pub use pos_str::*;
     }
 
-    /// Like [`kruvi_core::SourceStream`](TODO), but without `DatumAllocator`,
+    /// Like [`kul_core::SourceStream`](TODO), but without `DatumAllocator`,
     /// for `TextChunk`s.  Only accumulates within a single chunk, not across
-    /// multiple chunks, unlike `kruvi_core::SourceStream`.  `iter::Iter as
-    /// kruvi_core::SourceStream` builds on this.
+    /// multiple chunks, unlike `kul_core::SourceStream`.  `iter::Iter as
+    /// kul_core::SourceStream` builds on this.
     pub trait SourceStream<C>: Iterator<Item = SourceIterItem<C::Pos>>
         where C: TextChunk,
     {
@@ -203,7 +203,7 @@ pub trait Text: TextBase
         iter::chunks::Iter::new(self)
     }
 
-    /// Construct a new iterator, which is also a [`kruvi_core::SourceStream`]
+    /// Construct a new iterator, which is also a [`kul_core::SourceStream`]
     /// if the `Self` type is also a [`TextConcat`], that yields the logical
     /// character sequence, and their positions, of the given `self`.
     ///
@@ -216,7 +216,7 @@ pub trait Text: TextBase
     /// becomes available in stable Rust, our design should probably be redone
     /// to leverage that feature for a cleaner design.
     ///
-    /// [`kruvi_core::SourceStream`]: TODO
+    /// [`kul_core::SourceStream`]: TODO
     /// [`TextConcat`]: TODO
     /// [`text::Iter`]: TODO
     #[inline]

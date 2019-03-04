@@ -9,7 +9,7 @@ use std::{
     fmt::Debug,
 };
 
-use kruvi::{
+use kul::{
     Parser, Datum,
     source_stream::StrishIterSourceStream,
     parser::{BoxDatumAllocator, SliceDatumAllocator,
@@ -18,7 +18,7 @@ use kruvi::{
     text::{TextVec, chunk::{PosStrish, RefCntStrish}, TextDatumList},
 };
 
-use kruvi_shared_tests::{
+use kul_shared_tests::{
     suites::test_suite0_with,
     bindings::BasicTestOperatorBindings,
 };

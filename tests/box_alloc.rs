@@ -1,10 +1,10 @@
-use kruvi::{
+use kul::{
     Parser,
     parser::{BoxDatumAllocator, DefaultCharClassifier},
     text::{TextVec, chunk::PosStr},
 };
 
-use kruvi_shared_tests::{
+use kul_shared_tests::{
     suites::test_suite0,
     bindings::BasicTestOperatorBindings,
 };

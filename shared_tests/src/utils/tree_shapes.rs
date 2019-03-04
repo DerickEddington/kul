@@ -7,8 +7,8 @@ use std::rc::{Rc, Weak as WeakRc};
 use std::sync::{Arc, Weak as WeakArc};
 use std::cell::Cell;
 
-use kruvi::datum::{DatumBox, DatumRc, RcDatum, DatumArc, ArcDatum};
-use kruvi_core::{Datum::{self, *}, DerefTryMut};
+use kul::datum::{DatumBox, DatumRc, RcDatum, DatumArc, ArcDatum};
+use kul_core::{Datum::{self, *}, DerefTryMut};
 
 use crate::TestStrText;
 

@@ -2,9 +2,9 @@
 
 use std::fmt::Debug;
 
-use kruvi_core::{Parser, SourceStream, Text, TextBase, TextConcat, Datum, Combiner,
+use kul_core::{Parser, SourceStream, Text, TextBase, TextConcat, Datum, Combiner,
                  Error};
-use kruvi_core::parser::{DatumAllocator, AllocError,
+use kul_core::parser::{DatumAllocator, AllocError,
                          premade::{DefaultCharClassifier, EmptyOperatorBindings}};
 
 use crate::{parse_all, expect, dr, ExpectedText, PosIgnore, custom_delim,
@@ -25,7 +25,7 @@ pub fn test_suite0<DA, OB>(p: Parser<DefaultCharClassifier, DA, OB>)
           OB: TestOperatorBindings<DA>,
           OB::CE: Debug,
 {
-    use kruvi_core::SourceIterItem;
+    use kul_core::SourceIterItem;
 
     struct DummySourceStream<DA>(DA);
 

@@ -1,6 +1,6 @@
 #![no_std]
 
-use kruvi_core::{
+use kul_core::{
     Parser, Datum,
     parser::{
         premade::{SliceDatumAllocator, DefaultCharClassifier},
@@ -9,7 +9,7 @@ use kruvi_core::{
     text::{premade::TextDatumList, chunk::premade::PosStr},
 };
 
-use kruvi_shared_tests::{
+use kul_shared_tests::{
     suites::test_suite0,
     bindings::BasicTestOperatorBindings,
 };

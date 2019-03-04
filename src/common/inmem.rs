@@ -33,8 +33,8 @@ pub type Text<'input> = TextVec<PosStr<'input>>;
 /// The `Extra` type parameter determines the type used in the [`Datum::Extra`]
 /// variant of our `Datum` type, and it defaults to `()`.
 ///
-/// [`Datum`]: ../../../kruvi_core/enum.Datum.html
-/// [`Datum::Extra`]: ../../../kruvi_core/enum.Datum.html#variant.Extra
+/// [`Datum`]: ../../../kul_core/enum.Datum.html
+/// [`Datum::Extra`]: ../../../kul_core/enum.Datum.html#variant.Extra
 pub type DatumAllocator<'input, Extra = ()> = BoxDatumAllocator<Text<'input>, Extra>;
 
 /// Chosen so that you may establish bindings simply using the `std` [`HashMap`]
@@ -51,11 +51,11 @@ pub type DatumAllocator<'input, Extra = ()> = BoxDatumAllocator<Text<'input>, Ex
 /// [`Error::FailedCombiner`] variant of the crate's error type which your
 /// `Combiner` functions may return.  It defaults to `()`.
 ///
-/// [`Datum`]: ../../../kruvi_core/enum.Datum.html
-/// [`Combiner`]: ../../../kruvi_core/enum.Combiner.html
+/// [`Datum`]: ../../../kul_core/enum.Datum.html
+/// [`Combiner`]: ../../../kul_core/enum.Combiner.html
 /// [`HashMap`]: http://doc.rust-lang.org/std/collections/struct.HashMap.html
-/// [`Datum::Extra`]: ../../../kruvi_core/enum.Datum.html#variant.Extra
-/// [`Error::FailedCombiner`]: ../../../kruvi_core/enum.Error.html#variant.FailedCombiner
+/// [`Datum::Extra`]: ../../../kul_core/enum.Datum.html#variant.Extra
+/// [`Error::FailedCombiner`]: ../../../kul_core/enum.Error.html#variant.FailedCombiner
 pub type OperatorBindings<'input, Extra = (), CombinerError = ()>
     = HashMapOperatorBindings<DatumAllocator<'input, Extra>,
                               Box<OpFn<DatumAllocator<'input, Extra>,
@@ -77,12 +77,12 @@ pub type OperatorBindings<'input, Extra = (), CombinerError = ()>
 /// [`Error::FailedCombiner`] variant.  If unsure, the `()` type is suitable for
 /// either or both, and this is their default.
 ///
-/// [`Parser`]: ../../../kruvi_core/struct.Parser.html
-/// [`Datum`]: ../../../kruvi_core/enum.Datum.html
+/// [`Parser`]: ../../../kul_core/struct.Parser.html
+/// [`Datum`]: ../../../kul_core/enum.Datum.html
 /// [`HashMap`]: http://doc.rust-lang.org/std/collections/struct.HashMap.html
-/// [`Combiner`]: ../../../kruvi_core/enum.Combiner.html
-/// [`Datum::Extra`]: ../../../kruvi_core/enum.Datum.html#variant.Extra
-/// [`Error::FailedCombiner`]: ../../../kruvi_core/enum.Error.html#variant.FailedCombiner
+/// [`Combiner`]: ../../../kul_core/enum.Combiner.html
+/// [`Datum::Extra`]: ../../../kul_core/enum.Datum.html#variant.Extra
+/// [`Error::FailedCombiner`]: ../../../kul_core/enum.Error.html#variant.FailedCombiner
 pub type Parser<'input, Extra = (), CombinerError = ()>
     = ParserStruct<CharClassifier,
                    DatumAllocator<'input, Extra>,
@@ -100,9 +100,9 @@ pub type Parser<'input, Extra = (), CombinerError = ()>
 ///
 /// [`parse_str`]: fn.parse_str.html
 /// [`parse_str_with`]: fn.parse_str_with.html
-/// [`Datum`]: ../../../kruvi_core/enum.Datum.html
-/// [`Error`]: ../../../kruvi_core/enum.Error.html
-/// [`Combiner`]: ../../../kruvi_core/enum.Combiner.html
+/// [`Datum`]: ../../../kul_core/enum.Datum.html
+/// [`Error`]: ../../../kul_core/enum.Error.html
+/// [`Combiner`]: ../../../kul_core/enum.Combiner.html
 pub type TopFormResult<'input, Extra = (), CombinerError = ()>
     = ParseIterItem<DatumAllocator<'input, Extra>,
                     OperatorBindings<'input, Extra, CombinerError>>;
@@ -114,8 +114,8 @@ pub type TopFormResult<'input, Extra = (), CombinerError = ()>
 /// You may call the returned `Parser`'s [`parse`] method and use the
 /// [`ParseIter`] values however you can.
 ///
-/// [`parse`]: ../../../kruvi_core/struct.Parser.html#method.parse
-/// [`ParseIter`]: ../../../kruvi_core/struct.ParseIter.html
+/// [`parse`]: ../../../kul_core/struct.Parser.html#method.parse
+/// [`ParseIter`]: ../../../kul_core/struct.ParseIter.html
 #[inline]
 pub fn parser<Extra, CombinerError>(
     bindings: OperatorBindings<'_, Extra, CombinerError>
@@ -175,7 +175,7 @@ pub fn parse_str_with<'i, Extra, CombinerError>(
 /// are returned.
 ///
 /// [`Parser`]: type.Parser.html
-/// [`Datum::Combination`]: ../../../kruvi_core/enum.Datum.html#variant.Combination
+/// [`Datum::Combination`]: ../../../kul_core/enum.Datum.html#variant.Combination
 /// [`parse_str_with`]: fn.parse_str_with.html
 #[inline]
 pub fn parse_str(input: &str) -> Vec<TopFormResult<'_>> {

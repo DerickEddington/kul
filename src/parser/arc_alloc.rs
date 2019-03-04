@@ -10,7 +10,7 @@ use crate::{
 /// A [`DatumAllocator`] for generic `Datum` types which allocates `Datum`
 /// values in heap-allocated `Arc`s.
 ///
-/// [`DatumAllocator`]: ../../kruvi_core/parser/trait.DatumAllocator.html
+/// [`DatumAllocator`]: ../../kul_core/parser/trait.DatumAllocator.html
 #[derive(Debug)]
 pub struct ArcDatumAllocator<TT, ET>(PhantomData<(*const TT, *const ET)>);
 

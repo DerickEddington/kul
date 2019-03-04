@@ -1,9 +1,9 @@
-//! Used by the tests of both the [core](../kruvi_core/index.html)
-//! and the [full](../kruvi/index.html) crates.  It provides test suites that
-//! can be run against many types of [`Parser`](../kruvi_core/struct.Parser.html),
+//! Used by the tests of both the [core](../kul_core/index.html)
+//! and the [full](../kul/index.html) crates.  It provides test suites that
+//! can be run against many types of [`Parser`](../kul_core/struct.Parser.html),
 //! and it uses tricks so that its representation of expected results can be
 //! directly compared against a variety of
-//! [`Datum`](../kruvi_core/enum.Datum.html) types.
+//! [`Datum`](../kul_core/enum.Datum.html) types.
 
 // TODO: Support checking of the generic character position
 // information. Probably with some new trait for converting a SourcePosition to
@@ -53,11 +53,11 @@
 
 use std::ops::{Deref, DerefMut};
 
-use kruvi_core::{SourceStream, SourceIterItem, Parser, ParseIterItem,
+use kul_core::{SourceStream, SourceIterItem, Parser, ParseIterItem,
                  Datum, DerefTryMut, Text, TextConcat, Error};
-use kruvi_core::parser::{CharClassifier, DatumAllocator, OperatorBindings};
-use kruvi_core::text::chunk::premade::PosStr;
-use kruvi::text::TextVec;
+use kul_core::parser::{CharClassifier, DatumAllocator, OperatorBindings};
+use kul_core::text::chunk::premade::PosStr;
+use kul::text::TextVec;
 
 
 pub mod suites;
@@ -233,7 +233,7 @@ mod custom_delim {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kruvi_core::parser::AllocError;
+    use kul_core::parser::AllocError;
 
     #[test]
     fn extratype_ignore_eq() {
@@ -262,7 +262,7 @@ mod tests {
     #[test]
     fn datum_equality() {
         use Datum::{Combination, EmptyNest, List, EmptyList, Extra};
-        use kruvi_core::datum::premade::DatumMutRef;
+        use kul_core::datum::premade::DatumMutRef;
 
         assert_eq!(Datum::Text::<_, EtIgnore, ExpectedDatumRef>(ExpectedText("a")),
                    Datum::Text::<TestStrText, (), DatumMutRef<'_, TestStrText, ()>>(
@@ -313,8 +313,8 @@ mod tests {
 
     mod basic_parse_all {
         use super::*;
-        use kruvi_core::parser::premade::{DefaultCharClassifier, EmptyOperatorBindings};
-        use kruvi::datum::DatumBox;
+        use kul_core::parser::premade::{DefaultCharClassifier, EmptyOperatorBindings};
+        use kul::datum::DatumBox;
 
         fn wimpy_parser() -> Parser<DefaultCharClassifier,
                                     WimpyDatumAllocator,

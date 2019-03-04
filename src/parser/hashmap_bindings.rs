@@ -25,7 +25,7 @@ use crate::{
 /// bindings, and it may be dynamically mutated inbetween parser invocations, if
 /// desired.
 ///
-/// [`OperatorBindings`]: ../../kruvi_core/parser/trait.OperatorBindings.html
+/// [`OperatorBindings`]: ../../kul_core/parser/trait.OperatorBindings.html
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct HashMapOperatorBindings<DA, OR, AR, CE, S = RandomState>
     where DA: DatumAllocator,

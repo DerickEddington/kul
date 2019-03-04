@@ -157,7 +157,7 @@ impl<'s> Iterator for PosStrIter<'s> {
 
 /// Enables `PosStr` to be used as the `Chunk` type of `Text` types that
 /// implement `TextConcat` so they can be iterated with
-/// `kruvi_core::SourceStream`.  A `chunk::SourceStream` can accumulate what it
+/// `kul_core::SourceStream`.  A `chunk::SourceStream` can accumulate what it
 /// iterates within a single chunk.  This simply records and grows a slice, to
 /// represent each accumulation, which is zero-copy.
 impl<'s> text::chunk::SourceStream<PosStr<'s>> for PosStrIter<'s>

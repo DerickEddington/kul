@@ -3,7 +3,7 @@
 
 use std::{str, fmt::Debug};
 
-use kruvi::{
+use kul::{
     Parser, Datum,
     source_stream::{CharIterSourceStream, to_rc_string, to_rc_box_str, to_rc_str,
                     to_arc_string, to_arc_box_str, to_arc_str},
@@ -13,7 +13,7 @@ use kruvi::{
     text::{TextVec, chunk::{PosStrish, RefCntStrish}, TextDatumList},
 };
 
-use kruvi_shared_tests::{
+use kul_shared_tests::{
     suites::test_suite0_with,
     bindings::BasicTestOperatorBindings,
 };
@@ -88,7 +88,7 @@ fn suite0_arc_str() {
 #[test]
 fn posstrish() {
     use std::rc::Rc;
-    use kruvi::Text;
+    use kul::Text;
 
     let mut p = parser(BoxDatumAllocator::<TextVec<PosStrish<Rc<str>>>, ()>::default());
     let ciss = CharIterSourceStream::new("foo".chars(), to_rc_str);

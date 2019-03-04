@@ -99,7 +99,7 @@ impl<C> Text for TextVec<C>
     where C: TextChunk,
 {
     type Chunk = C;
-    // Relies on `kruvi_core::text::iter::chunks::premade::slice`
+    // Relies on `kul_core::text::iter::chunks::premade::slice`
     type IterChunksState = [Self::Chunk];
 
     #[inline]

@@ -10,7 +10,7 @@ use crate::{
 /// A [`DatumAllocator`] for generic `Datum` types which allocates `Datum`
 /// values in heap-allocated `Box`es.
 ///
-/// [`DatumAllocator`]: ../../kruvi_core/parser/trait.DatumAllocator.html
+/// [`DatumAllocator`]: ../../kul_core/parser/trait.DatumAllocator.html
 #[derive(Debug)]
 pub struct BoxDatumAllocator<TT, ET>(PhantomData<(*const TT, *const ET)>);
 

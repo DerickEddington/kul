@@ -109,7 +109,7 @@ pub fn to_arc_str(s: String) -> Arc<str> {
 /// [`StrishIterSourceStream`], then that should be used instead of
 /// `CharIterSourceStream`, because that can achieve full zero-copy operation.
 ///
-/// [`SourceStream`]: ../../kruvi_core/trait.SourceStream.html
+/// [`SourceStream`]: ../../kul_core/trait.SourceStream.html
 /// [`StrishIterSourceStream`]: struct.StrishIterSourceStream.html
 #[derive(Debug)]
 pub struct CharIterSourceStream<CI, F, R>

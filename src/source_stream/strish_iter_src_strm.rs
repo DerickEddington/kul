@@ -23,7 +23,7 @@ use crate::{
 /// we produce have zero-copy operations thereafter (achieved via shared
 /// ownership)
 ///
-/// [`SourceStream`]: ../../kruvi_core/trait.SourceStream.html
+/// [`SourceStream`]: ../../kul_core/trait.SourceStream.html
 #[derive(Debug)]
 pub struct StrishIterSourceStream<SI, TT>
     where SI: Iterator,

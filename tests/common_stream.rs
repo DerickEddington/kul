@@ -1,6 +1,6 @@
-use kruvi::common::stream;
+use kul::common::stream;
 
-use kruvi_shared_tests::suites::test_suite0;
+use kul_shared_tests::suites::test_suite0;
 
 
 #[test]
