@@ -194,7 +194,7 @@ pub struct SourceIterItem<SourcePosition> {
 /// to avoid interfering with a pending accumulation.  If `next` is called in
 /// this case, the pending accumulation will be silently dropped.
 pub trait SourceStream<DA>: Iterator<Item = SourceIterItem<<DA::TT as TextBase>::Pos>>
-    where DA: DatumAllocator + ?Sized,
+    where DA: DatumAllocator,
 {
     /// Returns a reference to the next item's value without advancing the
     /// iterator and without interfering with any pending accumulation.
@@ -268,9 +268,7 @@ impl<CC, DA, OB> Parser<CC, DA, OB>
 /// [`Error`](enum.Error.html), according to the given
 /// [`Parser`](struct.Parser.html)'s parameterization.
 #[derive(Debug)]
-pub struct ParseIter<'p, Prsr, SrcStrm>
-    where Prsr: ?Sized,
-{
+pub struct ParseIter<'p, Prsr, SrcStrm> {
     parser: &'p mut Prsr,
     src_strm: SrcStrm,
     nest_depth: usize,

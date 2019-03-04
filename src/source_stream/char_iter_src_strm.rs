@@ -186,7 +186,7 @@ impl<CI, F, R, TT, DA> SourceStream<DA> for CharIterSourceStream<CI, F, R>
           R: RefCntStrish,
           TT: Text<Pos = CharPos>,
           TT::Chunk: From<PosStrish<R>>,
-          DA: DatumAllocator<TT = TT> + ?Sized,  // Ignored
+          DA: DatumAllocator<TT = TT>,  // Ignored
 {
     #[inline]
     fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {

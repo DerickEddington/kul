@@ -152,8 +152,7 @@ impl<C, ET> Text for TextDatumList<'_, C, ET>
 /// bounds.
 impl<'d, DA, C, ET> TextConcat<DA> for TextDatumList<'d, C, ET>
     where C: TextChunk,
-          DA: DatumAllocator<TT = Self, ET = ET, DR = DatumMutRef<'d, Self, ET>>
-              + ?Sized,
+          DA: DatumAllocator<TT = Self, ET = ET, DR = DatumMutRef<'d, Self, ET>>,
 {
     /// Link two `TextDatumList`s to form a single `TextDatumList` that
     /// represents their logical concatenation.  Unlike most implementations of

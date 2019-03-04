@@ -239,9 +239,7 @@ pub trait Text: TextBase
 /// this is used with.  When this is implemented for types that ignore the
 /// `DatumAllocator`, the `DA` type should be a generic type parameter that
 /// covers all (ignored) possibilities.
-pub trait TextConcat<DA>: Text
-    where DA: ?Sized,
-{
+pub trait TextConcat<DA>: Text {
     /// Concatenate two `Text`s (of the same type) to form a single `Text` that
     /// logically represents this.  The `datum_alloc` argument may be ignored by
     /// some (most) implementations and exists only to support implementations

@@ -126,7 +126,7 @@ impl<SI, TT, DA> SourceStream<DA> for StrishIterSourceStream<SI, TT>
           SI::Item: RefCntStrish,
           TT: TextConcat<DA, Pos = CharPos>,
           TT::Chunk: From<PosStrish<SI::Item>>,
-          DA: DatumAllocator<TT = TT> + ?Sized,
+          DA: DatumAllocator<TT = TT>,
 {
     fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
         if let Some(ref mut cpss) = self.cur_posstrish_src_strm {

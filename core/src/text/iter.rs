@@ -92,7 +92,7 @@ impl<'l, TT> Iterator for Iter<'l, TT>
 impl<'l, TT, DA> SourceStream<DA> for Iter<'l, TT>
     where TT: TextConcat<DA>,
           TT::Chunk: 'l,
-          DA: DatumAllocator<TT = TT> + ?Sized,
+          DA: DatumAllocator<TT = TT>,
 {
     fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
         if let Some(ref it) = self.peeked {
