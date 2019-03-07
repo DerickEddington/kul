@@ -389,7 +389,7 @@ impl<'p, CC, DA, OB, S>
             // Start of a text. Parse it to its end and return it.
             else {
                 return Self::parse_text(mode, srcstrm, ndepth, dalloc, chcls)
-                           .map(Some)
+                           .map(|text| Some(Datum::Text(text)))
             }
         }
     }
@@ -402,7 +402,7 @@ impl<'p, CC, DA, OB, S>
         dalloc: &mut DA,
         chcls: &CC,
     )
-        -> ParseResult<DA, OB>
+        -> Result<DA::TT, ParseError<DA, OB>>
     {
         #[inline]
         fn is_end_char<CC>(ch: char, chclass: &CC, mode: ParseTextMode) -> bool
@@ -476,7 +476,7 @@ impl<'p, CC, DA, OB, S>
         // Done. Return what we accumulated. Or error if unbalanced nesting.
         if nest_level == 0 {
             concat_accum!();
-            Ok(Datum::Text(text))
+            Ok(text)
         } else {
             Err(Error::MissingEndChar)
         }

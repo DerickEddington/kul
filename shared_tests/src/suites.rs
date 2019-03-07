@@ -302,7 +302,11 @@ pub fn test_suite0_with<DA, OB, F, S>(p: Parser<DefaultCharClassifier, DA, OB>,
     // exercise combiners/macros, just does the minimum with them to test the
     // core parser's fixed modes for them.)
 
-    let just_operands = |_operator, operands, _dalloc: &mut DA| {
+    let just_operands_text = |_operator, operands, _dalloc: &mut DA| {
+        Ok(Some(Datum::Text(operands)))
+    };
+
+    let just_operands_list = |_operator, operands, _dalloc: &mut DA| {
         Ok(Some(operands))
     };
 
@@ -324,10 +328,10 @@ pub fn test_suite0_with<DA, OB, F, S>(p: Parser<DefaultCharClassifier, DA, OB>,
     let basic_combiners: BindingsSpec<DA, OB::CE> = vec![
         // operative
         (Datum::Text(Text::from_str("oo")),
-         Combiner::Operative(Box::new(just_operands))),
+         Combiner::Operative(Box::new(just_operands_text))),
         // applicative
         (Datum::Text(Text::from_str("aa")),
-         Combiner::Applicative(Box::new(just_operands))),
+         Combiner::Applicative(Box::new(just_operands_list))),
         // remove form
         (Datum::Text(Text::from_str("#")),
          Combiner::Applicative(Box::new(remove))),

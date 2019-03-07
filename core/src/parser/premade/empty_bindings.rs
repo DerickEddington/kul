@@ -1,7 +1,7 @@
 use core::ops::Deref;
 
 use crate::parser::{OperatorBindings, DatumAllocator};
-use crate::combiner::{Combiner, OpFn};
+use crate::combiner::{Combiner, OpFn, ApFn};
 use crate::Datum;
 
 
@@ -13,16 +13,30 @@ use crate::Datum;
 pub struct EmptyOperatorBindings;
 
 
-/// Trick `OperatorBindings` into accepting this for the implementation of
-/// it for `EmptyOperatorBindings`.
-#[derive(Debug)]
-pub struct DummyCombiner<DA, CE>(DA, CE);
+mod private {
+    /// Trick `OperatorBindings` into accepting this for the implementation of
+    /// it for `EmptyOperatorBindings`.
+    #[derive(Debug)]
+    pub struct DummyOperativeRef<DA, CE>(DA, CE);
 
+    /// Trick `OperatorBindings` into accepting this for the implementation of
+    /// it for `EmptyOperatorBindings`.
+    #[derive(Debug)]
+    pub struct DummyApplicativeRef<DA, CE>(DA, CE);
+}
+use private::*;
 
-impl<DA, CE> Deref for DummyCombiner<DA, CE>
+impl<DA, CE> Deref for DummyOperativeRef<DA, CE>
     where DA: DatumAllocator,
 {
     type Target = OpFn<DA, CE>;
+    fn deref(&self) -> &Self::Target { unreachable!() }
+}
+
+impl<DA, CE> Deref for DummyApplicativeRef<DA, CE>
+    where DA: DatumAllocator,
+{
+    type Target = ApFn<DA, CE>;
     fn deref(&self) -> &Self::Target { unreachable!() }
 }
 
@@ -30,8 +44,8 @@ impl<DA, CE> Deref for DummyCombiner<DA, CE>
 impl<DA> OperatorBindings<DA> for EmptyOperatorBindings
     where DA: DatumAllocator,
 {
-    type OR = DummyCombiner<DA, Self::CE>;
-    type AR = DummyCombiner<DA, Self::CE>;
+    type OR = DummyOperativeRef<DA, Self::CE>;
+    type AR = DummyApplicativeRef<DA, Self::CE>;
     type CE = ();
 
     #[inline]

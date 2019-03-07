@@ -27,11 +27,12 @@ pub enum Combiner<OperativeRef, ApplicativeRef> {
 
 /// The type of "operative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-form as
-/// a `Datum::Text` containing the unparsed operands text; and the third
+/// the `Text` type containing the unparsed operands text; and the third
 /// argument is the `Parser`'s `DatumAllocator`.  See
 /// [`combiner::Result`](type.Result.html) for the description of the return
 /// value.
-pub type OpFn<DA, CE> = dyn Fn(DADatum<DA>, DADatum<DA>, &mut DA) -> Result<DA, CE>;
+pub type OpFn<DA, CE> = dyn Fn(DADatum<DA>, <DA as DatumAllocator>::TT, &mut DA)
+                               -> Result<DA, CE>;
 
 /// The type of "applicative" functions.  First argument is the "operator"
 /// sub-form as a `Datum`; and the second argument is the "operands" sub-forms
