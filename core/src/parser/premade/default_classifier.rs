@@ -3,7 +3,8 @@ use crate::parser::CharClassifier;
 
 /// A [`CharClassifier`](trait.CharClassifier.html) that uses the common `{`,
 /// `}`, and `\` characters and the Unicode whitespace property.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Debug)]
+#[allow(missing_copy_implementations)]
 pub struct DefaultCharClassifier;
 
 impl CharClassifier for DefaultCharClassifier {

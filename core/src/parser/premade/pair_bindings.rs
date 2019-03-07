@@ -19,7 +19,7 @@ use crate::{
 /// and if you use a mutable type for it.
 ///
 /// [`OperatorBindings`]: ../trait.OperatorBindings.html
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Debug)]
 pub struct PairOperatorBindings<P, DA, OR, AR, CE>
     where P: Borrow<[(Datum<DA::TT, DA::ET, DA::DR>, Combiner<OR, AR>)]>,
           DA: DatumAllocator,

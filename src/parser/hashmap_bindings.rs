@@ -26,7 +26,7 @@ use crate::{
 /// desired.
 ///
 /// [`OperatorBindings`]: ../../kul_core/parser/trait.OperatorBindings.html
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Debug)]
 pub struct HashMapOperatorBindings<DA, OR, AR, CE, S = RandomState>
     where DA: DatumAllocator,
           DA::TT: Hash + Eq,

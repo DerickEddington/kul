@@ -8,7 +8,8 @@ use crate::Datum;
 /// An [`OperatorBindings`](trait.OperatorBindings.html) that always has no
 /// bindings and its [`lookup`](trait.OperatorBindings.html#tymethod.lookup)
 /// method always returns `None`.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Debug)]
+#[allow(missing_copy_implementations)]
 pub struct EmptyOperatorBindings;
 
 

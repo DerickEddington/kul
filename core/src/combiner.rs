@@ -17,7 +17,7 @@ use crate::{
 /// [`OperatorBindings`](trait.OperatorBindings.html) which ensures that only
 /// consistent ones can be used with it, which is the only intended use of this
 /// type.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Debug)]
 pub enum Combiner<OperativeRef, ApplicativeRef> {
     /// An "operative" combiner, which is given unparsed operands text.
     Operative(OperativeRef),
