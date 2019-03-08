@@ -20,7 +20,7 @@ type TT = TestStrText;
 pub fn get_arg_tree_size() -> usize {
     // This default size is usually enough to blow the stack, without our
     // recursion-avoiding Drop impl
-    const DEFAULT: usize = 1 << 24;
+    const DEFAULT: usize = 1 << 21;
     env::args().find_map(
         |arg|
         match *arg.splitn(2, '=').collect::<Vec<_>>() {
