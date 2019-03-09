@@ -2,7 +2,7 @@
 
 #![allow(clippy::module_name_repetitions)]
 
-use core::{cmp::Ordering, hash::{Hash, Hasher}};
+use core::{iter::Map, cmp::Ordering, hash::{Hash, Hasher}};
 
 use crate::{SourceIterItem, SourcePosition};
 use crate::parser::AllocError;
@@ -104,6 +104,13 @@ fn sii_ch<P>(SourceIterItem{ch, ..}: SourceIterItem<P>) -> char {
     ch
 }
 
+/// The type returned by [`Text::chars`].
+///
+/// [`Text::chars`]: trait.Text.html#method.chars
+pub type Chars<'text, TextType> =
+    Map<iter::Iter<'text, TextType>,
+        fn(SourceIterItem<<TextType as TextBase>::Pos>) -> char>;
+
 /// A logical sequence of characters, possibly represented as separate chunks,
 /// that can be iterated multiple times without consuming or destroying the
 /// source, and that might know its characters' positions in the source it is
@@ -182,6 +189,24 @@ pub trait Text: TextBase
         for ch in self.iter().map(sii_ch) {
             ch.hash(state);
         }
+    }
+
+    /// Construct a new iterator that yields the logical character sequence of
+    /// the given `self`.
+    ///
+    /// The default implementation uses our special iterator type to enable
+    /// yielding characters across arbitrary, often inconsistent, chunk
+    /// boundaries.
+    //
+    // FUTURE: It'd be nice if this could instead return `impl Iterator<Item =
+    // char>` but that feature of Rust is not stable yet for trait methods.
+    // Once that can be done, this trait's other methods' default
+    // implementations should use this.  Currently, the `fn` type in the `Map`
+    // type probably results in indirected function calls and so is probably
+    // slower than using `self.iter().map(sii_ch)` directly.
+    #[inline]
+    fn chars(&self) -> Chars<'_, Self> {
+        self.iter().map(sii_ch)
     }
 
     /// Return a borrow of our `self`'s particular representation of chained

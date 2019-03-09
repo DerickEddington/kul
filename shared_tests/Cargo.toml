@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["Derick Eddington"]
 edition = "2018"
 description = "Test suites and utilities for testing both the core and the full crates."
-publish = false
+license = "Unlicense"
+repository = "https://github.com/DerickEddington/kul"
 
 [dependencies]
 kul_core = { path = "../core" }

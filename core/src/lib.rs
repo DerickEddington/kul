@@ -1,5 +1,5 @@
 //! The core of a parser for a unique textual notation that can be used as both
-//! a data format and/or a markup language and that allows powerful
+//! a data format and a markup language and that has powerful
 //! extensibility of both syntax and semantics.  It is inspired by the
 //! little-known [Curl programming
 //! language](http://en.wikipedia.org/wiki/Curl_(programming_language)).  It is
