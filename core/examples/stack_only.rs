@@ -1,24 +1,3 @@
-# Kul core `no_std` crate
-
-This is the `no_std` crate that provides the core of a parser for:
-
-A unique textual notation that can be used as both a data format and a markup
-language and that has powerful extensibility of both syntax and semantics, and a
-Rust library for parsing it.  It is inspired by the little-known [Curl
-language].
-
-[Curl language]: http://people.csail.mit.edu/ward/curl-ijwet.pdf
-
-See the `README` of the main `kul` crate for the fuller description of the
-library.
-
-## Usage of `kul_core`
-
-A primary purpose of this crate is to enable using the parser in applications
-that do not have heap allocation and where all values used by the parsing are
-allocated on the stack.  This is done like:
-
-```rust
 //! This is modified from the `common_basic.rs` example (which uses the full
 //! `kul` crate), to contrast how similar usage is achieved when using only the
 //! `kul_core` crate with only values allocated on the stack.
@@ -212,23 +191,3 @@ fn main() {
     no_extension();
     with_extensions();
 }
-```
-
-The above example can be run by doing:
-
-```
-cargo run -p kul_core --example stack_only
-```
-
-## Documentation
-
-The source-code has many doc comments, which are rendered as the API
-documentation.
-
-View online at: https://docs.rs/kul_core
-
-Or, you can generate them yourself and view locally by doing:
-
-```
-cargo doc -p kul_core --open
-```

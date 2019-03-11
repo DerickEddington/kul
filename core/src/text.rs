@@ -2,7 +2,7 @@
 
 #![allow(clippy::module_name_repetitions)]
 
-use core::{iter::Map, cmp::Ordering, hash::{Hash, Hasher}};
+use core::{str, iter::Map, cmp::Ordering, hash::{Hash, Hasher}};
 
 use crate::{SourceIterItem, SourcePosition};
 use crate::parser::AllocError;
@@ -209,6 +209,45 @@ pub trait Text: TextBase
         self.iter().map(sii_ch)
     }
 
+    /// Encode the logical character sequence of the given `self` as UTF-8 into
+    /// the provided byte buffer.  If the buffer is large enough to contain all
+    /// the characters, then return the subslice of the buffer that contains
+    /// them all, as an `Ok`.  If the buffer is too small, then return the
+    /// subslice that contains as many as fit (which might be shorter than the
+    /// provided buffer), as an `Err`.
+    ///
+    /// This is intended for `no_std` constrained applications where `String` is
+    /// unavailable.  When it is available, instead of this function, it is
+    /// probably more desirable to use: `String::from_iter(self.chars())`.
+    ///
+    /// The default implementation uses our special iterator type to get the
+    /// characters across arbitrary, often inconsistent, chunk boundaries.
+    fn encode_utf8<'b>(&self, buf: &'b mut [u8]) -> Result<&'b str, &'b str> {
+        // Note: I couldn't figure out a better, `forbid(unsafe_code)`, way to
+        // do this.  Seems like the `core` library could instead provide some
+        // `encode_utf8_from_iter` function that takes an `Iterator<Item=char>`
+        // and encodes as much as fits in the slice and returns a `&str`
+        // covering it all.  Seems like that would avoid having to do
+        // `str::from_utf8`, which scans across the slice to check the encoding
+        // validity which is unnecessary in this case, just to get a `&str` that
+        // covers it all.  Did I miss something else that the `core` library
+        // already provides that would do this better?
+        let mut pos = 0;
+        macro_rules! as_str {
+            // This `unwrap` will never fail because encoding is always valid.
+            () => { str::from_utf8(&buf[..pos]).unwrap() }
+        }
+        for ch in self.iter().map(sii_ch) {
+            if pos + ch.len_utf8() <= buf.len() {
+                let s = ch.encode_utf8(&mut buf[pos..]);
+                pos += s.len();
+            } else {
+                return Err(as_str!())
+            }
+        }
+        Ok(as_str!())
+    }
+
     /// Return a borrow of our `self`'s particular representation of chained
     /// chunks to be used by our special iterator types.
     ///
@@ -271,4 +310,36 @@ pub trait TextConcat<DA>: Text {
     /// like `TextDatumList`.  If the implementation ignores `datum_alloc`, it
     /// is safe to use `unwrap` on the returned `Result`.
     fn concat(self, other: Self, datum_alloc: &mut DA) -> Result<Self, AllocError>;
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::{*, premade::TextDatumList, chunk::premade::PosStr};
+
+    type TT<'d> = TextDatumList<'d, PosStr<'static>, ()>;
+
+    #[test]
+    fn encode_utf8() {
+        assert_eq!(TT::from_str("").encode_utf8(&mut []), Ok(""));
+        assert_eq!(TT::from_str("").encode_utf8(&mut [0; 1]), Ok(""));
+        assert_eq!(TT::from_str("").encode_utf8(&mut [0; 123]), Ok(""));
+        assert_eq!(TT::from_str("a").encode_utf8(&mut [0; 1]), Ok("a"));
+        assert_eq!(TT::from_str("a").encode_utf8(&mut [0; 2]), Ok("a"));
+        assert_eq!(TT::from_str("a").encode_utf8(&mut [0; 3]), Ok("a"));
+        assert_eq!(TT::from_str("a").encode_utf8(&mut []), Err(""));
+        assert_eq!(TT::from_str("raboof").encode_utf8(&mut [0; 6]), Ok("raboof"));
+        assert_eq!(TT::from_str("raboof").encode_utf8(&mut [0; 512]), Ok("raboof"));
+        assert_eq!(TT::from_str("raboof").encode_utf8(&mut [0; 5]), Err("raboo"));
+        assert_eq!(TT::from_str("raboof").encode_utf8(&mut [0; 2]), Err("ra"));
+        assert_eq!(TT::from_str("▷ λ").encode_utf8(&mut [0; 6]), Ok("▷ λ"));
+        assert_eq!(TT::from_str("▷ λ").encode_utf8(&mut [0; 8]), Ok("▷ λ"));
+        assert_eq!(TT::from_str("▷ λ").encode_utf8(&mut [0; 99]), Ok("▷ λ"));
+        assert_eq!(TT::from_str("▷ λ").encode_utf8(&mut [0; 5]), Err("▷ "));
+        assert_eq!(TT::from_str("▷ λ").encode_utf8(&mut [0; 4]), Err("▷ "));
+        assert_eq!(TT::from_str("▷ λ").encode_utf8(&mut [0; 3]), Err("▷"));
+        assert_eq!(TT::from_str("▷ λ").encode_utf8(&mut [0; 2]), Err(""));
+        assert_eq!(TT::from_str("▷ λ").encode_utf8(&mut [0; 1]), Err(""));
+        assert_eq!(TT::from_str("▷ λ").encode_utf8(&mut []), Err(""));
+    }
 }

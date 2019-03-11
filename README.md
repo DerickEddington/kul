@@ -22,6 +22,8 @@ you arrange buffering into chunks appropriately), including zero-copy exclusion
 of the escape character.  All achieved via a generic design of chunked text.
 - No `unsafe` code.
 - No external dependencies.
+- Non-panicking API. (`panic!`s should never happen but this is not proven
+  currently.)
 - A `no_std` crate usable on its own (including with only stack allocation).
 - A `std`-using crate with more convenient `Vec`s, `String`s, `Box`es, etc.
 - Very generically parameterized in most aspects to allow maximal reuse for
@@ -67,7 +69,7 @@ Using non-default delimiters:
 
 ## Status
 
-Version `0.1.0`: experimental and unstable.  Builds fine and passes all tests
+Version `0.1.1`: experimental and unstable.  Builds fine and passes all tests
 and lints.
 
 ## Rust version
@@ -131,7 +133,7 @@ fn with_extensions()
 
     type MyDatumAllocator<'input> = DatumAllocator<'input, MyDatumVariants>;
 
-    type AllocArg<'alloc> = &'alloc mut MyDatumAllocator<'static>;
+    type AllocArg<'a> = &'a mut MyDatumAllocator<'static>;
 
     // The functions that process our custom forms.  Using closures can be nicer
     // because at least some type inference of the argument and return types can
@@ -140,6 +142,10 @@ fn with_extensions()
 
     let comment = |_operator, _operands, _: AllocArg<'_>| {
         Ok(None)
+    };
+
+    let pass_thru = |_operator, operands, _: AllocArg<'_>| {
+        Ok(Some(operands))
     };
 
     let current_time = |_operator, operands, _: AllocArg<'_>| {
@@ -151,13 +157,13 @@ fn with_extensions()
     };
 
     let int = |_operator, operands: Text<'_>, _: AllocArg<'_>| {
+        // Must convert the operands text into a `&str`, to be able to use other
+        // parsing functions/libraries that take string slices.  (When the other
+        // parsing functionality can instead take `Iterator`s of `char`s, this
+        // conversion is unneeded.)
         let i = i128::from_str(&String::from_iter(operands.chars()))
                     .map_err(|_| Error::FailedCombiner(MyCombinerError::Oops))?;
         Ok(Some(Datum::Extra(MyDatumVariants::Integer(i))))
-    };
-
-    let pass_thru = |_operator, operands, _: AllocArg<'_>| {
-        Ok(Some(operands))
     };
 
     // Establish bindings of particular operator sub-forms to our processing
@@ -202,8 +208,12 @@ cargo run --example common_basic
 
 ## Documentation
 
-The source-code has many doc comments, which can be rendered as the API
-documentation in your WWW browser by doing:
+The source-code has many doc comments, which are rendered as the API
+documentation.
+
+View online at: https://docs.rs/kul and https://docs.rs/kul_core
+
+Or, you can generate them yourself and view locally by doing:
 
 ```
 cargo doc --open

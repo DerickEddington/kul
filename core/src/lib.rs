@@ -144,8 +144,9 @@ pub mod parser;
 
 
 /// Implementations provided for ready use.
-// In the future, this might have more and need to be public.
-mod premade {
+pub mod premade {
+    pub mod inmem;
+
     /// Useful when omitting the positional information is desired/required.
     impl super::SourcePosition for () {
         #[inline] fn empty() -> Self { }

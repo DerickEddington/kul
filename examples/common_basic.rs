@@ -47,7 +47,7 @@ fn with_extensions()
 
     type MyDatumAllocator<'input> = DatumAllocator<'input, MyDatumVariants>;
 
-    type AllocArg<'alloc> = &'alloc mut MyDatumAllocator<'static>;
+    type AllocArg<'a> = &'a mut MyDatumAllocator<'static>;
 
     // The functions that process our custom forms.  Using closures can be nicer
     // because at least some type inference of the argument and return types can
@@ -56,6 +56,10 @@ fn with_extensions()
 
     let comment = |_operator, _operands, _: AllocArg<'_>| {
         Ok(None)
+    };
+
+    let pass_thru = |_operator, operands, _: AllocArg<'_>| {
+        Ok(Some(operands))
     };
 
     let current_time = |_operator, operands, _: AllocArg<'_>| {
@@ -67,13 +71,13 @@ fn with_extensions()
     };
 
     let int = |_operator, operands: Text<'_>, _: AllocArg<'_>| {
+        // Must convert the operands text into a `&str`, to be able to use other
+        // parsing functions/libraries that take string slices.  (When the other
+        // parsing functionality can instead take `Iterator`s of `char`s, this
+        // conversion is unneeded.)
         let i = i128::from_str(&String::from_iter(operands.chars()))
                     .map_err(|_| Error::FailedCombiner(MyCombinerError::Oops))?;
         Ok(Some(Datum::Extra(MyDatumVariants::Integer(i))))
-    };
-
-    let pass_thru = |_operator, operands, _: AllocArg<'_>| {
-        Ok(Some(operands))
     };
 
     // Establish bindings of particular operator sub-forms to our processing
