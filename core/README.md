@@ -225,7 +225,7 @@ cargo run -p kul_core --example stack_only
 The source-code has many doc comments, which are rendered as the API
 documentation.
 
-View online at: https://docs.rs/kul_core
+View online at: http://docs.rs/kul_core
 
 Or, you can generate them yourself and view locally by doing:
 

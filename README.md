@@ -211,7 +211,7 @@ cargo run --example common_basic
 The source-code has many doc comments, which are rendered as the API
 documentation.
 
-View online at: https://docs.rs/kul and https://docs.rs/kul_core
+View online at: http://docs.rs/kul and http://docs.rs/kul_core
 
 Or, you can generate them yourself and view locally by doing:
 

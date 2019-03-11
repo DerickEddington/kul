@@ -31,14 +31,14 @@
 //! respective modules, including for the premade items re-exported from
 //! `kul_core`.
 //!
-//! [`kul_core`]: ../kul_core/index.html
-//! [`Parser`]: ../kul_core/struct.Parser.html
-//! [`Datum`]: ../kul_core/enum.Datum.html
+//! [`kul_core`]: http://docs.rs/kul_core/latest/kul_core/
+//! [`Parser`]: http://docs.rs/kul_core/latest/kul_core/struct.Parser.html
+//! [`Datum`]: http://docs.rs/kul_core/latest/kul_core/enum.Datum.html
 //! [`Box`]: http://doc.rust-lang.org/std/boxed/struct.Box.html
 //! [`Rc`]: http://doc.rust-lang.org/std/rc/struct.Rc.html
 //! [`Arc`]: http://doc.rust-lang.org/std/sync/struct.Arc.html
-//! [`Text`]: ../kul_core/trait.Text.html
-//! [`SourceStream`]: ../kul_core/trait.SourceStream.html
+//! [`Text`]: http://docs.rs/kul_core/latest/kul_core/trait.Text.html
+//! [`SourceStream`]: http://docs.rs/kul_core/latest/kul_core/trait.SourceStream.html
 //! [`Drop`]: http://doc.rust-lang.org/std/ops/trait.Drop.html
 
 
