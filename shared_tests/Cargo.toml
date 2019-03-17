@@ -1,6 +1,6 @@
 [package]
 name = "kul_shared_tests"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Derick Eddington"]
 edition = "2018"
 description = "Test suites and utilities for testing both the core and the full crates."

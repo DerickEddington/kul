@@ -1,9 +1,10 @@
 # Kul
 
 A unique textual notation that can be used as both a data format and a markup
-language and that has powerful extensibility of both syntax and semantics, and a
-Rust library for parsing it.  It is inspired by the little-known [Curl
-language].
+language and that has powerful extensibility of both lexical syntax and
+semantics, and a Rust library for parsing it.  It is inspired by the
+little-known [Curl language][curl], but is only a notation like Curl's, not a
+programming language like Curl.
 
 The syntax is very minimal and exists only to delimit forms of nested text that
 you sometimes define your own parsing and semantics of by binding *operator*
@@ -15,26 +16,15 @@ can be used across applications that do not need to fully handle the inner
 syntax of all of the nested text forms.  Furthermore, shared or standardized
 extensions could be created in the future.
 
-Some of what the library offers:
+See the [motivation](#motivation) section for why the notation is designed the
+way it is.
 
-- Zero-copy parsing of both entirely-in-memory inputs and of streamed inputs (if
-you arrange buffering into chunks appropriately), including zero-copy exclusion
-of the escape character.  All achieved via a generic design of chunked text.
-- No `unsafe` code.
-- No external dependencies.
-- Non-panicking API. (`panic!`s should never happen but this is not proven
-  currently.)
-- A `no_std` crate usable on its own (including with only stack allocation).
-- A `std`-using crate with more convenient `Vec`s, `String`s, `Box`es, etc.
-- Very generically parameterized in most aspects to allow maximal reuse for
-  diverse applications.
+See the [objectives](#objectives) section for what the library design achieves.
 
-This is also my first Rust project and an excuse to learn and explore both it
-and the idea I've had for a while for a format like this.
+This is only an experimental exploration and is my first Rust project, but the
+implementation is fairly capable and featureful.
 
-[Curl language]: http://people.csail.mit.edu/ward/curl-ijwet.pdf
-
-## Examples
+## Examples of the notation
 
 ```
 As markup of free-form text for embedding structured data types, such as a
@@ -44,12 +34,18 @@ As markup of free-form text for embedding structured data types, such as a
 
 ```
 {config {# As a data structure. (This form is a comment.)}
+
+    {things {list 9, "blah", {map foo: 8.7, bar: asdf}}}
+
     {logging
         {err = yes}
         {warn = {maybe, if 1 + x = 3}}
     }
+
     {greeting: We can have text in structures without ugly quoting!}
+
     {knobs this := {that}; other := {}}
+
     {{compound-operator with arguments} 7/2 > 𝜋}
 }
 ```
@@ -67,21 +63,108 @@ Using non-default delimiters:
 ⟫
 ```
 
+## Motivation
+
+The notation has the same advantage as Curl's design of this level, which is to
+have a **very extensible** language for both markup **and** data with a minimum
+of syntax.  Unlike most markup languages, you can have your own markup forms
+with their own syntax, and unlike most data formats, you can have your own rich
+data types with their own syntax, instead of being limited to only what is
+provided by most others.
+
+The flip side of this is that you have to implement your own parsing and
+handling of your custom forms, but premade libraries that implement form
+extensions could be provided by others.  Because most other notations are
+limited and fixed, applications sometimes end up adding their own custom
+processing to achieve what they want anyway, which can feel like inconsistent
+hacks.  Instead, we design the notation to fundamentally support extension so it
+is much cleaner and more capable in what you can express directly in it.  This
+helps you create different domain-specific languages (DSLs) with their own
+lexical syntax, instead of being locked into one particular syntax like with
+other DSL designs.  This also enables embedding multiple DSLs' different
+syntaxes within the same outer form or file.  (Lisp languages are similar in
+allowing embedding multiple DSLs but they all have to use the same S-expression
+lexical syntax.)
+
+At first, this might seem like it would lead to being overwhelmed with a huge
+variety of syntaxes and dialects.  But the inherent complexity of reality that
+we want to model cannot be avoided and when you push that complexity out of the
+notation it often re-manifests in how you later try to express complex
+compositions.  Such as jamming DSLs into the string type, or into other types
+like arrays and maps, or into identifiers and function signatures, because your
+primary notation is too limited, and then you are back to having to parse and
+handle your extensions but with a syntax and approach that was not designed for
+such extension.
+
+The Kul notation and parser is an experiment of trying the Curl approach that is
+designed for extension.
+
+For more about the motivation, see [the linked paper about Curl][curl] and the
+other published papers about it.
+
+## Objectives
+
+The library is designed to offer:
+
+- Zero-copy parsing of both entirely-in-memory inputs and of streamed inputs (if
+  you arrange buffering into chunks appropriately), including zero-copy
+  exclusion of the escape character.  This minimizes memory usage.  All achieved
+  via a generic design of chunked text.
+
+- Premade `char`-and-position iterator used for all chunked text types that only
+  borrows their internal state (to avoid copying).  This greatly simplifies
+  defining your own `Text` trait `impl`s (if needed) and assists the premade
+  ones provided.  Achieved via a clever design of generically borrowing
+  associated types with the correct lifetimes without using Rust's unstable
+  `generic_associated_types` feature.
+
+- Support for very-deep huge trees of the AST type (e.g. long lists and deep
+  nests).  This enables working with deep trees produced by parsing or by your
+  own construction.  Achieved via custom `Drop` and `PartialEq` implementations
+  that avoid stack overflows (which would otherwise happen) when dropping or
+  comparing deep trees.
+
+- No `unsafe` code.
+
+- No external dependencies.
+
+- Non-panicking API. (`panic!`s should never happen but this is not proven
+  currently.)
+
+- A `no_std` core crate usable on its own with only stack allocation.  The
+  parser's dynamic allocation can be done from fixed-size arrays.  This can also
+  be used to enforce memory-consumption limiting.
+
+- A `std`-using crate with more convenient `Vec`s, `String`s, `Box`es, etc. that
+  builds on the core crate.
+
+- Very generically parameterized in most aspects to allow maximal reuse for
+  diverse applications.
+
 ## Status
 
-Version `0.1.1`: experimental and unstable.  Builds fine and passes all tests
+Version `0.1.2`: experimental and unstable.  Builds fine and passes all tests
 and lints.
 
 ## Rust version
 
-At least `1.33` required.
+At least `1.33` required.  This library will always require only the stable
+version of Rust (not the nightly one).
 
-## Usage
+## Usage of `kul`
 
 It would require some length to describe the full range of possible usages,
 given how very generically parameterized the library is.
 
-But for common basic applications, it can be used like:
+See the `README` of the `kul_core` crate for a usage example relevant to
+`no_std` applications where all allocation is done from the stack only.
+
+For common basic applications, the following example shows how input strings can
+be parsed, with and without custom extensions.  It prints the resulting AST
+(abstract syntax tree) structures, collected into a vector per parse, that you
+would work with, so you can see the `Datum` variants that correspond to the
+different forms of the notation.  (As an introduction, this seems clearer than
+showing a lot of matching and destructuring of the variants.)
 
 ```rust
 use std::{time::SystemTime, str::FromStr, iter::FromIterator};
@@ -94,7 +177,7 @@ use kul::{
     Combiner, Datum, datum::{BoxDatum, DatumBox}, Error, Text as _,
 };
 
-/// Parse without any bound operators (and print results).  This shows that the
+/// Parse without any bound operators and print results.  This shows that the
 /// common base syntax can always be parsed without knowing about possible
 /// extensions.
 fn no_extension() {
@@ -105,7 +188,7 @@ fn no_extension() {
     dbg!(parse_str("Surrounding {{▷} λ {}} text."));
 }
 
-/// Parse with some bound operators (and print results).  This shows that the
+/// Parse with some bound operators and print results.  This shows that the
 /// syntax and semantics of particular forms can be extended in custom ways.
 fn with_extensions()
 {
@@ -186,7 +269,7 @@ fn with_extensions()
     bindings.hashmap.insert(compound_operator_form,
                             Combiner::Applicative(Box::new(pass_thru)));
 
-    // Parse a string that uses all of the above (and print results).
+    // Parse a string that uses all of the above and print results.
 
     dbg!(parse_str_with(
         "{{compound} {current-time} {# removed} {unbound form} {int -42}}",
@@ -222,9 +305,9 @@ cargo doc --open
 See the documentation at the top of the `kul_core` crate for some further
 overview of the Kul language and design.
 
-(`TODO`: Some of the less-important doc comments' inter-links are broken
-currently due to refactorings changing their relative directories and names, and
-some just need links to be made in the first place.  I'm hoping that the
+(`TODO`: Some of the less-important doc comments' links are broken currently due
+to refactorings changing their relative directories and names, and some just
+need links to be made in the first place.  I'm hoping that the
 [`intra_rustdoc_links` feature (RFC 1946)][intra_rustdoc_links] will become
 stable soon to make fixing these be much easier and much more maintainable.)
 
@@ -298,3 +381,5 @@ The following aspects are unresolved:
   extensions of the format as well as indicate that it can also always be parsed
   as the basic `.kul` structure.  I'm not very attached to any name and am open
   to changing it but do like that Kul is cool.
+
+[curl]: http://people.csail.mit.edu/ward/curl-ijwet.pdf

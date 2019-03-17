@@ -8,7 +8,7 @@ use kul::{
     Combiner, Datum, datum::{BoxDatum, DatumBox}, Error, Text as _,
 };
 
-/// Parse without any bound operators (and print results).  This shows that the
+/// Parse without any bound operators and print results.  This shows that the
 /// common base syntax can always be parsed without knowing about possible
 /// extensions.
 fn no_extension() {
@@ -19,7 +19,7 @@ fn no_extension() {
     dbg!(parse_str("Surrounding {{▷} λ {}} text."));
 }
 
-/// Parse with some bound operators (and print results).  This shows that the
+/// Parse with some bound operators and print results.  This shows that the
 /// syntax and semantics of particular forms can be extended in custom ways.
 fn with_extensions()
 {
@@ -100,7 +100,7 @@ fn with_extensions()
     bindings.hashmap.insert(compound_operator_form,
                             Combiner::Applicative(Box::new(pass_thru)));
 
-    // Parse a string that uses all of the above (and print results).
+    // Parse a string that uses all of the above and print results.
 
     dbg!(parse_str_with(
         "{{compound} {current-time} {# removed} {unbound form} {int -42}}",

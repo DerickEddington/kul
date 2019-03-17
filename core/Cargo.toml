@@ -1,9 +1,9 @@
 [package]
 name = "kul_core"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Derick Eddington"]
 edition = "2018"
-description = "Parser for a unique textual notation that can be used as both a data format and a markup language and that has powerful extensibility of both syntax and semantics. Inspired by the little-known Curl programming language. Has no unsafe code and has no external dependencies. This is the core crate that is no_std and does not use heap allocation."
+description = "Parser for a unique textual notation that can be used as both a data format and a markup language and that has powerful extensibility of both lexical syntax and semantics. Inspired by the little-known Curl programming language. Has no unsafe code and has no external dependencies. This is the core crate that is no_std and does not use heap allocation."
 keywords = ["parser", "data-format", "markup", "text-macros", "no_std"]
 categories = ["parser-implementations", "text-processing", "no-std"]
 license = "Unlicense"

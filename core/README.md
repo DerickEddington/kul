@@ -3,11 +3,12 @@
 This is the `no_std` crate that provides the core of a parser for:
 
 A unique textual notation that can be used as both a data format and a markup
-language and that has powerful extensibility of both syntax and semantics, and a
-Rust library for parsing it.  It is inspired by the little-known [Curl
-language].
+language and that has powerful extensibility of both lexical syntax and
+semantics, and a Rust library for parsing it.  It is inspired by the
+little-known [Curl language][curl], but is only a notation like Curl's, not a
+programming language like Curl.
 
-[Curl language]: http://people.csail.mit.edu/ward/curl-ijwet.pdf
+[curl]: http://people.csail.mit.edu/ward/curl-ijwet.pdf
 
 See the `README` of the main `kul` crate for the fuller description of the
 library.
@@ -68,6 +69,7 @@ fn no_extension() {
 
     // Parse each top-level form. (Three in this case.)
     for result in parse_iter {
+        // Print each AST so you can see it. (Omit when #![no_std])
         dbg!(&result);
         // Do what you want with the constructed ASTs or error.
         match result {
@@ -202,6 +204,7 @@ fn with_extensions()
     let parse_iter = parse_text_with(&input, &mut parser);
     // Parse each top-level form.
     for result in parse_iter {
+        // Print each AST so you can see it. (Omit when #![no_std])
         dbg!(&result);
         // Do what you want with the constructed ASTs or error.  See above
         // `no_extension` function for comments about this.

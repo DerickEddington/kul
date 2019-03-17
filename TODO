@@ -1,8 +1,3 @@
-Add statement to docs/desc that the array-allocation ability can be used to
-   prevent memory-consumption DoS attacks.
-
-
-
 Does the issue with Cargo still linking `std` for a `#![no_std]` crate when the
    `dev-dependencies` of the crate include something that uses `std` apply to
    my project and cause this problem?  Or does it not apply because I have no

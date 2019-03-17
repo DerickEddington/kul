@@ -47,6 +47,7 @@ fn no_extension() {
 
     // Parse each top-level form. (Three in this case.)
     for result in parse_iter {
+        // Print each AST so you can see it. (Omit when #![no_std])
         dbg!(&result);
         // Do what you want with the constructed ASTs or error.
         match result {
@@ -181,6 +182,7 @@ fn with_extensions()
     let parse_iter = parse_text_with(&input, &mut parser);
     // Parse each top-level form.
     for result in parse_iter {
+        // Print each AST so you can see it. (Omit when #![no_std])
         dbg!(&result);
         // Do what you want with the constructed ASTs or error.  See above
         // `no_extension` function for comments about this.
