@@ -20,7 +20,6 @@ impl<TT, ET> Default for BoxDatumAllocator<TT, ET>
     where TT: Text,
 {
     /// This type only has one, default, value.
-    #[inline]
     fn default() -> Self {
         Self(PhantomData)
     }
@@ -33,7 +32,6 @@ impl<TT, ET> DatumAllocator for BoxDatumAllocator<TT, ET>
     type ET = ET;
     type DR = DatumBox<Self::TT, Self::ET>;
 
-    #[inline]
     fn new_datum(&mut self, from: BoxDatum<Self::TT, Self::ET>)
                  -> Result<Self::DR, AllocError>
     {

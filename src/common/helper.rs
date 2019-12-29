@@ -4,7 +4,6 @@ use crate::{
 };
 
 
-#[inline]
 pub(crate) fn collect_up_to_first_err<'p, CC, DA, OB, S>
     (pi: ParseIter<'p, Parser<CC, DA, OB>, S>)
      -> Vec<ParseIterItem<DA, OB>>

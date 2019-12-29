@@ -41,7 +41,6 @@ impl<P, DA, OR, AR, CE>
     /// Given a value of a type that can borrow as a slice of pairs (2-tuples)
     /// of `Datum`s with `Combiner`s, make a new instance of `Self` that uses it
     /// for its bindings.
-    #[inline]
     pub fn new(pairs: P) -> Self {
         Self {
             pairs,
@@ -59,7 +58,6 @@ impl<P, DA, OR, AR, CE>
 {
     /// Make a new instance of `Self` using the `Default::default()` of our
     /// pairs' type.
-    #[inline]
     fn default() -> Self {
         Self::new(P::default())
     }
@@ -79,7 +77,6 @@ impl<P, DA, OR, AR, CE>
     type AR = AR;
     type CE = CE;
 
-    #[inline]
     fn lookup(&self, operator: &Datum<DA::TT, DA::ET, DA::DR>)
               -> Option<&Combiner<OR, AR>>
     {

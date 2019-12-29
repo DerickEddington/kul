@@ -120,7 +120,6 @@ pub type TopFormResult<Extra = (), CombinerError = ()>
 ///
 /// [`parse`]: ../../../kul_core/struct.Parser.html#method.parse
 /// [`ParseIter`]: ../../../kul_core/struct.ParseIter.html
-#[inline]
 pub fn parser<Extra, CombinerError>(
     bindings: OperatorBindings<Extra, CombinerError>
 ) -> Parser<Extra, CombinerError>
@@ -184,7 +183,6 @@ pub fn parse_stream_with<I, Extra, CombinerError>(
 /// [`Parser`]: type.Parser.html
 /// [`Datum::Combination`]: ../../../kul_core/enum.Datum.html#variant.Combination
 /// [`parse_stream_with`]: fn.parse_stream_with.html
-#[inline]
 #[allow(clippy::module_name_repetitions)]
 pub fn parse_stream<I>(input: I) -> Vec<TopFormResult>
     where I: Iterator<Item = String>,

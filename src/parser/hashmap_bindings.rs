@@ -56,7 +56,6 @@ impl<DA, OR, AR, CE, S>
     ///
     /// This enables using a premade `HashMap`, possibly with a certain capacity
     /// and/or with a different hashing algorithm (as supported by `HashMap`).
-    #[inline]
     pub fn new(hashmap: HashMap<Datum<DA::TT, DA::ET, DA::DR>, Combiner<OR, AR>, S>)
                -> Self
     {
@@ -79,7 +78,6 @@ impl<DA, OR, AR, CE, S>
 {
     /// Make a new instance of `Self` using the `HashMap::default()` of our
     /// type.
-    #[inline]
     fn default() -> Self {
         Self::new(HashMap::default())
     }
@@ -101,7 +99,6 @@ impl<DA, OR, AR, CE, S>
     type AR = AR;
     type CE = CE;
 
-    #[inline]
     fn lookup(&self, operator: &Datum<DA::TT, DA::ET, DA::DR>)
               -> Option<&Combiner<OR, AR>>
     {

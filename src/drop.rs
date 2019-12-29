@@ -324,13 +324,11 @@ pub trait Algo1DatumRef: DerefTryMut
 /// This allows using the custom drop algorithm
 impl<TT, ET> Algo1DatumRef for DatumBox<TT, ET>
 {
-    #[inline]
     fn try_replace(this: &mut Self, val: Self::Target)
                    -> Result<Self::Target, Self::Target> {
         Ok(replace(DerefMut::deref_mut(this), val))
     }
 
-    #[inline]
     fn set(this: &mut Self, val: Self::Target) {
         *DerefMut::deref_mut(this) = val;
     }
@@ -339,7 +337,6 @@ impl<TT, ET> Algo1DatumRef for DatumBox<TT, ET>
 /// Use [algorithm #1](drop/fn.algo1.html) for dropping, to avoid
 /// extensive drop recursion.
 impl<TT, ET> Drop for DatumBox<TT, ET> {
-    #[inline]
     fn drop(&mut self) {
         algo1(self);
     }
@@ -399,7 +396,6 @@ pub trait RcLike: DerefTryMut
     /// Implementation of `Algo1DatumRef::set` for generic `Rc`-like types.
     /// The default implementation uses `DerefTryMut` and is safe to call after
     /// a success-return from `Algo1DatumRef::try_replace`.
-    #[inline]
     fn set(this: &mut Self, val: <Self as Deref>::Target) {
         // This `unwrap` won't fail because this function is only called after
         // our `try_replace` function succeeded and so our wrapped `Rc` cannot
@@ -469,17 +465,14 @@ impl<TT, ET> RcLike for DatumRc<TT, ET>
 {
     type RC = Rc<RcDatum<TT, ET>>;
 
-    #[inline]
     fn get_rc(this: &mut Self) -> &mut Self::RC {
         &mut this.0
     }
 
-    #[inline]
     fn new_rc(val: <Self as Deref>::Target) -> Self::RC {
         Rc::new(val)
     }
 
-    #[inline]
     fn try_unwrap(rc: Self::RC) -> Result<<Self as Deref>::Target, Self::RC> {
         Rc::try_unwrap(rc)
     }
@@ -488,7 +481,6 @@ impl<TT, ET> RcLike for DatumRc<TT, ET>
 impl<TT, ET> RcLikeAtomicCounts for DatumRc<TT, ET> {
     /// This is atomic enough to meet the requirements, because `Rc` is
     /// single-threaded.
-    #[inline]
     fn counts(this: &Self) -> (usize, usize) {
         (Rc::strong_count(&this.0), Rc::weak_count(&this.0))
     }
@@ -499,13 +491,11 @@ impl<TT, ET> RcLikeAtomicCounts for DatumRc<TT, ET> {
 /// possible with `DerefTryMut::get_mut` alone).
 impl<TT, ET> Algo1DatumRef for DatumRc<TT, ET>
 {
-    #[inline]
     fn try_replace(this: &mut Self, val: Self::Target)
                    -> Result<Self::Target, Self::Target> {
         RcLikeAtomicCounts::try_replace_optim(this, val)
     }
 
-    #[inline]
     fn set(this: &mut Self, val: Self::Target) {
         RcLike::set(this, val)
     }
@@ -514,7 +504,6 @@ impl<TT, ET> Algo1DatumRef for DatumRc<TT, ET>
 /// Use [algorithm #1](drop/fn.algo1.html) for dropping, to avoid
 /// extensive drop recursion.
 impl<TT, ET> Drop for DatumRc<TT, ET> {
-    #[inline]
     fn drop(&mut self) {
         algo1(self);
     }
@@ -524,17 +513,14 @@ impl<TT, ET> RcLike for DatumArc<TT, ET>
 {
     type RC = Arc<ArcDatum<TT, ET>>;
 
-    #[inline]
     fn get_rc(this: &mut Self) -> &mut Self::RC {
         &mut this.0
     }
 
-    #[inline]
     fn new_rc(val: <Self as Deref>::Target) -> Self::RC {
         Arc::new(val)
     }
 
-    #[inline]
     fn try_unwrap(rc: Self::RC) -> Result<<Self as Deref>::Target, Self::RC> {
         Arc::try_unwrap(rc)
     }
@@ -549,13 +535,11 @@ impl<TT, ET> Algo1DatumRef for DatumArc<TT, ET>
     // the ability to atomically get the strong and weak counts.  If `Arc` is
     // ever enhanced in the future to provide that, this could be changed to use
     // `RcLikeAtomicCounts::try_replace_optim`.
-    #[inline]
     fn try_replace(this: &mut Self, val: Self::Target)
                    -> Result<Self::Target, Self::Target> {
         RcLike::try_replace(this, val)
     }
 
-    #[inline]
     fn set(this: &mut Self, val: Self::Target) {
         RcLike::set(this, val)
     }
@@ -564,7 +548,6 @@ impl<TT, ET> Algo1DatumRef for DatumArc<TT, ET>
 /// Use [algorithm #1](drop/fn.algo1.html) for dropping, to avoid
 /// extensive drop recursion.
 impl<TT, ET> Drop for DatumArc<TT, ET> {
-    #[inline]
     fn drop(&mut self) {
         algo1(self);
     }

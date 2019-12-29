@@ -149,7 +149,7 @@ pub mod premade {
 
     /// Useful when omitting the positional information is desired/required.
     impl super::SourcePosition for () {
-        #[inline] fn empty() -> Self { }
+        fn empty() -> Self { }
     }
 }
 
@@ -253,7 +253,6 @@ impl<CC, DA, OB> Parser<CC, DA, OB>
     /// The primary method.  Parse the given text source, according to the
     /// specific parameterization of our `Self`, and return an iterator that
     /// yields each top-level form as a `Datum` AST.
-    #[inline]
     pub fn parse<S>(&mut self, source: S) -> ParseIter<'_, Self, S>
         where S: SourceStream<DA>,
     {
@@ -322,7 +321,6 @@ impl<'p, CC, DA, OB, S>
           Parser<CC, DA, OB>: 'p,
           S: SourceStream<DA>,
 {
-    #[inline]
     fn new(parser: &'p mut Parser<CC, DA, OB>, src_strm: S) -> Self {
         Self {
             parser,
@@ -331,7 +329,6 @@ impl<'p, CC, DA, OB, S>
         }
     }
 
-    #[inline]
     fn do_next(&mut self) -> ParseResultOption<DA, OB> {
         Self::parse_next(ParseTextMode::Base,
                          &mut self.src_strm,
@@ -405,7 +402,6 @@ impl<'p, CC, DA, OB, S>
     )
         -> Result<DA::TT, ParseError<DA, OB>>
     {
-        #[inline]
         fn is_end_char<CC>(ch: char, chclass: &CC, mode: ParseTextMode) -> bool
             where CC: CharClassifier,
         {
@@ -595,7 +591,6 @@ impl<'p, CC, DA, OB, S>
         Ok(head)
     }
 
-    #[inline]
     #[allow(unused_results)]
     fn skip_whitespace(srcstrm: &mut S, chcls: &CC) {
         while srcstrm.peek()
@@ -606,7 +601,6 @@ impl<'p, CC, DA, OB, S>
         }
     }
 
-    #[inline]
     fn check_end_char(srcstrm: &mut S, ndepth: usize, chcls: &CC)
                       -> Result<(), ParseError<DA, OB>>
     {

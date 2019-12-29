@@ -38,7 +38,6 @@ pub struct TextDatumList<'d, C, ET> {
 impl<C, ET> From<C> for TextDatumList<'_, C, ET>
     where C: TextChunk,
 {
-    #[inline]
     fn from(chunk: C) -> Self {
         Self {
             chunk,
@@ -53,7 +52,6 @@ impl<TT, C, ET> PartialEq<TT> for TextDatumList<'_, C, ET>
     where TT: Text,
           C: TextChunk,
 {
-    #[inline]
     fn eq(&self, other: &TT) -> bool {
         Text::eq(self, other)
     }
@@ -67,7 +65,6 @@ impl<TT, C, ET> PartialOrd<TT> for TextDatumList<'_, C, ET>
     where TT: Text,
           C: TextChunk,
 {
-    #[inline]
     fn partial_cmp(&self, other: &TT) -> Option<Ordering> {
         Some(Text::cmp(self, other))
     }
@@ -76,7 +73,6 @@ impl<TT, C, ET> PartialOrd<TT> for TextDatumList<'_, C, ET>
 impl<C, ET> Ord for TextDatumList<'_, C, ET>
     where C: TextChunk,
 {
-    #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         Text::cmp(self, other)
     }
@@ -85,7 +81,6 @@ impl<C, ET> Ord for TextDatumList<'_, C, ET>
 impl<C, ET> Hash for TextDatumList<'_, C, ET>
     where C: TextChunk,
 {
-    #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         Text::hash(self, state)
     }
@@ -122,12 +117,10 @@ impl<C, ET> TextBase for TextDatumList<'_, C, ET>
 {
     type Pos = C::Pos;
 
-    #[inline]
     fn empty() -> Self {
         Self::from(C::empty())
     }
 
-    #[inline]
     fn is_empty(&self) -> bool {
         self.iter_chunks().all(TextBase::is_empty)
     }
@@ -139,7 +132,6 @@ impl<C, ET> Text for TextDatumList<'_, C, ET>
     type Chunk = C;
     type IterChunksState = Self;
 
-    #[inline]
     fn iter_chunks_state(&self) -> Option<&Self::IterChunksState> {
         Some(self)
     }

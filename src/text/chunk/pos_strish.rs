@@ -17,7 +17,7 @@ use crate::{
 pub struct CharPos(pub usize);
 
 impl SourcePosition for CharPos {
-    #[inline] fn empty() -> Self { Self(0) }
+    fn empty() -> Self { Self(0) }
 }
 
 
@@ -35,19 +35,19 @@ mod as_str {
 use as_str::AsStr;
 
 impl AsStr for str {
-    #[inline] fn as_str(&self) -> &str { self }
+    fn as_str(&self) -> &str { self }
 }
 impl AsStr for String {
-    #[inline] fn as_str(&self) -> &str { self }
+    fn as_str(&self) -> &str { self }
 }
 impl<T: AsStr + ?Sized> AsStr for Box<T> {
-    #[inline] fn as_str(&self) -> &str { AsStr::as_str(&**self) }
+    fn as_str(&self) -> &str { AsStr::as_str(&**self) }
 }
 impl<T: AsStr + ?Sized> AsStr for Rc<T> {
-    #[inline] fn as_str(&self) -> &str { AsStr::as_str(&**self) }
+    fn as_str(&self) -> &str { AsStr::as_str(&**self) }
 }
 impl<T: AsStr + ?Sized> AsStr for Arc<T> {
-    #[inline] fn as_str(&self) -> &str { AsStr::as_str(&**self) }
+    fn as_str(&self) -> &str { AsStr::as_str(&**self) }
 }
 
 
@@ -61,7 +61,7 @@ pub trait RefCntStrish: Clone + AsStr + seal_refcnt_strish::Sealed {
     /// Convert from a `&str`.
     fn from_str(s: &str) -> Self;
     /// Make an empty one.
-    #[inline] fn empty() -> Self { Self::from_str("") }
+    fn empty() -> Self { Self::from_str("") }
 }
 
 mod seal_refcnt_strish {
@@ -76,22 +76,22 @@ mod seal_refcnt_strish {
 }
 
 impl RefCntStrish for Rc<String> {
-    #[inline] fn from_str(s: &str) -> Self { Self::new(String::from(s)) }
+    fn from_str(s: &str) -> Self { Self::new(String::from(s)) }
 }
 impl RefCntStrish for Rc<Box<str>> {
-    #[inline] fn from_str(s: &str) -> Self { Self::new(Box::from(s)) }
+    fn from_str(s: &str) -> Self { Self::new(Box::from(s)) }
 }
 impl RefCntStrish for Rc<str> {
-    #[inline] fn from_str(s: &str) -> Self { Self::from(s) }
+    fn from_str(s: &str) -> Self { Self::from(s) }
 }
 impl RefCntStrish for Arc<String> {
-    #[inline] fn from_str(s: &str) -> Self { Self::new(String::from(s)) }
+    fn from_str(s: &str) -> Self { Self::new(String::from(s)) }
 }
 impl RefCntStrish for Arc<Box<str>> {
-    #[inline] fn from_str(s: &str) -> Self { Self::new(Box::from(s)) }
+    fn from_str(s: &str) -> Self { Self::new(Box::from(s)) }
 }
 impl RefCntStrish for Arc<str> {
-    #[inline] fn from_str(s: &str) -> Self { Self::from(s) }
+    fn from_str(s: &str) -> Self { Self::from(s) }
 }
 
 
@@ -121,7 +121,6 @@ impl<S> RefCntSlice<S>
 {
     /// Make a new `RefCntSlice` that represents a subslice taken relative to
     /// our slice.  The new slice will share ownership of the underlying chunk.
-    #[inline]
     fn slice(&self, subrange: Range<usize>) -> Self {
         let start = self.range.start;
         // These conditions are always met by our internal logic, and this fn is
@@ -144,7 +143,6 @@ impl<S> RefCntSlice<S>
 impl<S> AsStr for RefCntSlice<S>
     where S: RefCntStrish,
 {
-    #[inline]
     fn as_str(&self) -> &str {
         &self.refcnt_strish.as_str()[self.range.clone()]
     }
@@ -154,7 +152,7 @@ impl<S> AsStr for RefCntSlice<S>
 impl<S> AsRef<str> for RefCntSlice<S>
     where S: RefCntStrish,
 {
-    #[inline] fn as_ref(&self) -> &str { AsStr::as_str(self) }
+    fn as_ref(&self) -> &str { AsStr::as_str(self) }
 }
 
 
@@ -208,7 +206,6 @@ impl<S> PosStrish<S>
     /// Given an `Rc`- or `Arc`-boxed string and its position relative to its
     /// original source, make a new chunk that represents this and can be used
     /// with `Text` types.
-    #[inline]
     pub fn new(refcnt_strish: S, pos: CharPos) -> Self {
         let end = refcnt_strish.as_str().len();
         Self {
@@ -222,7 +219,6 @@ impl<S> PosStrish<S>
 impl<'s, S> From<&'s str> for PosStrish<S>
     where S: RefCntStrish,
 {
-    #[inline]
     fn from(val: &'s str) -> Self {
         Self::new(S::from_str(val), CharPos(0))
     }
@@ -234,10 +230,8 @@ impl<S> TextBase for PosStrish<S>
 {
     type Pos = CharPos;
 
-    #[inline]
     fn empty() -> Self { Self::new(S::empty(), CharPos::empty()) }
 
-    #[inline]
     fn is_empty(&self) -> bool { self.val.as_str().len() == 0 }
 }
 
@@ -246,7 +240,6 @@ impl<S> TextChunk for PosStrish<S>
 {
     type CharsSrcStrm = PosStrishIter<S>;
 
-    #[inline]
     fn src_strm(&self) -> Self::CharsSrcStrm {
         PosStrishIter::new(self)
     }
@@ -271,7 +264,6 @@ pub struct PosStrishIter<S> {
 impl<S> PosStrishIter<S>
     where S: RefCntStrish,
 {
-    #[inline]
     fn new(posstrish: &PosStrish<S>) -> Self {
         Self {
             chunk: posstrish.clone(), // Does Rc::clone or Arc::clone
@@ -292,7 +284,6 @@ impl<S> PosStrishIter<S>
         })
     }
 
-    #[inline]
     fn do_next(&mut self) -> Option<<Self as Iterator>::Item> {
         if let it @ Some(_) = self.peeked.take() {
             it
@@ -312,7 +303,6 @@ impl<S> Iterator for PosStrishIter<S>
     /// returned some item but `accum_done` was not called (to finish an
     /// accumulation), i.e. if we have an unfinished accumulation, this will
     /// abort and drop the unfinished accumulation.
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.accum = None;
         self.do_next()

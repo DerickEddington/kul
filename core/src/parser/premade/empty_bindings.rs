@@ -48,7 +48,6 @@ impl<DA> OperatorBindings<DA> for EmptyOperatorBindings
     type AR = DummyApplicativeRef<DA, Self::CE>;
     type CE = ();
 
-    #[inline]
     fn lookup(&self, _operator: &Datum<DA::TT, DA::ET, DA::DR>)
               -> Option<&Combiner<Self::OR, Self::AR>> {
         None

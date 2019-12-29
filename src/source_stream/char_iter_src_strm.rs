@@ -35,7 +35,6 @@ use crate::{
 /// locality.  However, [converting to `Rc<str>`](fn.to_rc_str.html) always must
 /// move the string contents and never has the chance of cheaply converting in
 /// place.
-#[inline]
 pub fn to_rc_box_str(s: String) -> Rc<Box<str>> {
     Rc::new(s.into_boxed_str())
 }
@@ -47,7 +46,6 @@ pub fn to_rc_box_str(s: String) -> Rc<Box<str>> {
 /// might be a problem if you keep many of these alive; and there is an extra
 /// level of pointer indirection [compared to `Rc<str>`](fn.to_rc_str.html),
 /// which could impact cache locality.
-#[inline]
 pub fn to_rc_string(s: String) -> Rc<String> {
     Rc::new(s)
 }
@@ -63,28 +61,24 @@ pub fn to_rc_string(s: String) -> Rc<String> {
 ///
 /// However, this conversion always has the one-time cost of moving the string
 /// contents into the new `Rc` allocation.
-#[inline]
 pub fn to_rc_str(s: String) -> Rc<str> {
     s.into()
 }
 
 /// Use an `Arc`, for multi-threaded sharing, for the conversion with the same
 /// trade-offs as [`to_rc_box_str`](fn.to_rc_box_str.html).
-#[inline]
 pub fn to_arc_box_str(s: String) -> Arc<Box<str>> {
     Arc::new(s.into_boxed_str())
 }
 
 /// Use an `Arc`, for multi-threaded sharing, for the conversion with the same
 /// trade-offs as [`to_rc_string`](fn.to_rc_string.html).
-#[inline]
 pub fn to_arc_string(s: String) -> Arc<String> {
     Arc::new(s)
 }
 
 /// Use an `Arc`, for multi-threaded sharing, for the conversion with the same
 /// trade-offs as [`to_rc_str`](fn.to_rc_str.html).
-#[inline]
 pub fn to_arc_str(s: String) -> Arc<str> {
     s.into()
 }
@@ -170,7 +164,6 @@ impl<CI, F, R> Iterator for CharIterSourceStream<CI, F, R>
     /// returned some item but `accum_done` was not called (to finish an
     /// accumulation), i.e. if we have an unfinished accumulation, this will
     /// abort and drop the unfinished accumulation.
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.accum = None;
         self.pe_iter.next()
@@ -188,7 +181,6 @@ impl<CI, F, R, TT, DA> SourceStream<DA> for CharIterSourceStream<CI, F, R>
           TT::Chunk: From<PosStrish<R>>,
           DA: DatumAllocator<TT = TT>,  // Ignored
 {
-    #[inline]
     fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
         self.pe_iter.peek()
     }

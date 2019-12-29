@@ -20,7 +20,6 @@ impl<TT, ET> Default for RcDatumAllocator<TT, ET>
     where TT: Text,
 {
     /// This type only has one, default, value.
-    #[inline]
     fn default() -> Self {
         Self(PhantomData)
     }
@@ -33,7 +32,6 @@ impl<TT, ET> DatumAllocator for RcDatumAllocator<TT, ET>
     type ET = ET;
     type DR = DatumRc<Self::TT, Self::ET>;
 
-    #[inline]
     fn new_datum(&mut self, from: RcDatum<Self::TT, Self::ET>)
                  -> Result<Self::DR, AllocError>
     {

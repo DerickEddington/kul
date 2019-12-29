@@ -99,7 +99,6 @@ pub trait TextChunk: TextBase {
 
 
 /// Helper for some `Text` methods.
-#[inline]
 fn sii_ch<P>(SourceIterItem{ch, ..}: SourceIterItem<P>) -> char {
     ch
 }
@@ -139,7 +138,6 @@ pub trait Text: TextBase
 
     /// Make an instance of our `Self` from anything that can convert into a
     /// single chunk of our `Chunk` type.
-    #[inline]
     fn from_chunkish<T>(v: T) -> Self
         where T: Into<Self::Chunk>
     {
@@ -148,7 +146,6 @@ pub trait Text: TextBase
 
     /// Make an instance of our `Self` from a `&str` slice, if our `Chunk` type
     /// can convert from that.
-    #[inline]
     fn from_str<'s>(s: &'s str) -> Self
         where Self::Chunk: From<&'s str>
     {
@@ -204,7 +201,6 @@ pub trait Text: TextBase
     // implementations should use this.  Currently, the `fn` type in the `Map`
     // type probably results in indirected function calls and so is probably
     // slower than using `self.iter().map(sii_ch)` directly.
-    #[inline]
     fn chars(&self) -> Chars<'_, Self> {
         self.iter().map(sii_ch)
     }
@@ -262,7 +258,6 @@ pub trait Text: TextBase
     ///
     /// Used by both the special `text::iter::Iter` and by some other things
     /// that want to process each chunk.
-    #[inline]
     fn iter_chunks(&self) -> iter::chunks::Iter<'_, Self> {
         iter::chunks::Iter::new(self)
     }
@@ -283,7 +278,6 @@ pub trait Text: TextBase
     /// [`kul_core::SourceStream`]: TODO
     /// [`TextConcat`]: TODO
     /// [`text::Iter`]: TODO
-    #[inline]
     fn iter(&self) -> iter::Iter<'_, Self> {
         iter::Iter::new(self)
     }

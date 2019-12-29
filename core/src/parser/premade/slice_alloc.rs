@@ -40,14 +40,12 @@ impl<'a, TT, ET> SliceDatumAllocator<'a, TT, ET>
 {
     /// Given a mutable slice of `Datum`s of our type, make a new allocator from
     /// it.
-    #[inline]
     pub fn new(slice: Slice<'a, TT, ET>) -> Self {
         Self { free: if slice.is_empty() { None } else { Some(slice) } }
     }
 
     /// Can be used to regain control of the borrow of the unused rest of the
     /// slice, so that it can be used for something else if desired.
-    #[inline]
     pub fn unused(self) -> Option<Slice<'a, TT, ET>> {
         self.free
     }

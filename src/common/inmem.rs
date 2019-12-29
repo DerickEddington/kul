@@ -116,7 +116,6 @@ pub type TopFormResult<'input, Extra = (), CombinerError = ()>
 ///
 /// [`parse`]: ../../../kul_core/struct.Parser.html#method.parse
 /// [`ParseIter`]: ../../../kul_core/struct.ParseIter.html
-#[inline]
 pub fn parser<Extra, CombinerError>(
     bindings: OperatorBindings<'_, Extra, CombinerError>
 ) -> Parser<'_, Extra, CombinerError>
@@ -177,7 +176,6 @@ pub fn parse_str_with<'i, Extra, CombinerError>(
 /// [`Parser`]: type.Parser.html
 /// [`Datum::Combination`]: ../../../kul_core/enum.Datum.html#variant.Combination
 /// [`parse_str_with`]: fn.parse_str_with.html
-#[inline]
 pub fn parse_str(input: &str) -> Vec<TopFormResult<'_>> {
     let empty_bindings = OperatorBindings::default();
     parse_str_with(input, empty_bindings)

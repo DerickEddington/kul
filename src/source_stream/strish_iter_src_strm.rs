@@ -76,7 +76,6 @@ impl<SI, TT> StrishIterSourceStream<SI, TT>
 
     /// Get and convert the next strish into a `PosStrishIter` and set the
     /// current one to be it, using an already peeked one if available.
-    #[inline]
     fn next_posstrish(&mut self) {
         // The current one should only be replaced when it's at its end.
         debug_assert_eq!(self.cur_posstrish_src_strm.as_mut()
@@ -100,7 +99,6 @@ impl<SI, TT> Iterator for StrishIterSourceStream<SI, TT>
     /// returned some item but `accum_done` was not called (to finish an
     /// accumulation), i.e. if we have an unfinished accumulation, this will
     /// abort and drop the unfinished accumulation.
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.accum = None;
         loop {

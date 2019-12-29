@@ -8,22 +8,18 @@ use crate::parser::CharClassifier;
 pub struct DefaultCharClassifier;
 
 impl CharClassifier for DefaultCharClassifier {
-    #[inline]
     fn is_nest_start(&self, c: char) -> bool {
         '{' == c
     }
 
-    #[inline]
     fn is_nest_end(&self, c: char) -> bool {
         '}' == c
     }
 
-    #[inline]
     fn is_nest_escape(&self, c: char) -> bool {
         '\\' == c
     }
 
-    #[inline]
     fn is_whitespace(&self, c: char) -> bool {
         c.is_whitespace()
     }

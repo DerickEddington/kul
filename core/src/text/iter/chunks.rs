@@ -35,7 +35,6 @@ impl<'l, TT> Iter<'l, TT>
     where TT: Text,
 {
     /// Make a new one for a given `Text`.
-    #[inline]
     pub fn new(text: &'l TT) -> Self {
         Self {
             state: text.iter_chunks_state(),
@@ -51,7 +50,6 @@ impl<'l, TT> Iter<'l, TT>
 impl<TT> Clone for Iter<'_, TT>
     where TT: Text
 {
-    #[inline]
     fn clone(&self) -> Self { Self {.. *self} }
 }
 

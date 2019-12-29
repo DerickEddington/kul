@@ -184,7 +184,6 @@ pub type TopFormResult<'input, 'alloc, 'funs, 'bind, Extra = (), CombinerError =
 ///
 /// [`parse`]: ../../struct.Parser.html#method.parse
 /// [`ParseIter`]: ../../struct.ParseIter.html
-#[inline]
 pub fn parser<'input, 'alloc, 'funs, 'bind, Extra, CombinerError>(
     alloc_from: DatumSlice<'input, 'alloc, Extra>,
     bind_pairs: BindingsSlice<'input, 'alloc, 'funs, 'bind, Extra, CombinerError>
@@ -221,7 +220,6 @@ where
 ///
 /// [`parser`]: fn.parser.html
 /// [`Datum::Combination`]: ../../enum.Datum.html#variant.Combination
-#[inline]
 pub fn parser_no_bind<'input, 'alloc, 'funs, 'bind>(
     alloc_from: DatumSlice<'input, 'alloc>,
 )

@@ -25,7 +25,6 @@ pub struct StrPos<'s> {
 }
 
 impl SourcePosition for StrPos<'_> {
-    #[inline]
     fn empty() -> Self {
         StrPos {
             src: "",
@@ -80,12 +79,10 @@ impl<'s1, 's2> From<&'s2 str> for PosStr<'s1>
 impl<'s> TextBase for PosStr<'s> {
     type Pos = StrPos<'s>;
 
-    #[inline]
     fn empty() -> Self {
         PosStr::empty()
     }
 
-    #[inline]
     fn is_empty(&self) -> bool {
         self.val.len() == 0
     }
@@ -94,7 +91,6 @@ impl<'s> TextBase for PosStr<'s> {
 impl<'s> TextChunk for PosStr<'s> {
     type CharsSrcStrm = PosStrIter<'s>;
 
-    #[inline]
     fn src_strm(&self) -> Self::CharsSrcStrm {
         PosStrIter::new(self)
     }
@@ -147,7 +143,6 @@ impl<'s> Iterator for PosStrIter<'s> {
     /// returned some item but `accum_done` was not called (to finish an
     /// accumulation), i.e. if we have an unfinished accumulation, this will
     /// abort and drop the unfinished accumulation.
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.accum = None;
         self.pei_iter.next()
@@ -162,7 +157,6 @@ impl<'s> Iterator for PosStrIter<'s> {
 /// represent each accumulation, which is zero-copy.
 impl<'s> text::chunk::SourceStream<PosStr<'s>> for PosStrIter<'s>
 {
-    #[inline]
     fn peek(&mut self) -> Option<&SourceIterItem<StrPos<'s>>> {
         self.pei_iter.peek()
     }
@@ -185,7 +179,6 @@ impl<'s> text::chunk::SourceStream<PosStr<'s>> for PosStrIter<'s>
         next
     }
 
-    #[inline]
     fn accum_done(&mut self) -> PosStr<'s> {
         self.accum.take().unwrap_or_else(PosStr::empty)
     }

@@ -10,22 +10,18 @@ use kul::{
 pub struct CustomCharClassifier;
 
 impl CharClassifier for CustomCharClassifier {
-    #[inline]
     fn is_nest_start(&self, c: char) -> bool {
         '⟪' == c
     }
 
-    #[inline]
     fn is_nest_end(&self, c: char) -> bool {
         '⟫' == c
     }
 
-    #[inline]
     fn is_nest_escape(&self, c: char) -> bool {
         '␛' == c
     }
 
-    #[inline]
     fn is_whitespace(&self, c: char) -> bool {
         c.is_whitespace()
     }

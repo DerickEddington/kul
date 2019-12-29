@@ -29,7 +29,6 @@ enum Repr<C> {
 impl<C> From<C> for TextVec<C>
     where C: TextChunk,
 {
-    #[inline]
     fn from(chunk: C) -> Self {
         Self(Single(chunk))
     }
@@ -40,7 +39,6 @@ impl<TT, C> PartialEq<TT> for TextVec<C>
     where TT: Text,
           C: TextChunk,
 {
-    #[inline]
     fn eq(&self, other: &TT) -> bool {
         Text::eq(self, other)
     }
@@ -54,7 +52,6 @@ impl<TT, C> PartialOrd<TT> for TextVec<C>
     where TT: Text,
           C: TextChunk,
 {
-    #[inline]
     fn partial_cmp(&self, other: &TT) -> Option<Ordering> {
         Some(Text::cmp(self, other))
     }
@@ -63,7 +60,6 @@ impl<TT, C> PartialOrd<TT> for TextVec<C>
 impl<C> Ord for TextVec<C>
     where C: TextChunk,
 {
-    #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         Text::cmp(self, other)
     }
@@ -72,7 +68,6 @@ impl<C> Ord for TextVec<C>
 impl<C> Hash for TextVec<C>
     where C: TextChunk,
 {
-    #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         Text::hash(self, state)
     }
@@ -84,12 +79,10 @@ impl<C> TextBase for TextVec<C>
 {
     type Pos = C::Pos;
 
-    #[inline]
     fn empty() -> Self {
         Self(Multi(vec![])) // Empty Vec doesn't allocate
     }
 
-    #[inline]
     fn is_empty(&self) -> bool {
         self.iter_chunks().all(TextBase::is_empty)
     }
@@ -102,7 +95,6 @@ impl<C> Text for TextVec<C>
     // Relies on `kul_core::text::iter::chunks::premade::slice`
     type IterChunksState = [Self::Chunk];
 
-    #[inline]
     fn iter_chunks_state(&self) -> Option<&Self::IterChunksState> {
         Some(match &self.0 {
             Single(chunk) => slice::from_ref(chunk),
