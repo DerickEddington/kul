@@ -76,6 +76,7 @@ impl<SI, TT> StrishIterSourceStream<SI, TT>
 
     /// Get and convert the next strish into a `PosStrishIter` and set the
     /// current one to be it, using an already peeked one if available.
+    #[allow(clippy::debug_assert_with_mut_call)]
     fn next_posstrish(&mut self) {
         // The current one should only be replaced when it's at its end.
         debug_assert_eq!(self.cur_posstrish_src_strm.as_mut()
@@ -178,6 +179,7 @@ impl<SI, TT, DA> SourceStream<DA> for StrishIterSourceStream<SI, TT>
 
 
 #[cfg(test)]
+#[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
 mod tests {
     use super::*;
     use std::{rc::Rc, sync::Arc, iter::{empty, once, repeat}};
@@ -238,7 +240,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::cyclomatic_complexity)]
     fn source_stream() {
         use std::marker::PhantomData;
         use crate::{Datum, datum::DatumBox, TextBase};

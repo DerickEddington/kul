@@ -330,6 +330,7 @@ type ArcMultiStrongResult = (DatumArc<TT, usize>, Vec<Arc<ArcDatum<TT, usize>>>)
 // these constructors make the shapes we want, before depending on them for
 // other tests.
 #[cfg(test)]
+#[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
 mod tests {
     use super::*;
     use crate::{ExpectedDatumRef, dr, EtIgnore};
@@ -574,7 +575,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::cyclomatic_complexity)]
     fn vee() {
         macro_rules! test {
             ($left_depth:expr, $right_depth:expr => $expected:expr)

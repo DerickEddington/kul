@@ -1,5 +1,8 @@
 //! Suites of tests applied across multiple crates
 
+// TODO: Try to make a suite0 sub module, that contains the inner items of the
+// test_suite0* fns, that helps with breaking apart the giant test_suite0_with.
+
 use std::fmt::Debug;
 
 use kul_core::{Parser, SourceStream, Text, TextBase, TextConcat, Datum, Combiner,
@@ -16,9 +19,8 @@ use crate::{parse_all, expect, dr, ExpectedText, PosIgnore, custom_delim,
 /// as in produced `Datum`s.
 pub fn test_suite0<DA, OB>(p: Parser<DefaultCharClassifier, DA, OB>)
     where DA: DatumAllocator,
-          DA::TT: TextConcat<DA>,
+          DA::TT: TextConcat<DA> + Debug,
           <DA::TT as Text>::Chunk: From<&'static str>,
-          DA::TT: Debug,
           DA::ET: Debug,
           DA::DR: Debug,
           <DA::TT as TextBase>::Pos: Debug,
@@ -80,13 +82,16 @@ pub fn test_suite0<DA, OB>(p: Parser<DefaultCharClassifier, DA, OB>)
 /// In either case, the given `Parser`'s `Text` type is always exercised to the
 /// degree that parsing constructs values of it in the produced `Datum`s which
 /// are compared with the expected test-case outputs.
-#[allow(clippy::cyclomatic_complexity, clippy::needless_pass_by_value)]
+#[allow(
+    clippy::too_many_lines, // TODO: Try to break apart this func in a sub module
+    clippy::cognitive_complexity, // TODO: ditto
+    clippy::needless_pass_by_value,
+)]
 pub fn test_suite0_with<DA, OB, F, S>(p: Parser<DefaultCharClassifier, DA, OB>,
                                       str_to_src_strm: Option<F>)
     where DA: DatumAllocator,
-          DA::TT: TextConcat<DA>,
+          DA::TT: TextConcat<DA> + Debug,
           <DA::TT as Text>::Chunk: From<&'static str>,
-          DA::TT: Debug,
           DA::ET: Debug,
           DA::DR: Debug,
           <DA::TT as TextBase>::Pos: Debug,

@@ -355,6 +355,7 @@ impl<S> text::chunk::SourceStream<PosStrish<S>> for PosStrishIter<S>
 
 
 #[cfg(test)]
+#[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
 mod tests {
     use super::*;
 
@@ -391,7 +392,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::cyclomatic_complexity)]
     fn refcnt_slice() {
         let s1 = RefCntSlice{refcnt_strish: Rc::new(String::from("a")), range: 0..1};
         assert_eq!(s1.as_str(), "a");
@@ -561,7 +561,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(unused_results, clippy::cyclomatic_complexity)]
+    #[allow(unused_results)]
     fn pos_strish_srcstrm() {
         use text::chunk::SourceStream;
         use std::iter;

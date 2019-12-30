@@ -33,7 +33,7 @@ pub enum AllocError {
 
 impl<Pos, CE> From<AllocError> for Error<Pos, CE> {
     fn from(ae: AllocError) -> Self {
-        Error::FailedAlloc(ae)
+        Self::FailedAlloc(ae)
     }
 }
 

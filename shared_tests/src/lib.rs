@@ -48,6 +48,7 @@
 #![allow(
     explicit_outlives_requirements, // annoying hits on invisible derived impls
     clippy::non_ascii_literal,
+    clippy::must_use_candidate, // excessively pedantic
 )]
 
 

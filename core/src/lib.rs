@@ -118,6 +118,7 @@
 #![allow(
     explicit_outlives_requirements, // annoying hits on invisible derived impls
     clippy::non_ascii_literal,
+    clippy::must_use_candidate, // excessively pedantic
 )]
 
 
@@ -604,6 +605,7 @@ impl<'p, CC, DA, OB, S>
     fn check_end_char(srcstrm: &mut S, ndepth: usize, chcls: &CC)
                       -> Result<(), ParseError<DA, OB>>
     {
+        #[allow(clippy::debug_assert_with_mut_call)]
         {
             debug_assert_eq!(srcstrm.peek().map(|&SourceIterItem{ch, ..}|
                                                 chcls.is_nest_end(ch)),

@@ -218,6 +218,7 @@ impl<CI, F, R, TT, DA> SourceStream<DA> for CharIterSourceStream<CI, F, R>
 
 
 #[cfg(test)]
+#[allow(clippy::cognitive_complexity)]
 mod tests {
     use super::*;
 
@@ -263,7 +264,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::cyclomatic_complexity)]
     fn source_stream() {
         use std::marker::PhantomData;
         use crate::{text::TextVec, Datum, datum::DatumBox};
