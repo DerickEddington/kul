@@ -97,6 +97,7 @@
     unused,
     clippy::all,
     clippy::pedantic,
+    // clippy::restriction, // someday
     // Individual lints not included in above groups and desired.
     macro_use_extern_crate,
     missing_copy_implementations,
@@ -120,6 +121,11 @@
     clippy::non_ascii_literal,
     clippy::must_use_candidate, // excessively pedantic
     clippy::missing_errors_doc, // for now
+    // For when clippy::restriction is on:
+    clippy::else_if_without_else,
+    clippy::missing_inline_in_public_items,
+    clippy::implicit_return,
+    clippy::missing_docs_in_private_items,
 )]
 
 

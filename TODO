@@ -37,3 +37,8 @@ Maybe ParseIter::incr_nest_depth could be enhanced somehow to check and enforce
 Finish/fix doc-comment links.  Hopefully the `intra_rustdoc_links` feature (RFC
    1946) will become stable soon and can be used to make this task easier and
    better.
+
+
+
+Review and selectively resolve clippy::restriction lints, and some of the others
+   I allowed, once the code is more stable, when the effort will be lasting.
