@@ -1,6 +1,6 @@
 [package]
 name = "kul"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Derick Eddington"]
 edition = "2018"
 description = "Parser for a unique textual notation that can be used as both a data format and a markup language and that has powerful extensibility of both lexical syntax and semantics. Inspired by the little-known Curl programming language. Has no unsafe code and has no external dependencies. This is the full crate that builds on and re-exports the core crate and that uses the std library."
@@ -13,7 +13,8 @@ readme = "README.md"
 [workspace]
 
 [dependencies]
-kul_core = { path = "core", version = "0.1.2" }
+kul_core = { path = "core", version = "0.1.3" }
+kul_lints = { path = "lints", version = "0.1.3" }
 
 [dev-dependencies]
 kul_shared_tests = { path = "shared_tests" }

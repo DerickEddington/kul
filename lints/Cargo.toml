@@ -1,0 +1,8 @@
+[package]
+name = "kul_lints"
+version = "0.1.3"
+authors = ["Derick Eddington"]
+edition = "2018"
+description = "Single definition of lints to use across the workspace."
+license = "Unlicense"
+repository = "https://github.com/DerickEddington/kul"
