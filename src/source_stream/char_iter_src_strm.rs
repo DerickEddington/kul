@@ -2,6 +2,8 @@
 //! that provides the position of each `char` relative to the start of the
 //! iteration.
 
+#![allow(clippy::redundant_allocation, clippy::rc_buffer)]
+
 use std::{
     iter::{Peekable, Map, Enumerate},
     rc::Rc, sync::Arc,

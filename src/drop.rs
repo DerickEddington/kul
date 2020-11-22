@@ -386,7 +386,7 @@ pub trait RcLike: DerefTryMut
                 let new_rc = replace(Self::get_rc(this), old_rc);
                 let val = match Self::try_unwrap(new_rc) {
                     Ok(val) => val,
-                    _ => unreachable!()
+                    Err(_) => unreachable!()
                 };
                 Err(val)
             }

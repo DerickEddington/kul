@@ -1,6 +1,6 @@
 //! Utilities for constructing `Datum` trees of various shapes.
 
-#![allow(missing_docs, clippy::enum_glob_use)]
+#![allow(missing_docs)]
 
 use std::env;
 use std::rc::{Rc, Weak as WeakRc};
@@ -172,6 +172,7 @@ pub fn make_fan<N, DR>(depth: usize, new: &mut N) -> DR
                         |cnt, new| make_fan(cnt - 1, new)))
 }
 
+#[allow(clippy::as_conversions)]
 pub fn fan_depth(size: usize) -> usize {
     const MAX: usize = usize::max_value();
     assert!(0 < size && size < MAX);

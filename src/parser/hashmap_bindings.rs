@@ -131,8 +131,7 @@ mod tests {
                             Combiner::Operative(Box::new(|_, _, _| unreachable!())));
 
         assert_eq!(hmob.lookup(&rator)
-                       .map(|c| if let Combiner::Operative(_) = c { true }
-                                else { false }),
+                       .map(|c| matches!(c, Combiner::Operative(_))),
                    Some(true));
 
         assert_eq!(hmob.lookup(&Datum::EmptyNest).map(|_| true), None);
@@ -150,8 +149,7 @@ mod tests {
                             Combiner::Applicative(Box::new(|_, _, _| unreachable!())));
 
         assert_eq!(hmob.lookup(&compound)
-                       .map(|c| if let Combiner::Applicative(_) = c { true }
-                                else { false }),
+                       .map(|c| matches!(c, Combiner::Applicative(_))),
                    Some(true));
     }
 }

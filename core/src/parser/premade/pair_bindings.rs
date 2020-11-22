@@ -135,16 +135,14 @@ mod tests {
         let mut pob = POB::new(&mut bindings_array[..]);
         assert_eq!(pob.lookup(&Datum::EmptyNest).map(|_| true), None);
         assert_eq!(pob.lookup(&Datum::Text(TT::from_str("foo")))
-                      .map(|c| if let Combiner::Operative(_) = c { true }
-                               else { false }),
+                      .map(|c| matches!(c, Combiner::Operative(_))),
                    Some(true));
         let (mut d3, mut d4) = (Datum::Extra(()), Datum::EmptyList);
         assert_eq!(pob.lookup(&Datum::Combination {
                                    operator: DatumMutRef(&mut d3),
                                    operands: DatumMutRef(&mut d4),
                                })
-                      .map(|c| if let Combiner::Applicative(_) = c { true }
-                               else { false }),
+                      .map(|c| matches!(c, Combiner::Applicative(_))),
                    Some(true));
 
         // Remove a binding
@@ -156,8 +154,7 @@ mod tests {
         // Change a binding
         pob.pairs[0].0 = Datum::Text(TT::from_str("bar"));
         assert_eq!(pob.lookup(&Datum::Text(TT::from_str("bar")))
-                      .map(|c| if let Combiner::Applicative(_) = c { true }
-                               else { false }),
+                      .map(|c| matches!(c, Combiner::Applicative(_))),
                    Some(true));
         assert_eq!(pob.lookup(&Datum::Combination {
                                    operator: DatumMutRef(&mut Datum::Extra(())),
@@ -174,8 +171,7 @@ mod tests {
                              Combiner::Applicative(ap))]);
         assert_eq!(pob.lookup(&Datum::EmptyNest).map(|_| true), None);
         assert_eq!(pob.lookup(&Datum::Text(TT::from_str("zab")))
-                      .map(|c| if let Combiner::Applicative(_) = c { true }
-                               else { false }),
+                      .map(|c| matches!(c, Combiner::Applicative(_))),
                    Some(true));
     }
 }

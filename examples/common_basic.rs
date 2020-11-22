@@ -1,3 +1,5 @@
+#![allow(clippy::dbg_macro)]
+
 use std::{time::SystemTime, str::FromStr, iter::FromIterator};
 
 use kul::{

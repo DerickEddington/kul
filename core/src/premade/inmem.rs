@@ -287,6 +287,7 @@ type ParseTextWith<'text, 'parser, 'input, 'alloc, 'funs, 'bind,
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::many_single_char_names)]
     use super::*;
     use crate::{Datum, datum::premade::DatumMutRef,
                 parser::DatumAllocator as _, parser::OperatorBindings as _};

@@ -2,6 +2,8 @@
 //! `kul` crate), to contrast how similar usage is achieved when using only the
 //! `kul_core` crate with only values allocated on the stack.
 
+#![allow(clippy::match_single_binding, clippy::dbg_macro)]
+
 use core::str::FromStr;
 
 use kul_core::{

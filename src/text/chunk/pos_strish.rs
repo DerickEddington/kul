@@ -500,6 +500,7 @@ mod tests {
     #[cfg(debug_assertions)]
     #[test]
     #[should_panic]
+    #[allow(clippy::reversed_empty_ranges)]
     fn refcnt_slice_assert_conditions4() {
         let s = RefCntSlice{refcnt_strish: Rc::<str>::from("raboof"), range: 0..6};
         let ss1 = s.slice(1 .. 5);
@@ -691,7 +692,7 @@ mod tests {
                              assert_eq!(Rc::strong_count(&ps2.val.refcnt_strish), 3);
                              ps2ss.next();
                              ps2ss.next();
-                             while let Some(_) = ps2ss.next_accum() {}
+                             while ps2ss.next_accum().is_some() {}
                              let a = ps2ss.accum_done();
                              (a.val.as_str().into(), a.val.range.clone(), a.pos)
                          })

@@ -118,7 +118,7 @@ impl<TT, ET> DerefTryMut for DatumArc<TT, ET> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::enum_glob_use)]
+    #![allow(clippy::many_single_char_names)]
     use super::*;
     use kul_shared_tests::utils::tree_shapes::*;
     use Datum::*;

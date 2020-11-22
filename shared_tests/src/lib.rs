@@ -6,6 +6,4 @@
 //! [`Datum`](../kul_core/enum.Datum.html) types.
 
 
-use kul_lints;
-
 kul_lints::declare_lints_on_top_module!();

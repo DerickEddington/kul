@@ -38,6 +38,9 @@ macro_rules! declare_lints_on_top_module {
             clippy::non_ascii_literal,
             clippy::must_use_candidate, // excessively pedantic
             clippy::missing_errors_doc, // for now
+            clippy::enum_glob_use,
+            clippy::wildcard_imports,
+            clippy::similar_names,
             // For when clippy::restriction is on:
             clippy::else_if_without_else,
             clippy::missing_inline_in_public_items,
