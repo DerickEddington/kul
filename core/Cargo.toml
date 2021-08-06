@@ -10,6 +10,9 @@ license = "Unlicense"
 repository = "https://github.com/DerickEddington/kul"
 readme = "README.md"
 
+[lib]
+path = "src/lib-lints.rs"
+
 [dependencies]
 kul_lints = { path = "../lints", version = "0.1.3" }
 

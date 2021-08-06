@@ -7,6 +7,9 @@ description = "Test suites and utilities for testing both the core and the full 
 license = "Unlicense"
 repository = "https://github.com/DerickEddington/kul"
 
+[lib]
+path = "src/lib-lints.rs"
+
 [dependencies]
 kul_core = { path = "../core" }
 kul = { path = ".." }

@@ -1,7 +1,7 @@
 //! Single definition of lints to use across the workspace.
 
 #[macro_export]
-macro_rules! declare_lints_on_top_module {
+macro_rules! declare_lints_on_lib_module {
     () => {
         #[forbid(unsafe_code)]
         // Warn about desired lints that would otherwise be allowed by default.
@@ -47,9 +47,9 @@ macro_rules! declare_lints_on_top_module {
             clippy::implicit_return,
             clippy::missing_docs_in_private_items,
         )]
-        #[path = "top.rs"] // So sub-modules' files are in same dir.
-        mod top;
+        #[path = "lib.rs"] // So sub-modules' files are in same dir.
+        mod lib;
 
-        pub use top::*;
+        pub use lib::*;
     }
 }
