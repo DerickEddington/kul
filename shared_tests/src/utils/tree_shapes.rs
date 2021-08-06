@@ -123,10 +123,10 @@ pub fn make_zigzag<N, EM, OD, EV, L, R, DR>
     let mut cnt: usize = 1;
     let mut d = new(empty());
     while cnt <= depth {
-        d = new(odd(d, right(cnt, &new)));
+        d = new(odd(d, right(cnt, new)));
         cnt += 1;
         if cnt <= depth {
-            d = new(even(left(cnt, &new), d));
+            d = new(even(left(cnt, new), d));
             cnt += 1;
         }
     }

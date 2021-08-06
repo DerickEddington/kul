@@ -69,7 +69,7 @@ impl<C> Hash for TextVec<C>
     where C: TextChunk,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        Text::hash(self, state)
+        Text::hash(self, state);
     }
 }
 

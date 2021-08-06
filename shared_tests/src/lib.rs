@@ -8,6 +8,9 @@
 // so that functionality can be tested globally too.
 
 
+#![allow(clippy::missing_panics_doc)]
+
+
 use std::ops::{Deref, DerefMut};
 
 use kul_core::{SourceStream, SourceIterItem, Parser, ParseIterItem,
@@ -108,20 +111,20 @@ struct ExpectedDatumRef (Box<ExpectedDatum>);
 impl Deref for ExpectedDatumRef {
     type Target = ExpectedDatum;
     fn deref(&self) -> &Self::Target {
-        Deref::deref(&self.0)
+        &self.0
     }
 }
 
 impl DerefMut for ExpectedDatumRef {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        DerefMut::deref_mut(&mut self.0)
+        &mut self.0
     }
 }
 
 /// This allows `ExpectedDatumRef` to be used as the `Datum` reference type.
 impl DerefTryMut for ExpectedDatumRef {
     fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
-        Some(DerefMut::deref_mut(this))
+        Some(this)
     }
 }
 

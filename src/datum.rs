@@ -33,21 +33,21 @@ impl<TT, ET> Deref for DatumBox<TT, ET> {
     type Target = BoxDatum<TT, ET>;
 
     fn deref(&self) -> &Self::Target {
-        Deref::deref(&self.0)
+        &self.0
     }
 }
 
 /// Not strictly required but useful.
 impl<TT, ET> DerefMut for DatumBox<TT, ET> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        DerefMut::deref_mut(&mut self.0)
+        &mut self.0
     }
 }
 
 /// This allows `Box` to be used as the `Datum` reference type.
 impl<TT, ET> DerefTryMut for DatumBox<TT, ET> {
     fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
-        Some(DerefMut::deref_mut(this))
+        Some(this)
     }
 }
 
@@ -72,7 +72,7 @@ impl<TT, ET> Deref for DatumRc<TT, ET> {
     type Target = RcDatum<TT, ET>;
 
     fn deref(&self) -> &Self::Target {
-        Deref::deref(&self.0)
+        &self.0
     }
 }
 
@@ -104,7 +104,7 @@ impl<TT, ET> Deref for DatumArc<TT, ET> {
     type Target = ArcDatum<TT, ET>;
 
     fn deref(&self) -> &Self::Target {
-        Deref::deref(&self.0)
+        &self.0
     }
 }
 
@@ -118,7 +118,7 @@ impl<TT, ET> DerefTryMut for DatumArc<TT, ET> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::many_single_char_names)]
+    #![allow(clippy::many_single_char_names, clippy::eq_op)]
     use super::*;
     use kul_shared_tests::utils::tree_shapes::*;
     use Datum::*;

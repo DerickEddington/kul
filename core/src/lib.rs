@@ -484,7 +484,7 @@ impl<'p, CC, DA, OB, S>
                         return Err(Error::FailedDerefTryMut);
                     }
                 } else {
-                    unreachable!()
+                    unreachable!();
                 }
             } else {
                 break;

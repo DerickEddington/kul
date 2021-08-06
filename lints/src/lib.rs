@@ -41,6 +41,8 @@ macro_rules! declare_lints_on_lib_module {
             clippy::enum_glob_use,
             clippy::wildcard_imports,
             clippy::similar_names,
+            clippy::redundant_else,
+            clippy::upper_case_acronyms,
             // For when clippy::restriction is on:
             clippy::else_if_without_else,
             clippy::missing_inline_in_public_items,

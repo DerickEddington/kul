@@ -2,7 +2,7 @@
 
 use std::{
     collections::HashMap, hash::Hash,
-    iter::{repeat_with, FromIterator},
+    iter::repeat_with,
     rc::Rc, sync::Arc,
 };
 
@@ -48,7 +48,7 @@ fn suite0_core_types() {
     type Array<'a, 's> = [MutRefDatum<'a, TextDatumList<'a, PosStr<'s>, Extra>, Extra>];
 
     let mut datum_array: Box<Array<'_, '_>> =
-        Vec::from_iter(repeat_with(|| Datum::Extra(0)).take(0x200))
+        repeat_with(|| Datum::Extra(0)).take(0x200).collect::<Vec<_>>()
         .into_boxed_slice();
 
     test_suite0(parser::<_, CombErr>(SliceDatumAllocator::new(&mut datum_array[..]),

@@ -115,11 +115,11 @@ fn suite0_text_datum_list<F, R>(converter: F)
     where F: Fn(String) -> R,
           R: RefCntStrish + Debug,
 {
-    use std::iter::{repeat_with, FromIterator};
+    use std::iter::repeat_with;
     use Datum::Extra;
 
     let mut datum_array: Box<Array<'_, R>> =
-        Vec::from_iter(repeat_with(|| Extra(())).take(0x200))
+        repeat_with(|| Extra(())).take(0x200).collect::<Vec<_>>()
         .into_boxed_slice();
 
     test_suite0_with(parser(SliceDatumAllocator::new(&mut datum_array[..])),

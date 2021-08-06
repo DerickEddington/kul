@@ -141,11 +141,11 @@ fn suite0_text_datum_list<SI, F>(str_to_strish_iter: F, array_size: usize)
           SI::Item: RefCntStrish + Debug,
           F: Fn(&'static str) -> SI,
 {
-    use std::iter::{repeat_with, FromIterator};
+    use std::iter::repeat_with;
     use Datum::Extra;
 
     let mut datum_array: Box<Array<'_, SI::Item>> =
-        Vec::from_iter(repeat_with(|| Extra(())).take(array_size))
+        repeat_with(|| Extra(())).take(array_size).collect::<Vec<_>>()
         .into_boxed_slice();
 
     test_suite0_with(

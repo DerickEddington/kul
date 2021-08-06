@@ -1,7 +1,5 @@
 #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-use std::iter::FromIterator;
-
 use kul::{
     Parser, Datum, Text as _,
     parser::CharClassifier,
@@ -54,7 +52,7 @@ Using non-default delimiters:
     if let Ok(Datum::Combination{operands, ..}) = &ast[1] {
         if let Datum::List{elem, ..} = &**operands {
             if let Datum::Text(text) = &**elem {
-                let selected = String::from_iter(text.chars());
+                let selected: String = text.chars().collect();
                 println!("\nSelected text:\n{}", selected);
             }
         }

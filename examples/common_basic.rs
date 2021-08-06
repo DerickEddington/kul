@@ -1,6 +1,6 @@
 #![allow(clippy::dbg_macro)]
 
-use std::{time::SystemTime, str::FromStr, iter::FromIterator};
+use std::{time::SystemTime, str::FromStr};
 
 use kul::{
     common::inmem::{
@@ -77,7 +77,7 @@ fn with_extensions()
         // parsing functions/libraries that take string slices.  (When the other
         // parsing functionality can instead take `Iterator`s of `char`s, this
         // conversion is unneeded.)
-        let i = i128::from_str(&String::from_iter(operands.chars()))
+        let i = i128::from_str(&operands.chars().collect::<String>())
                     .map_err(|_| Error::FailedCombiner(MyCombinerError::Oops))?;
         Ok(Some(Datum::Extra(MyDatumVariants::Integer(i))))
     };

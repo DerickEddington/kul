@@ -3,7 +3,6 @@
 //! heap allocation isn't available (or desired) and a `Parser`'s
 //! `DatumAllocator` is the only available (or desired) dynamic allocator.
 
-use core::ops::Deref;
 use core::cmp::Ordering;
 use core::hash::{Hash, Hasher};
 
@@ -82,7 +81,7 @@ impl<C, ET> Hash for TextDatumList<'_, C, ET>
     where C: TextChunk,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        Text::hash(self, state)
+        Text::hash(self, state);
     }
 }
 
@@ -101,7 +100,7 @@ impl<C, ET> text::iter::chunks::State for TextDatumList<'_, C, ET>
         Some((&self.chunk,
               self.next.as_ref().map(
                   |datum_ref|
-                  if let Datum::Text(next) = Deref::deref(datum_ref) {
+                  if let Datum::Text(next) = &**datum_ref {
                       next
                   } else {
                       // Note: This won't ever fail because we always construct the
@@ -171,7 +170,7 @@ impl<'d, DA, C, ET> TextConcat<DA> for TextDatumList<'d, C, ET>
                         // Note: This won't ever fail because we never share the
                         // datum references and always construct the
                         // `Datum::Text` variant.
-                        unreachable!()
+                        unreachable!();
                     }
                 last_next @ None => {
                     *last_next = Some(datum_alloc.new_datum(Datum::Text(other))?);

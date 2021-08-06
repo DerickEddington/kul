@@ -200,7 +200,6 @@ mod tests {
         datum::DatumBox,
         text::chunk::CharPos,
     };
-    use std::{collections::HashMap, iter::FromIterator};
 
     fn read_into(dest: &mut [u8], from: &[u8]) {
         dest.copy_from_slice(from);
@@ -252,7 +251,7 @@ mod tests {
                  Combiner::Applicative(Box::new(|_, _, _|
                                                 Err(Error::FailedCombiner(1.5))))),
             ];
-            OperatorBindings::new(HashMap::from_iter(pairs.into_iter()))
+            OperatorBindings::new(pairs.into_iter().collect())
         }
         assert_eq!(super::parse_stream_with(stream(&[""]), bindings()), []);
         assert_eq!(super::parse_stream_with(stream(&["a"]), bindings()),

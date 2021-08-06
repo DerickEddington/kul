@@ -113,7 +113,7 @@ pub fn algo1<TT, ET, DR>(top_dr: &mut DR)
     };
 
     let class = |node: &DR| {
-        match Deref::deref(node) {
+        match &**node {
             Combination{..} | List{..} => Class::Branch,
             _ => Class::Leaf
         }
@@ -243,10 +243,9 @@ pub fn algo1<TT, ET, DR>(top_dr: &mut DR)
                   // If both sides are branches, we restructure the tree
                   // mutatively to reduce the branching depth of the selected
                   // side (without dropping any of our nodes yet)
-                  | (Combination{operator: sel_left, operands: sel_right},
-                     Class::Branch)
-                  | (List{elem: sel_left, next: sel_right},
-                     Class::Branch)
+                  (   Combination{operator: sel_left, operands: sel_right}
+                    | List{elem: sel_left, next: sel_right},
+                   Class::Branch)
                   => {
                       // Reuse `reuse_dr` and the `Datum` it refers to, for the
                       // different purpose of being a new link and new node in
@@ -326,7 +325,7 @@ impl<TT, ET> Algo1DatumRef for DatumBox<TT, ET>
 {
     fn try_replace(this: &mut Self, val: Self::Target)
                    -> Result<Self::Target, Self::Target> {
-        Ok(replace(DerefMut::deref_mut(this), val))
+        Ok(replace(this, val))
     }
 
     fn set(this: &mut Self, val: Self::Target) {
@@ -497,7 +496,7 @@ impl<TT, ET> Algo1DatumRef for DatumRc<TT, ET>
     }
 
     fn set(this: &mut Self, val: Self::Target) {
-        RcLike::set(this, val)
+        RcLike::set(this, val);
     }
 }
 
@@ -541,7 +540,7 @@ impl<TT, ET> Algo1DatumRef for DatumArc<TT, ET>
     }
 
     fn set(this: &mut Self, val: Self::Target) {
-        RcLike::set(this, val)
+        RcLike::set(this, val);
     }
 }
 

@@ -1,6 +1,6 @@
 #![allow(clippy::type_complexity)]
 
-use std::{borrow::Borrow, iter::{repeat_with, FromIterator}};
+use std::{borrow::Borrow, iter::repeat_with};
 
 use kul_core::{
     Parser, Datum,
@@ -40,7 +40,7 @@ fn suite0_core_types() {
     type Array<'a, 's> = [MutRefDatum<'a, TextDatumList<'a, PosStr<'s>, Extra>, Extra>];
 
     let mut datum_array: Box<Array<'_, '_>> =
-        Vec::from_iter(repeat_with(|| Datum::Extra(true)).take(0x200))
+        repeat_with(|| Datum::Extra(true)).take(0x200).collect::<Vec<_>>()
         .into_boxed_slice();
 
     test_suite0(parser::<_, _, CombErr>(SliceDatumAllocator::new(&mut datum_array[..]),

@@ -50,6 +50,7 @@ pub mod parser {
 
 /// `Text` types that use the `std` library, including heap allocation.  Also
 /// re-exports the core crate's module and premades.
+#[allow(clippy::module_name_repetitions)]
 pub mod text {
     #[doc(no_inline)]
     pub use kul_core::text::{*, premade::*};

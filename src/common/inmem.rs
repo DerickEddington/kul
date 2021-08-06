@@ -190,7 +190,6 @@ mod tests {
         datum::DatumBox,
         text::chunk::StrPos,
     };
-    use std::{collections::HashMap, iter::FromIterator};
 
     #[test]
     fn parse_str() {
@@ -224,7 +223,7 @@ mod tests {
                  Combiner::Applicative(Box::new(|_, _, _|
                                                 Err(Error::FailedCombiner(true))))),
             ];
-            OperatorBindings::new(HashMap::from_iter(pairs.into_iter()))
+            OperatorBindings::new(pairs.into_iter().collect())
         }
         assert_eq!(super::parse_str_with("", bindings()), []);
         assert_eq!(super::parse_str_with("a", bindings()),

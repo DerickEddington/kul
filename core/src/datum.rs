@@ -124,6 +124,7 @@ pub trait DerefTryMut: Deref
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::eq_op)]
     use super::{*, premade::*};
 
     /// Used as a "text" type in tests where it does not need to be a real

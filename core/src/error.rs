@@ -57,6 +57,7 @@ impl<P1, P2, CE1, CE2> PartialEq<Error<P2, CE2>> for Error<P1, CE1>
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::eq_op)]
     use super::*;
 
     #[test]

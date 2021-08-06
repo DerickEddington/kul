@@ -38,6 +38,6 @@ impl<TT, ET> DerefMut for DatumMutRef<'_, TT, ET> {
 /// reference type.
 impl<TT, ET> DerefTryMut for DatumMutRef<'_, TT, ET> {
     fn get_mut(this: &mut Self) -> Option<&mut Self::Target> {
-        Some(DerefMut::deref_mut(this))
+        Some(this)
     }
 }
