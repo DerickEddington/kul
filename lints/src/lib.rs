@@ -44,10 +44,15 @@ macro_rules! declare_lints_on_lib_module {
             clippy::redundant_else,
             clippy::upper_case_acronyms,
             // For when clippy::restriction is on:
+            clippy::blanket_clippy_restriction_lints,
             clippy::else_if_without_else,
             clippy::missing_inline_in_public_items,
             clippy::implicit_return,
             clippy::missing_docs_in_private_items,
+            clippy::exhaustive_structs,
+            clippy::exhaustive_enums,
+            clippy::pattern_type_mismatch, // maybe warn someday
+            clippy::if_then_some_else_none,
         )]
         #[path = "lib.rs"] // So sub-modules' files are in same dir.
         mod lib;
