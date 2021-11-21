@@ -38,13 +38,12 @@ fn parser<DA>(allocator: DA) -> Parser<DefaultCharClassifier,
 
 
 fn siss_maker<SI, TT, F>(str_to_strish_iter: F)
-                         -> Option<impl Fn(&'static str)
-                                           -> StrishIterSourceStream<SI, TT>>
+                         -> impl Fn(&'static str) -> StrishIterSourceStream<SI, TT>
     where SI: Iterator,
           SI::Item: RefCntStrish,
           F: Fn(&'static str) -> SI,
 {
-    Some(move |input| StrishIterSourceStream::new(str_to_strish_iter(input)))
+    move |input| StrishIterSourceStream::new(str_to_strish_iter(input))
 }
 
 fn each_char<S>(input: &'static str) -> Map<Split<'static, &'static str>,
@@ -65,7 +64,7 @@ fn grouped<S>(lens: Vec<usize>)
     move |input|
     input.chars().fold((vec![String::new()],
                         0,
-                        lens.iter().cloned().cycle().peekable()),
+                        lens.iter().copied().cycle().peekable()),
                        |(mut strings, mut count, mut lens_iter), ch| {
                            count += 1;
                            if count % (lens_iter.peek().unwrap() + 1) == 0 {
@@ -97,7 +96,7 @@ fn suite0_textvec<SI, F>(str_to_strish_iter: F)
 {
     test_suite0_with(parser(BoxDatumAllocator::<TextVec<PosStrish<SI::Item>>, ()>
                             ::default()),
-                     siss_maker(str_to_strish_iter));
+                     Some(siss_maker(str_to_strish_iter)));
 }
 
 #[test]
@@ -150,7 +149,7 @@ fn suite0_text_datum_list<SI, F>(str_to_strish_iter: F, array_size: usize)
 
     test_suite0_with(
         parser(SliceDatumAllocator::new(&mut datum_array[..])),
-        siss_maker(str_to_strish_iter));
+        Some(siss_maker(str_to_strish_iter)));
 }
 
 #[test]

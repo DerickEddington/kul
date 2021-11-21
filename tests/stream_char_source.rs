@@ -32,15 +32,14 @@ fn parser<DA>(allocator: DA) -> Parser<DefaultCharClassifier,
 }
 
 
-#[allow(clippy::needless_lifetimes)] // Note: Clippy is wrong: 'f is needed
 fn ciss_maker<'f, F, R>(converter: &'f F)
-                        -> Option<impl Fn(&'static str)
-                                          -> CharIterSourceStream<str::Chars<'static>,
-                                                                  &'f F, R>>
+                        -> impl Fn(&'static str)
+                                  -> CharIterSourceStream<str::Chars<'static>,
+                                                          &'f F, R>
     where F: Fn(String) -> R,
           R: RefCntStrish,
 {
-    Some(move |input: &'static str| CharIterSourceStream::new(input.chars(), converter))
+    move |input: &'static str| CharIterSourceStream::new(input.chars(), converter)
 }
 
 
@@ -49,7 +48,7 @@ fn suite0_textvec<F, R>(converter: F)
           R: RefCntStrish + Debug,
 {
     test_suite0_with(parser(BoxDatumAllocator::<TextVec<PosStrish<R>>, ()>::default()),
-                     ciss_maker(&converter));
+                     Some(ciss_maker(&converter)));
 }
 
 #[test]
@@ -123,35 +122,35 @@ fn suite0_text_datum_list<F, R>(converter: F)
         .into_boxed_slice();
 
     test_suite0_with(parser(SliceDatumAllocator::new(&mut datum_array[..])),
-                     ciss_maker(&converter));
+                     Some(ciss_maker(&converter)));
 }
 
 #[test]
 fn suite0_text_datum_list_rc_string() {
-    suite0_text_datum_list(to_rc_string)
+    suite0_text_datum_list(to_rc_string);
 }
 
 #[test]
 fn suite0_text_datum_list_rc_box_str() {
-    suite0_text_datum_list(to_rc_box_str)
+    suite0_text_datum_list(to_rc_box_str);
 }
 
 #[test]
 fn suite0_text_datum_list_rc_str() {
-    suite0_text_datum_list(to_rc_str)
+    suite0_text_datum_list(to_rc_str);
 }
 
 #[test]
 fn suite0_text_datum_list_arc_string() {
-    suite0_text_datum_list(to_arc_string)
+    suite0_text_datum_list(to_arc_string);
 }
 
 #[test]
 fn suite0_text_datum_list_arc_box_str() {
-    suite0_text_datum_list(to_arc_box_str)
+    suite0_text_datum_list(to_arc_box_str);
 }
 
 #[test]
 fn suite0_text_datum_list_arc_str() {
-    suite0_text_datum_list(to_arc_str)
+    suite0_text_datum_list(to_arc_str);
 }
