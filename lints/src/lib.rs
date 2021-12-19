@@ -1,5 +1,9 @@
 //! Single definition of lints to use across the workspace.
 
+// `no_std` so that when other `no_std` crates like `kul_core` use our crate, `std` will not be a
+// transitive dependency.
+#![no_std]
+
 #[macro_export]
 macro_rules! declare_lints_on_lib_module {
     () => {
