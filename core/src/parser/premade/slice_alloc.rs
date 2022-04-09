@@ -61,7 +61,7 @@ impl<'a, TT, ET> DatumAllocator for SliceDatumAllocator<'a, TT, ET>
     fn new_datum(&mut self, from: MutRefDatum<'a, Self::TT, Self::ET>)
                  -> Result<Self::DR, AllocError>
     {
-        match self.free.take().and_then(|a| a.split_first_mut()) {
+        match self.free.take().and_then(<[_]>::split_first_mut) {
             Some((dr, rest)) => {
                 *dr = from;
                 self.free = Some(rest);
