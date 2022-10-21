@@ -125,6 +125,7 @@ pub fn test_suite0_with<DA, OB, F, S>(p: Parser<DefaultCharClassifier, DA, OB>,
     let list4 = |e1, e2, e3, e4| list(e1, list3(e2, e3, e4));
     let list5 = |e1, e2, e3, e4, e5| list(e1, list4(e2, e3, e4, e5));
 
+    #[allow(unused_macro_rules)]
     macro_rules! test {
         ($input:expr => [$($expected:expr),*])
             =>
