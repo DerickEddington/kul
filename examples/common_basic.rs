@@ -1,4 +1,4 @@
-#![allow(clippy::dbg_macro)]
+#![allow(missing_docs, unused_results, clippy::dbg_macro)]
 
 use std::{time::SystemTime, str::FromStr};
 

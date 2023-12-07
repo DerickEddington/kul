@@ -143,7 +143,7 @@ The library is designed to offer:
 
 ## Status
 
-Version `0.1.3`: experimental and unstable.  Builds fine and passes all tests
+Version `0.1.4`: experimental and unstable.  Builds fine and passes all tests
 and lints.
 
 ## Rust version

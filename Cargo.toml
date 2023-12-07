@@ -1,6 +1,6 @@
 [package]
 name = "kul"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Derick Eddington"]
 edition = "2018"
 description = "Parser for a unique textual notation that can be used as both a data format and a markup language and that has powerful extensibility of both lexical syntax and semantics. Inspired by the little-known Curl programming language. Has no unsafe code and has no external dependencies. This is the full crate that builds on and re-exports the core crate and that uses the std library."
@@ -12,12 +12,63 @@ readme = "README.md"
 
 [workspace]
 
-[lib]
-path = "src/lib-lints.rs"
+[workspace.lints.rust]
+unsafe_code = "forbid"
+# Groups
+future_incompatible =           "warn"
+nonstandard_style =             "warn"
+rust_2018_compatibility =       "warn"  # unsure if needed with edition="2018"
+rust_2018_idioms =              "warn"
+unused =                        "warn"
+# Individual lints not included in above groups and desired.
+macro_use_extern_crate =        "warn"
+missing_copy_implementations =  "warn"
+missing_debug_implementations = "warn"
+missing_docs =                  "warn"
+#missing_doc_code_examples =    "warn"  # maybe someday
+private_doc_tests =             "warn"
+#single_use_lifetimes =         "warn"  # annoying hits on invisible derived impls
+trivial_casts =                 "warn"
+trivial_numeric_casts =         "warn"
+unreachable_pub =               "warn"
+unused_import_braces =          "warn"
+unused_lifetimes =              "warn"
+unused_qualifications =         "warn"
+unused_results =                "warn"
+variant_size_differences =      "warn"
+# Exclude (re-allow) undesired lints included in above groups.
+explicit_outlives_requirements = { level = "allow", priority = 1 }  # annoying hits on invisible
+
+[workspace.lints.clippy]
+# Groups
+all =         "warn"
+pedantic =    "warn"
+#restriction = "warn"  # someday
+# Exclude (re-allow) undesired lints included in above groups.
+non_ascii_literal =                { level = "allow", priority = 1 }
+must_use_candidate =               { level = "allow", priority = 1 }  # excessively pedantic
+missing_errors_doc =               { level = "allow", priority = 1 }  # for now
+enum_glob_use =                    { level = "allow", priority = 1 }
+wildcard_imports =                 { level = "allow", priority = 1 }
+similar_names =                    { level = "allow", priority = 1 }
+redundant_else =                   { level = "allow", priority = 1 }
+upper_case_acronyms =              { level = "allow", priority = 1 }
+# For when clippy::restriction is on:
+blanket_clippy_restriction_lints = { level = "allow", priority = 1 }
+else_if_without_else =             { level = "allow", priority = 1 }
+missing_inline_in_public_items =   { level = "allow", priority = 1 }
+implicit_return =                  { level = "allow", priority = 1 }
+missing_docs_in_private_items =    { level = "allow", priority = 1 }
+exhaustive_structs =               { level = "allow", priority = 1 }
+exhaustive_enums =                 { level = "allow", priority = 1 }
+pattern_type_mismatch =            { level = "allow", priority = 1 }  # maybe warn someday
+if_then_some_else_none =           { level = "allow", priority = 1 }
+
+[lints]
+workspace = true
 
 [dependencies]
-kul_core = { path = "core", version = "0.1.3" }
-kul_lints = { path = "lints", version = "0.1.3" }
+kul_core = { path = "core", version = "0.1.4" }
 
 [dev-dependencies]
 kul_shared_tests = { path = "shared_tests" }

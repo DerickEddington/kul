@@ -1,4 +1,4 @@
-#![allow(clippy::dbg_macro, clippy::print_stdout)]
+#![allow(missing_docs, clippy::dbg_macro, clippy::print_stdout)]
 
 use kul::{
     Parser, Datum, Text as _,
@@ -7,6 +7,7 @@ use kul::{
 };
 
 
+#[derive(Clone, Copy, Debug)]
 pub struct CustomCharClassifier;
 
 impl CharClassifier for CustomCharClassifier {
