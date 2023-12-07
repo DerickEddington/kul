@@ -321,14 +321,12 @@ impl<'p, CC, DA, OB, S>
                 Self::skip_whitespace(srcstrm, chcls);
             }
             // Peek some next char for below, or abort appropriately if none.
-            let ch = match srcstrm.peek() {
-                Some(&SourceIterItem{ch, ..}) => ch,
-                None =>
-                    return if *ndepth == 0 {
-                        Ok(None)
-                    } else {
-                        Err(Error::MissingEndChar)
-                    }
+            let Some(&SourceIterItem{ch, ..}) = srcstrm.peek() else {
+                return if *ndepth == 0 {
+                    Ok(None)
+                } else {
+                    Err(Error::MissingEndChar)
+                }
             };
             // Start of a nest, either a combination or an empty nest. Parse it
             // to its end and return it if its combiner didn't remove it.
@@ -349,7 +347,7 @@ impl<'p, CC, DA, OB, S>
             // End of a nest, or error. Don't parse nor return an item, only
             // check validity.
             else if chcls.is_nest_end(ch) {
-                return Self::check_end_char(srcstrm, *ndepth, chcls).map(|_| None)
+                return Self::check_end_char(srcstrm, *ndepth, chcls).map(|()| None)
             }
             // Start of a text. Parse it to its end and return it.
             else {

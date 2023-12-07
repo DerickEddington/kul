@@ -148,7 +148,7 @@ and lints.
 
 ## Rust version
 
-At least `1.53` required.  This library will always require only the stable
+At least `1.65` required.  This library will always require only the stable
 version of Rust (not the nightly one).
 
 ## Usage of `kul`

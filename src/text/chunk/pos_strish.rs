@@ -355,11 +355,12 @@ impl<S> text::chunk::SourceStream<PosStrish<S>> for PosStrishIter<S>
 
 
 #[cfg(test)]
-#[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
+#[allow(clippy::cognitive_complexity, clippy::too_many_lines, clippy::manual_string_new)]
 mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::arc_with_non_send_sync)] // `Arc` is intentional for testing.
     fn as_str() {
         assert_eq!("a".as_str(), "a");
         assert_eq!(String::from("bb").as_str(), "bb");
@@ -453,7 +454,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "byte index 6 is not a char boundary; it is inside '▷' (bytes 4..7) of `aλb▷c`")]
     fn refcnt_slice_panic1() {
         let s = RefCntSlice{refcnt_strish: Rc::<str>::from("aλb▷c"), range: 0..8};
         let ss1 = s.slice(3..6); // Bad: not char boundary
@@ -461,7 +462,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "assertion failed: subrange.end <= self.range.end - start")]
     fn refcnt_slice_panic2() {
         let s = RefCntSlice{refcnt_strish: Arc::new(Box::<str>::from("aλb▷c")),
                             range: 0..8};
@@ -472,7 +473,7 @@ mod tests {
 
     #[cfg(debug_assertions)]
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "assertion failed: subrange.end <= self.range.end - start")]
     fn refcnt_slice_assert_conditions1() {
         let s = RefCntSlice{refcnt_strish: Rc::<str>::from("raboof"), range: 0..6};
         let ss1 = s.slice(4 .. 5);
@@ -481,7 +482,7 @@ mod tests {
 
     #[cfg(debug_assertions)]
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "assertion failed: subrange.end <= self.range.end - start")]
     fn refcnt_slice_assert_conditions2() {
         let s = RefCntSlice{refcnt_strish: Rc::<str>::from("raboof"), range: 0..6};
         let ss1 = s.slice(2 .. 4);
@@ -490,7 +491,7 @@ mod tests {
 
     #[cfg(debug_assertions)]
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "assertion failed: subrange.end <= self.range.end - start")]
     fn refcnt_slice_assert_conditions3() {
         let s = RefCntSlice{refcnt_strish: Rc::<str>::from("raboof"), range: 0..6};
         let ss1 = s.slice(0 .. 0);
@@ -499,7 +500,7 @@ mod tests {
 
     #[cfg(debug_assertions)]
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "assertion failed: subrange.start <= subrange.end")]
     #[allow(clippy::reversed_empty_ranges)]
     fn refcnt_slice_assert_conditions4() {
         let s = RefCntSlice{refcnt_strish: Rc::<str>::from("raboof"), range: 0..6};

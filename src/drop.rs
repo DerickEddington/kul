@@ -166,9 +166,8 @@ pub fn algo1<TT, ET, DR>(top_dr: &mut DR)
         return; // Abort, do nothing
     }
 
-    let mut top_datum = match trytake(top_dr) {
-        Some(datum) => datum,
-        None => return // Abort, do nothing
+    let Some(mut top_datum) = trytake(top_dr) else {
+        return // Abort, do nothing
     };
 
     loop {
@@ -383,9 +382,8 @@ pub trait RcLike: DerefTryMut
                 // (guaranteed to work because we have the only reference), and
                 // return the passed-in value in the returned error.
                 let new_rc = replace(Self::get_rc(this), old_rc);
-                let val = match Self::try_unwrap(new_rc) {
-                    Ok(val) => val,
-                    Err(_) => unreachable!()
+                let Ok(val) = Self::try_unwrap(new_rc) else {
+                    unreachable!()
                 };
                 Err(val)
             }

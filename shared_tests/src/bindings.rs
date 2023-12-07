@@ -62,7 +62,7 @@ impl<DA, CE, S>
 {
     fn set_bindings(&mut self, bindings: BindingsSpec<DA, Self::CE>) {
         self.hashmap.clear();
-        self.hashmap.extend(bindings.into_iter());
+        self.hashmap.extend(bindings);
     }
 }
 

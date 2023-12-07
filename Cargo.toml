@@ -3,6 +3,7 @@ name = "kul"
 version = "0.1.4"
 authors = ["Derick Eddington"]
 edition = "2018"
+rust-version = "1.65"
 description = "Parser for a unique textual notation that can be used as both a data format and a markup language and that has powerful extensibility of both lexical syntax and semantics. Inspired by the little-known Curl programming language. Has no unsafe code and has no external dependencies. This is the full crate that builds on and re-exports the core crate and that uses the std library."
 keywords = ["parser", "data-format", "markup", "text-macros", "safe"]
 categories = ["parser-implementations", "text-processing"]

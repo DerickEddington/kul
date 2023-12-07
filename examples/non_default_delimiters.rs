@@ -54,7 +54,7 @@ Using non-default delimiters:
         if let Datum::List{elem, ..} = &**operands {
             if let Datum::Text(text) = &**elem {
                 let selected: String = text.chars().collect();
-                println!("\nSelected text:\n{}", selected);
+                println!("\nSelected text:\n{selected}");
             }
         }
     }
